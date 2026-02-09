@@ -1,6 +1,14 @@
 import axios from 'axios';
 
+// API URL: Use environment variable if set, otherwise fallback to localhost for development
+// In production, VITE_API_URL must be set after backend is deployed
+// If not set in production, API calls will fail (which is expected until backend is deployed)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
+// Warn in production if API URL is not set
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  console.warn('VITE_API_URL is not set. API calls will fail. Set it in Vercel environment variables after backend is deployed.');
+}
 
 const apiClient = axios.create({
   baseURL: API_URL,
