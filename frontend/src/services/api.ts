@@ -7,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 // Warn in production if API URL is not set
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
-  console.warn('VITE_API_URL is not set. API calls will fail. Set it in Vercel environment variables after backend is deployed.');
+  console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Set it in Vercel environment variables after backend is deployed.');
 }
 
 const apiClient = axios.create({

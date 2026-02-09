@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import SignupRoleSelectionPage from './pages/SignupRoleSelectionPage';
 import SignupCandidatePage from './pages/SignupCandidatePage';
 import SignupRecruiterPage from './pages/SignupRecruiterPage';
