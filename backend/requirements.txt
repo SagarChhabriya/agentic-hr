@@ -11,3 +11,4 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
 httpx>=0.25.0
 pyjwt[crypto]>=2.8.0
+clerk-backend-api>=1.0.0

@@ -1,6 +1,7 @@
 """
 Clerk Webhook Handler for User Events
 Handles user.created and user.updated events to sync users to database
+and sync role to Clerk's publicMetadata so frontend can display it.
 """
 import hmac
 import hashlib
@@ -18,6 +19,19 @@ from app.models.user import User
 router = APIRouter(prefix="/webhooks/clerk", tags=["webhooks"])
 
 CLERK_WEBHOOK_SECRET = os.getenv("CLERK_WEBHOOK_SECRET", "")
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
+
+
+def _update_clerk_public_metadata(clerk_id: str, role: str) -> None:
+    """Set role in Clerk's publicMetadata so the frontend can read it."""
+    if not CLERK_SECRET_KEY:
+        return
+    try:
+        from clerk_backend_api import Clerk
+        client = Clerk(bearer_auth=CLERK_SECRET_KEY)
+        client.users.update_metadata(user_id=clerk_id, public_metadata={"role": role})
+    except Exception as e:
+        print(f"Clerk API update failed: {e}")
 
 
 def verify_clerk_signature(payload: bytes, signature: str) -> bool:
@@ -81,6 +95,7 @@ async def handle_clerk_webhook(
                 u.first_name = first_name or u.first_name
                 u.last_name = last_name or u.last_name
                 await db.flush()
+                _update_clerk_public_metadata(clerk_id, role)
             else:
                 user = User(
                     clerk_id=clerk_id,
@@ -92,6 +107,7 @@ async def handle_clerk_webhook(
                 )
                 db.add(user)
                 await db.flush()
+            _update_clerk_public_metadata(clerk_id, role)
             return JSONResponse({"status": "success", "message": "User created event processed"})
 
         elif event_type == "user.updated":
@@ -108,6 +124,7 @@ async def handle_clerk_webhook(
                     u.last_name = last_name
                 if role:
                     u.role = str(role).upper()
+                    _update_clerk_public_metadata(clerk_id, str(role).upper())
                 await db.flush()
             return JSONResponse({"status": "success", "message": "User updated event processed"})
 
