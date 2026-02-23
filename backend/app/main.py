@@ -1,0 +1,50 @@
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import get_settings
+from app.core.database import engine, Base
+from app.api.auth import router as auth_router
+from app.api.webhooks.clerk import router as clerk_webhook_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
+
+
+app = FastAPI(
+    title="Agentic HR API",
+    description="Backend API for HR Automation SaaS Platform",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins.split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount all API routes under the configured prefix, e.g. /api/v1.
+# Auth router then contributes /auth/... underneath, e.g. /api/v1/auth/login.
+app.include_router(auth_router, prefix=f"/{settings.api_prefix}")
+
+# Webhook routes (no API prefix needed)
+app.include_router(clerk_webhook_router)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "agentic-hr-backend"}
+
+
+@app.get("/")
+def root():
+    return {"service": "agentic-hr-api", "version": "0.1.0", "docs": "/docs"}
