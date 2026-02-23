@@ -4,7 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
+import app.models  # noqa: F401 - ensure all models are registered for create_all
 from app.api.auth import router as auth_router
+from app.api.jobs import router as jobs_router
+from app.api.applications import router as applications_router
+from app.api.custom_questions import router as custom_questions_router
+from app.api.assessments import router as assessments_router
 from app.api.webhooks.clerk import router as clerk_webhook_router
 
 
@@ -35,6 +40,10 @@ app.add_middleware(
 # Mount all API routes under the configured prefix, e.g. /api/v1.
 # Auth router then contributes /auth/... underneath, e.g. /api/v1/auth/login.
 app.include_router(auth_router, prefix=f"/{settings.api_prefix}")
+app.include_router(jobs_router, prefix=f"/{settings.api_prefix}")
+app.include_router(applications_router, prefix=f"/{settings.api_prefix}")
+app.include_router(custom_questions_router, prefix=f"/{settings.api_prefix}")
+app.include_router(assessments_router, prefix=f"/{settings.api_prefix}")
 
 # Webhook routes (no API prefix needed)
 app.include_router(clerk_webhook_router)

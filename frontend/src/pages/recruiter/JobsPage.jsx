@@ -1,58 +1,35 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
+import { jobsApi } from '../../services/api';
 
 export default function JobsPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const [filter, setFilter] = useState('all'); // all, active, draft, closed
+  const [filter, setFilter] = useState('all');
+  const { data: jobs = [], isLoading, error } = useQuery({
+    queryKey: ['jobs', filter],
+    queryFn: () => jobsApi.list(filter),
+  });
+  const filteredJobs = filter === 'all' ? jobs : jobs.filter((job) => job.status === filter);
 
-  // Mock data - replace with API calls
-  const jobs = [
-    {
-      id: 1,
-      title: 'Senior Frontend Engineer',
-      status: 'active',
-      candidates: 42,
-      postedDate: '2024-01-15',
-      deadline: '2024-02-15',
-      location: 'Remote',
-      type: 'Full-time',
-    },
-    {
-      id: 2,
-      title: 'Backend Developer',
-      status: 'active',
-      candidates: 28,
-      postedDate: '2024-01-20',
-      deadline: '2024-02-20',
-      location: 'New York, NY',
-      type: 'Full-time',
-    },
-    {
-      id: 3,
-      title: 'Product Manager',
-      status: 'draft',
-      candidates: 0,
-      postedDate: null,
-      deadline: null,
-      location: 'San Francisco, CA',
-      type: 'Full-time',
-    },
-    {
-      id: 4,
-      title: 'UX Designer',
-      status: 'closed',
-      candidates: 15,
-      postedDate: '2023-12-01',
-      deadline: '2024-01-01',
-      location: 'Remote',
-      type: 'Contract',
-    },
-  ];
-
-  const filteredJobs =
-    filter === 'all' ? jobs : jobs.filter((job) => job.status === filter);
+  if (isLoading) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="flex justify-center items-center min-h-[200px]">Loading jobs...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-400">Failed to load jobs. {error?.message || 'Please try again.'}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
@@ -137,13 +114,13 @@ export default function JobsPage() {
                   </div>
                   <div className="flex flex-wrap gap-4 text-sm opacity-75 mb-4">
                     <span>📍 {job.location}</span>
-                    <span>💼 {job.type}</span>
-                    {job.postedDate && <span>📅 Posted: {job.postedDate}</span>}
-                    {job.deadline && <span>⏰ Deadline: {job.deadline}</span>}
+                    <span>💼 {job.job_type}</span>
+                    {job.created_at && <span>📅 Posted: {new Date(job.created_at).toLocaleDateString()}</span>}
+                    {job.application_deadline && <span>⏰ Deadline: {job.application_deadline}</span>}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-sm">
-                      <span className="font-medium">{job.candidates}</span> candidates
+                      <span className="font-medium">{job.candidates_count ?? 0}</span> candidates
                     </span>
                   </div>
                 </div>

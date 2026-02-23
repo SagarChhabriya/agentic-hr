@@ -1,61 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
+import { applicationsApi } from '../../services/api';
 
 export default function CandidatesPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const [filter, setFilter] = useState('all'); // all, applied, assessment, interview, selected, rejected
-
-  const candidates = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      jobTitle: 'Senior Frontend Engineer',
-      jobId: 1,
-      status: 'assessment',
-      assessmentScore: 85,
-      interviewScore: null,
-      appliedDate: '2024-01-20',
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      jobTitle: 'Backend Developer',
-      jobId: 2,
-      status: 'interview',
-      assessmentScore: 92,
-      interviewScore: 88,
-      appliedDate: '2024-01-18',
-    },
-    {
-      id: 3,
-      name: 'Bob Johnson',
-      email: 'bob.johnson@example.com',
-      jobTitle: 'Product Manager',
-      jobId: 3,
-      status: 'applied',
-      assessmentScore: null,
-      interviewScore: null,
-      appliedDate: '2024-01-22',
-    },
-    {
-      id: 4,
-      name: 'Alice Williams',
-      email: 'alice.williams@example.com',
-      jobTitle: 'Senior Frontend Engineer',
-      jobId: 1,
-      status: 'selected',
-      assessmentScore: 95,
-      interviewScore: 92,
-      appliedDate: '2024-01-15',
-    },
-  ];
-
-  const filteredCandidates =
-    filter === 'all' ? candidates : candidates.filter((c) => c.status === filter);
+  const [filter, setFilter] = useState('all');
+  const { data: candidates = [], isLoading, error } = useQuery({
+    queryKey: ['applications', filter],
+    queryFn: () => applicationsApi.list(filter),
+  });
+  const filteredCandidates = filter === 'all' ? candidates : candidates.filter((c) => c.status === filter);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -67,6 +24,23 @@ export default function CandidatesPage() {
     };
     return colors[status] || colors.applied;
   };
+
+  if (isLoading) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="flex justify-center items-center min-h-[200px]">Loading candidates...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-400">Failed to load candidates.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
@@ -147,7 +121,7 @@ export default function CandidatesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{candidate.jobTitle}</div>
+                      <div className="text-sm">{candidate.job_title}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -159,21 +133,21 @@ export default function CandidatesPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {candidate.assessmentScore !== null ? (
-                        <span className="font-medium">{candidate.assessmentScore}%</span>
+                      {candidate.assessment_score != null ? (
+                        <span className="font-medium">{candidate.assessment_score}%</span>
                       ) : (
                         <span className="text-sm opacity-60">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {candidate.interviewScore !== null ? (
-                        <span className="font-medium">{candidate.interviewScore}%</span>
+                      {candidate.interview_score != null ? (
+                        <span className="font-medium">{candidate.interview_score}%</span>
                       ) : (
                         <span className="text-sm opacity-60">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {candidate.appliedDate}
+                      {candidate.applied_at ? new Date(candidate.applied_at).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <Link

@@ -1,24 +1,37 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
+import { customQuestionsApi } from '../../services/api';
 
 export default function CustomQuestionsPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-
-  const [questions, setQuestions] = useState([
-    {
-      id: 1,
-      question: 'Why are you interested in this position?',
-      type: 'TEXT',
-      required: true,
+  const queryClient = useQueryClient();
+  const { data: questions = [], isLoading, error } = useQuery({
+    queryKey: ['customQuestions'],
+    queryFn: customQuestionsApi.list,
+  });
+  const createMutation = useMutation({
+    mutationFn: customQuestionsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customQuestions'] });
+      setFormData({ question: '', type: 'TEXT', required: false });
+      setShowAddForm(false);
     },
-    {
-      id: 2,
-      question: 'What is your expected salary range?',
-      type: 'TEXT',
-      required: false,
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }) => customQuestionsApi.update(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customQuestions'] });
+      setFormData({ question: '', type: 'TEXT', required: false });
+      setEditingId(null);
+      setShowAddForm(false);
     },
-  ]);
+  });
+  const deleteMutation = useMutation({
+    mutationFn: customQuestionsApi.delete,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customQuestions'] }),
+  });
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -30,15 +43,11 @@ export default function CustomQuestionsPage() {
 
   const handleAdd = () => {
     if (formData.question.trim()) {
-      const newQuestion = {
-        id: Date.now(),
+      createMutation.mutate({
         question: formData.question,
         type: formData.type,
         required: formData.required,
-      };
-      setQuestions([...questions, newQuestion]);
-      setFormData({ question: '', type: 'TEXT', required: false });
-      setShowAddForm(false);
+      });
     }
   };
 
@@ -53,30 +62,40 @@ export default function CustomQuestionsPage() {
   };
 
   const handleUpdate = () => {
-    if (formData.question.trim()) {
-      setQuestions(
-        questions.map((q) =>
-          q.id === editingId
-            ? { ...q, question: formData.question, type: formData.type, required: formData.required }
-            : q
-        )
-      );
-      setFormData({ question: '', type: 'TEXT', required: false });
-      setEditingId(null);
-      setShowAddForm(false);
+    if (formData.question.trim() && editingId) {
+      updateMutation.mutate({
+        id: editingId,
+        body: { question: formData.question, type: formData.type, required: formData.required },
+      });
     }
   };
 
   const handleDelete = (id) => {
     if (confirm('Are you sure you want to delete this question?')) {
-      setQuestions(questions.filter((q) => q.id !== id));
+      deleteMutation.mutate(id);
     }
   };
 
   const handleAIGenerate = async () => {
-    // TODO: Call AI service to generate questions
     alert('AI question generation coming soon!');
   };
+
+  if (isLoading) {
+    return (
+      <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="flex justify-center items-center min-h-[200px]">Loading questions...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-400">Failed to load questions.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
@@ -177,7 +196,8 @@ export default function CustomQuestionsPage() {
             <div className="flex gap-2">
               <button
                 onClick={editingId ? handleUpdate : handleAdd}
-                className={`px-4 py-2 rounded-lg font-medium ${
+                disabled={(editingId ? updateMutation : createMutation).isPending}
+                className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 ${
                   isDark
                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'

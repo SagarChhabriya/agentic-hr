@@ -6,13 +6,15 @@ from functools import lru_cache
 class Settings(BaseSettings):
     app_name: str = "agentic-hr-api"
     api_prefix: str = "api/v1"
-    debug: bool = False
+    debug: bool = Field(False, validation_alias="APP_DEBUG")
 
-    # Server
+    # Server (PORT from env on Azure/Railway/etc.)
     host: str = "0.0.0.0"
-    port: int = 3000
+    port: int = Field(3000, validation_alias="PORT")
 
-    # Database - use postgresql+asyncpg for async
+    # Database - Azure PostgreSQL or Supabase
+    # Azure format: postgresql://user%40server:password@server.postgres.database.azure.com:5432/db?sslmode=require
+    # URL-encode special chars: @ -> %40, # -> %23
     database_url: str = ""
 
     # JWT
@@ -24,6 +26,9 @@ class Settings(BaseSettings):
 
     # CORS (env: CORS_ORIGIN or CORS_ORIGINS)
     cors_origins: str = Field("http://localhost:5173", validation_alias="CORS_ORIGIN")
+
+    # Clerk - JWKS URL for verifying session tokens (e.g. https://xxx.clerk.accounts.dev/.well-known/jwks.json)
+    clerk_jwks_url: str = Field("", validation_alias="CLERK_JWKS_URL")
 
     class Config:
         env_file = ".env"

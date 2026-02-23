@@ -1,31 +1,26 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
+import { assessmentsApi, jobsApi } from '../../services/api';
 
 export default function AssessmentsPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-
-  const [assessments, setAssessments] = useState([
-    {
-      id: 1,
-      name: 'Frontend Developer Assessment',
-      questions: 15,
-      duration: 30,
-      jobId: 1,
-      jobTitle: 'Senior Frontend Engineer',
-      createdAt: '2024-01-15',
+  const queryClient = useQueryClient();
+  const { data: assessments = [], isLoading, error } = useQuery({
+    queryKey: ['assessments'],
+    queryFn: assessmentsApi.list,
+  });
+  const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: () => jobsApi.list() });
+  const createMutation = useMutation({
+    mutationFn: assessmentsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      setShowCreateForm(false);
+      setFormData({ name: '', questions: [], duration: 30, jobId: '' });
     },
-    {
-      id: 2,
-      name: 'Backend Developer Assessment',
-      questions: 20,
-      duration: 45,
-      jobId: 2,
-      jobTitle: 'Backend Developer',
-      createdAt: '2024-01-20',
-    },
-  ]);
+  });
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,6 +29,33 @@ export default function AssessmentsPage() {
     duration: 30,
     jobId: '',
   });
+
+  const handleCreate = () => {
+    if (formData.name.trim()) {
+      createMutation.mutate({
+        name: formData.name,
+        duration_minutes: formData.duration,
+        job_id: formData.jobId || undefined,
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="flex justify-center items-center min-h-[200px]">Loading assessments...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+        <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-400">Failed to load assessments.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
@@ -113,8 +135,9 @@ export default function AssessmentsPage() {
                   }`}
                 >
                   <option value="">Select a job</option>
-                  <option value="1">Senior Frontend Engineer</option>
-                  <option value="2">Backend Developer</option>
+                  {jobs.map((j) => (
+                    <option key={j.id} value={j.id}>{j.title}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -168,10 +191,10 @@ export default function AssessmentsPage() {
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold mb-2">{assessment.name}</h2>
                   <div className="flex flex-wrap gap-4 text-sm opacity-75 mb-4">
-                    <span>📋 {assessment.questions} questions</span>
-                    <span>⏱️ {assessment.duration} minutes</span>
-                    <span>💼 {assessment.jobTitle}</span>
-                    <span>📅 Created: {assessment.createdAt}</span>
+                    <span>📋 {assessment.questions_count ?? 0} questions</span>
+                    <span>⏱️ {assessment.duration_minutes} minutes</span>
+                    <span>💼 {assessment.job_title ?? '-'}</span>
+                    <span>📅 Created: {assessment.created_at ? new Date(assessment.created_at).toLocaleDateString() : '-'}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">

@@ -6,8 +6,9 @@ settings = get_settings()
 
 # Supabase and most Postgres support async via asyncpg
 # If DATABASE_URL is postgresql://, convert to postgresql+asyncpg://
-url = settings.database_url
-if url.startswith("postgresql://") and "asyncpg" not in url:
+url = settings.database_url or ""
+# Use postgresql+asyncpg for async driver
+if url and url.startswith("postgresql://") and "asyncpg" not in url:
     url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 import ssl

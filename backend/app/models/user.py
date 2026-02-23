@@ -22,17 +22,21 @@ class User(Base):
         default=lambda: str(uuid.uuid4())
     )
 
+    clerk_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)  # nullable for Clerk users
     first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(20), default=UserRole.CANDIDATE.value, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship with refresh tokens
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
-        "RefreshToken",
-        back_populates="user",
-        cascade="all, delete-orphan"
+        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+    jobs: Mapped[list["Job"]] = relationship(
+        "Job", back_populates="created_by", foreign_keys="Job.created_by_id", cascade="all, delete-orphan"
+    )
+    applications: Mapped[list["Application"]] = relationship(
+        "Application", back_populates="user", cascade="all, delete-orphan"
     )

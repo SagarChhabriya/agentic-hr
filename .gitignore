@@ -7,7 +7,6 @@ ENV/
 
 .github
 ai-services
-backend
 docs
 infra
 prompts

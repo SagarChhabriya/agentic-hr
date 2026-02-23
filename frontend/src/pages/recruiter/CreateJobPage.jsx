@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { jobsApi } from '../../services/api';
 
 export default function CreateJobPage() {
   const { theme } = useTheme();
@@ -54,12 +55,26 @@ export default function CreateJobPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // TODO: API call to create job
-    console.log('Creating job:', formData);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await jobsApi.create({
+        title: formData.title,
+        description: formData.description,
+        salary: formData.salary || undefined,
+        location: formData.location,
+        job_type: formData.jobType,
+        employment_type: formData.employmentType,
+        experience_required: formData.experienceRequired || undefined,
+        required_skills: formData.requiredSkills,
+        requirements: formData.requirements || undefined,
+        application_deadline: formData.applicationDeadline || undefined,
+        cover_letter_required: formData.coverLetterRequired,
+        status: 'draft',
+      });
       navigate('/recruiter/jobs');
-    }, 1000);
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
+    }
   };
 
   return (

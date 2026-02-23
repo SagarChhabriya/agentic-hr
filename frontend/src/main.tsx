@@ -5,6 +5,7 @@ import App from './App';
 import './index.css';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ClerkProvider } from '@clerk/clerk-react';
+import ApiTokenBridge from './components/ApiTokenBridge';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
 
@@ -26,7 +27,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ClerkProvider publishableKey={PUBLISHABLE_KEY || undefined}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <App />
+          <ApiTokenBridge>
+            <App />
+          </ApiTokenBridge>
         </ThemeProvider>
       </QueryClientProvider>
     </ClerkProvider>
