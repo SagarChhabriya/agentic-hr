@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: hr-platform-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hr_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hr_password_change_in_prod}
+      POSTGRES_DB: ${POSTGRES_DB:-hr_platform}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hr_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hr-network
+
+  # Redis (for caching, sessions, queues)
+  redis:
+    image: redis:7-alpine
+    container_name: hr-platform-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hr-network
+
+  # MinIO (S3-compatible object storage for media files)
+  minio:
+    image: minio/minio:latest
+    container_name: hr-platform-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - hr-network
+
+  # Backend API (NestJS)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: hr-platform-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hr_admin}:${POSTGRES_PASSWORD:-hr_password_change_in_prod}@postgres:5432/${POSTGRES_DB:-hr_platform}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-hr-media}
+      FRONTEND_URL: http://localhost:5173
+      AI_SERVICES_URL: http://ai-services:8000
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - hr-network
+    command: npm run start:dev
+
+  # AI Services (FastAPI)
+  ai-services:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile.dev
+    container_name: hr-platform-ai
+    environment:
+      PYTHONUNBUFFERED: 1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hr_admin}:${POSTGRES_PASSWORD:-hr_password_change_in_prod}@postgres:5432/${POSTGRES_DB:-hr_platform}
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      BACKEND_URL: http://backend:3000
+    ports:
+      - "${AI_SERVICES_PORT:-8000}:8000"
+    volumes:
+      - ./ai-services:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hr-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend (React/Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: hr-platform-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+      VITE_WS_URL: ws://localhost:3000
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - hr-network
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  hr-network:
+    driver: bridge

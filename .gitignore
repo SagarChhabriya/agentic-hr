@@ -5,16 +5,11 @@ env/
 ENV/
 .venv
 
-.github
-ai-services
 docs
-infra
 prompts
-docker-compose.yml
+infra
+ai-services
 instructions.md
-README.md
-.cursor
-
 # Environment
 .env
 .env.local

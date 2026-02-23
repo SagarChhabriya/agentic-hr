@@ -82,32 +82,32 @@ jobs:
           VITE_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
           VITE_API_URL: http://localhost:3000/api/v1
 
-  ai-services-test:
-    name: AI Services Tests
-    runs-on: ubuntu-latest
+  # ai-services-test:
+  #   name: AI Services Tests
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: ai-services/requirements.txt
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.11'
+  #         cache: 'pip'
+  #         cache-dependency-path: ai-services/requirements.txt
 
-      - name: Install dependencies
-        working-directory: ./ai-services
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+  #     - name: Install dependencies
+  #       working-directory: ./ai-services
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install -r requirements.txt
 
-      - name: Run linter
-        working-directory: ./ai-services
-        run: |
-          pip install flake8 black
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
-          black --check . || true
+  #     - name: Run linter
+  #       working-directory: ./ai-services
+  #       run: |
+  #         pip install flake8 black
+  #         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+  #         black --check . || true
 
   lint:
     name: Code Quality

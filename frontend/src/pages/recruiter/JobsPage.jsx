@@ -22,10 +22,17 @@ export default function JobsPage() {
     );
   }
   if (error) {
+    const isNetworkError = error?.message?.toLowerCase().includes('network') || error?.code === 'ERR_NETWORK';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
     return (
       <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
         <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-          <p className="text-red-600 dark:text-red-400">Failed to load jobs. {error?.message || 'Please try again.'}</p>
+          <p className="text-red-600 dark:text-red-400 font-medium">Failed to load jobs. {error?.message || 'Please try again.'}</p>
+          {isNetworkError && (
+            <p className="mt-3 text-sm text-red-600/90 dark:text-red-400/90">
+              The app cannot reach the backend API ({apiUrl}). Ensure your backend is deployed and VITE_API_URL is set in Vercel.
+            </p>
+          )}
         </div>
       </div>
     );
