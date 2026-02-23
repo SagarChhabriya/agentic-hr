@@ -29,12 +29,15 @@ app = FastAPI(
 )
 
 settings = get_settings()
+# Normalize origins: strip trailing slashes so https://x.com and https://x.com/ both work
+_origins = [o.strip().rstrip("/") for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins.split(","),
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Mount all API routes under the configured prefix, e.g. /api/v1.

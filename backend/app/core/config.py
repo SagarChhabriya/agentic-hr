@@ -24,8 +24,11 @@ class Settings(BaseSettings):
     jwt_refresh_expire_days: int = 7
     jwt_algorithm: str = "HS256"
 
-    # CORS (env: CORS_ORIGIN or CORS_ORIGINS)
-    cors_origins: str = Field("http://localhost:5173", validation_alias="CORS_ORIGIN")
+    # CORS - comma-separated origins (e.g. https://hire-base.vercel.app,http://localhost:5173)
+    cors_origins: str = Field(
+        "http://localhost:5173,https://hire-base.vercel.app",
+        validation_alias="CORS_ORIGIN",
+    )
 
     # Clerk - JWKS URL for verifying session tokens (e.g. https://xxx.clerk.accounts.dev/.well-known/jwks.json)
     clerk_jwks_url: str = Field("", validation_alias="CLERK_JWKS_URL")
