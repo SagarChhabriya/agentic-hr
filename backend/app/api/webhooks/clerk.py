@@ -27,9 +27,18 @@ def _update_clerk_public_metadata(clerk_id: str, role: str) -> None:
     if not CLERK_SECRET_KEY:
         return
     try:
-        from clerk_backend_api import Clerk
-        client = Clerk(bearer_auth=CLERK_SECRET_KEY)
-        client.users.update_metadata(user_id=clerk_id, public_metadata={"role": role})
+        import httpx
+        resp = httpx.patch(
+            f"https://api.clerk.com/v1/users/{clerk_id}/metadata",
+            headers={
+                "Authorization": f"Bearer {CLERK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={"public_metadata": {"role": role}},
+            timeout=10.0,
+        )
+        if resp.status_code >= 400:
+            print(f"Clerk API update failed: {resp.status_code} {resp.text}")
     except Exception as e:
         print(f"Clerk API update failed: {e}")
 
