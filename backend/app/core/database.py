@@ -1,4 +1,4 @@
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs, urlencode, urlunparse
 import ssl
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -40,6 +40,14 @@ def _normalize_database_url(raw: str) -> str:
 
 
 url = _normalize_database_url(url)
+
+# asyncpg doesn't accept sslmode as a URL param; SSL is handled via connect_args
+if "sslmode=" in url:
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    params.pop("sslmode", None)
+    cleaned_query = urlencode(params, doseq=True)
+    url = urlunparse(parsed._replace(query=cleaned_query))
 
 # Use postgresql+asyncpg for async driver
 if url and url.startswith("postgresql://") and "asyncpg" not in url:
