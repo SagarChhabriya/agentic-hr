@@ -64,6 +64,18 @@ def health():
     return {"status": "ok", "service": "agentic-hr-backend"}
 
 
+@app.get("/health/db")
+async def health_db():
+    """Probe database connectivity. Use to verify PostgreSQL firewall/connection."""
+    try:
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception as e:
+        return {"status": "degraded", "db": "disconnected", "error": str(e)}
+
+
 @app.get("/")
 def root():
     return {"service": "agentic-hr-api", "version": "0.1.0", "docs": "/docs"}
