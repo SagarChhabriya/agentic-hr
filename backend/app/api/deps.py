@@ -46,55 +46,75 @@ def _verify_clerk_token(token: str) -> dict | None:
         return None
 
 
+def _fetch_clerk_user(clerk_id: str) -> dict | None:
+    """Fetch full user object from Clerk API."""
+    import os
+    clerk_secret = os.getenv("CLERK_SECRET_KEY", "")
+    if not clerk_secret:
+        return None
+    try:
+        import httpx
+        resp = httpx.get(
+            f"https://api.clerk.com/v1/users/{clerk_id}",
+            headers={"Authorization": f"Bearer {clerk_secret}"},
+            timeout=10.0,
+        )
+        return resp.json() if resp.status_code == 200 else None
+    except Exception as e:
+        logger.warning("Failed to fetch Clerk user %s: %s", clerk_id, e)
+        return None
+
+
+def _extract_clerk_details(udata: dict) -> tuple[str, str, str, str]:
+    """Extract (email, first_name, last_name, role) from Clerk user data."""
+    emails = udata.get("email_addresses", [])
+    primary_id = udata.get("primary_email_address_id")
+    email = ""
+    for e in emails:
+        if e.get("id") == primary_id:
+            email = e.get("email_address", "")
+            break
+    if not email and emails:
+        email = emails[0].get("email_address", "")
+    first_name = udata.get("first_name") or ""
+    last_name = udata.get("last_name") or ""
+    md = udata.get("unsafe_metadata") or udata.get("public_metadata") or {}
+    role = str(md.get("role", "CANDIDATE")).upper()
+    if role not in ("ADMIN", "RECRUITER", "CANDIDATE"):
+        role = "CANDIDATE"
+    return email, first_name, last_name, role
+
+
 async def _get_or_create_clerk_user(
     clerk_payload: dict, db: AsyncSession
 ) -> User | None:
-    """Find a user by clerk_id; if missing, auto-provision from the token claims."""
+    """Find a user by clerk_id; if missing, auto-provision from Clerk API."""
     clerk_id = clerk_payload.get("sub")
     if not clerk_id:
         return None
 
     result = await db.execute(select(User).where(User.clerk_id == clerk_id))
     user = result.scalar_one_or_none()
+
+    # Always fetch from Clerk API to keep role in sync
+    udata = _fetch_clerk_user(clerk_id)
+    if udata:
+        email, first_name, last_name, role = _extract_clerk_details(udata)
+    else:
+        email = clerk_payload.get("email", "") or ""
+        first_name, last_name, role = "", "", "CANDIDATE"
+
     if user:
+        # Sync role from Clerk metadata if it changed
+        if udata and user.role != role:
+            logger.info("Syncing role for %s: %s -> %s", clerk_id, user.role, role)
+            user.role = role
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            await db.flush()
         return user
-
-    # Auto-provision: extract info from Clerk JWT claims
-    email = clerk_payload.get("email", "") or ""
-    # Clerk session tokens may include user metadata
-    metadata = clerk_payload.get("public_metadata") or clerk_payload.get("unsafe_metadata") or {}
-    role = str(metadata.get("role", "CANDIDATE")).upper()
-    if role not in ("ADMIN", "RECRUITER", "CANDIDATE"):
-        role = "CANDIDATE"
-
-    if not email:
-        # Try fetching from Clerk API
-        import os
-        clerk_secret = os.getenv("CLERK_SECRET_KEY", "")
-        if clerk_secret:
-            try:
-                import httpx
-                resp = httpx.get(
-                    f"https://api.clerk.com/v1/users/{clerk_id}",
-                    headers={"Authorization": f"Bearer {clerk_secret}"},
-                    timeout=10.0,
-                )
-                if resp.status_code == 200:
-                    udata = resp.json()
-                    emails = udata.get("email_addresses", [])
-                    primary_id = udata.get("primary_email_address_id")
-                    for e in emails:
-                        if e.get("id") == primary_id:
-                            email = e.get("email_address", "")
-                            break
-                    if not email and emails:
-                        email = emails[0].get("email_address", "")
-                    md = udata.get("public_metadata") or udata.get("unsafe_metadata") or {}
-                    r = str(md.get("role", role)).upper()
-                    if r in ("ADMIN", "RECRUITER", "CANDIDATE"):
-                        role = r
-            except Exception as e:
-                logger.warning("Failed to fetch Clerk user %s: %s", clerk_id, e)
 
     if not email:
         logger.warning("Cannot auto-provision user %s: no email", clerk_id)
@@ -105,6 +125,11 @@ async def _get_or_create_clerk_user(
     existing = result.scalar_one_or_none()
     if existing:
         existing.clerk_id = clerk_id
+        existing.role = role
+        if first_name:
+            existing.first_name = first_name
+        if last_name:
+            existing.last_name = last_name
         await db.flush()
         return existing
 
@@ -112,8 +137,8 @@ async def _get_or_create_clerk_user(
         clerk_id=clerk_id,
         email=email,
         password=None,
-        first_name="",
-        last_name="",
+        first_name=first_name,
+        last_name=last_name,
         role=role,
     )
     db.add(user)
