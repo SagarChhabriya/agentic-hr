@@ -23,7 +23,10 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created/verified successfully")
     except Exception as e:
-        logger.exception("Database startup failed (app will start; DB routes may fail): %s", e)
+        if "already exists" in str(e):
+            logger.info("Tables already exist (concurrent worker race) — safe to ignore")
+        else:
+            logger.exception("Database startup failed (app will start; DB routes may fail): %s", e)
     yield
     await engine.dispose()
 
