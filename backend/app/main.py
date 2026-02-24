@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,11 +13,17 @@ from app.api.custom_questions import router as custom_questions_router
 from app.api.assessments import router as assessments_router
 from app.api.webhooks.clerk import router as clerk_webhook_router
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created/verified successfully")
+    except Exception as e:
+        logger.exception("Database startup failed (app will start; DB routes may fail): %s", e)
     yield
     await engine.dispose()
 
