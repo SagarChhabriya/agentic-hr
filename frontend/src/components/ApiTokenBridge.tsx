@@ -11,7 +11,7 @@ export default function ApiTokenBridge({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (isSignedIn && getToken) {
-      setApiTokenGetter(() => getToken);
+      setApiTokenGetter(() => getToken());
     } else {
       setApiTokenGetter(() => Promise.resolve(null));
     }
