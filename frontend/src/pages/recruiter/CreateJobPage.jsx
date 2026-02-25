@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
-import { jobsApi } from '../../services/api';
+import { jobsApi, customQuestionsApi } from '../../services/api';
 
 export default function CreateJobPage() {
   const { theme } = useTheme();
@@ -26,6 +26,12 @@ export default function CreateJobPage() {
   const [newSkill, setNewSkill] = useState('');
   const [showCustomQuestions, setShowCustomQuestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableQuestions, setAvailableQuestions] = useState([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
+
+  useEffect(() => {
+    customQuestionsApi.list().then(setAvailableQuestions).catch(() => {});
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -52,11 +58,17 @@ export default function CreateJobPage() {
     }));
   };
 
+  const toggleQuestion = (qid) => {
+    setSelectedQuestionIds((prev) =>
+      prev.includes(qid) ? prev.filter((id) => id !== qid) : [...prev, qid]
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await jobsApi.create({
+      const job = await jobsApi.create({
         title: formData.title,
         description: formData.description,
         salary: formData.salary || undefined,
@@ -70,6 +82,9 @@ export default function CreateJobPage() {
         cover_letter_required: formData.coverLetterRequired,
         status: 'draft',
       });
+      if (selectedQuestionIds.length > 0) {
+        await jobsApi.setQuestions(job.id, selectedQuestionIds);
+      }
       navigate('/recruiter/jobs');
     } catch (err) {
       console.error(err);
@@ -381,24 +396,48 @@ export default function CreateJobPage() {
               onClick={() => setShowCustomQuestions(!showCustomQuestions)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
-              {showCustomQuestions ? 'Hide' : 'Manage Questions'}
+              {showCustomQuestions ? 'Hide' : 'Select Questions'}
             </button>
           </div>
+          {selectedQuestionIds.length > 0 && (
+            <p className="text-sm mb-2 text-green-600 dark:text-green-400">
+              {selectedQuestionIds.length} question{selectedQuestionIds.length > 1 ? 's' : ''} selected
+            </p>
+          )}
           {showCustomQuestions && (
-            <div className="mt-4">
-              <p className="text-sm opacity-75 mb-4">
-                Add custom questions that candidates will answer during application
-              </p>
-              <Link
-                to="/recruiter/questions"
-                className={`inline-block px-4 py-2 rounded-md font-medium ${
-                  isDark
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                Open Questions Manager
-              </Link>
+            <div className="mt-2 space-y-3">
+              {availableQuestions.length === 0 ? (
+                <div className="text-sm opacity-75">
+                  No questions created yet.{' '}
+                  <Link to="/recruiter/questions" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    Create questions first
+                  </Link>
+                </div>
+              ) : (
+                availableQuestions.map((q) => (
+                  <label
+                    key={q.id}
+                    className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                      selectedQuestionIds.includes(q.id)
+                        ? isDark ? 'border-blue-500 bg-blue-900/20' : 'border-blue-500 bg-blue-50'
+                        : isDark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedQuestionIds.includes(q.id)}
+                      onChange={() => toggleQuestion(q.id)}
+                      className="mt-0.5 w-4 h-4"
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{q.question}</span>
+                      <span className={`ml-2 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                        ({q.type}{q.required ? ', required' : ''})
+                      </span>
+                    </div>
+                  </label>
+                ))
+              )}
             </div>
           )}
         </section>

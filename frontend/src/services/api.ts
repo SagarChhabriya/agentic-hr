@@ -70,11 +70,34 @@ export const jobsApi = {
   get: (id: string) => apiClient.get(`/jobs/${id}`).then((r) => r.data),
   update: (id: string, body: Record<string, unknown>) => apiClient.patch(`/jobs/${id}`, body).then((r) => r.data),
   delete: (id: string) => apiClient.delete(`/jobs/${id}`),
+  setQuestions: (jobId: string, questionIds: string[]) =>
+    apiClient.put(`/jobs/${jobId}/questions`, { question_ids: questionIds }).then((r) => r.data),
+  listPublic: (params?: { search?: string; location?: string; job_type?: string }) =>
+    apiClient.get('/jobs/public', { params }).then((r) => r.data),
+  getPublic: (id: string) => apiClient.get(`/jobs/public/${id}`).then((r) => r.data),
 };
 
 export const applicationsApi = {
   list: (status?: string) =>
     apiClient.get('/applications', { params: status && status !== 'all' ? { status } : {} }).then((r) => r.data),
+  apply: (body: { job_id: string; cover_letter?: string; custom_answers?: Record<string, string> }) =>
+    apiClient.post('/applications', body).then((r) => r.data),
+  mine: () => apiClient.get('/applications/mine').then((r) => r.data),
+  updateStatus: (id: string, status: string) =>
+    apiClient.patch(`/applications/${id}/status`, { status }).then((r) => r.data),
+};
+
+export const profileApi = {
+  get: () => apiClient.get('/profile').then((r) => r.data),
+  update: (body: Record<string, unknown>) => apiClient.put('/profile', body).then((r) => r.data),
+  uploadResume: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post('/profile/resume', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+  deleteResume: () => apiClient.delete('/profile/resume').then((r) => r.data),
 };
 
 export const assessmentsApi = {

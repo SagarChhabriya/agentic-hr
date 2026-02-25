@@ -54,6 +54,9 @@ export default function Header() {
           <Link to="/candidate/applications" className="hover:text-blue-600">
             My Applications
           </Link>
+          <Link to="/candidate/profile" className="hover:text-blue-600">
+            Profile
+          </Link>
         </>
       );
     }

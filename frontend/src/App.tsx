@@ -12,11 +12,18 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 // Recruiter pages
 import RecruiterDashboardPage from './pages/recruiter/RecruiterDashboardPage';
+// Candidate pages
+import CandidateDashboardPage from './pages/candidate/CandidateDashboardPage';
+import CandidateProfilePage from './pages/candidate/CandidateProfilePage';
 import JobsPage from './pages/recruiter/JobsPage';
 import CreateJobPage from './pages/recruiter/CreateJobPage';
 import CustomQuestionsPage from './pages/recruiter/CustomQuestionsPage';
 import AssessmentsPage from './pages/recruiter/AssessmentsPage';
 import CandidatesPage from './pages/recruiter/CandidatesPage';
+import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
+import JobDetailPage from './pages/candidate/JobDetailPage';
+import ApplyJobPage from './pages/candidate/ApplyJobPage';
+import MyApplicationsPage from './pages/candidate/MyApplicationsPage';
 
 function App() {
   return (
@@ -25,6 +32,33 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<LandingPage />} />
           <Route path="login/*" element={<LoginPage />} />
+          <Route path="jobs" element={<BrowseJobsPage />} />
+          <Route path="jobs/:id" element={<JobDetailPage />} />
+          <Route
+            path="jobs/:id/apply"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <ApplyJobPage />
+              </RoleProtectedRoute>
+            }
+          />
+          {/* Candidate routes (auth required) */}
+          <Route
+            path="candidate/apply/:job_id"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <ApplyJobPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="candidate/applications"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <MyApplicationsPage />
+              </RoleProtectedRoute>
+            }
+          />
           <Route path="register" element={<SignupRoleSelectionPage />} />
           {/* Clerk handles its own sub-routes for verification, so use wildcard */}
           <Route path="register/candidate/*" element={<SignupCandidatePage />} />
@@ -84,6 +118,23 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
                 <CandidatesPage />
+              </RoleProtectedRoute>
+            }
+          />
+          {/* Candidate Routes */}
+          <Route
+            path="candidate/dashboard"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <CandidateDashboardPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="candidate/profile"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <CandidateProfilePage />
               </RoleProtectedRoute>
             }
           />
