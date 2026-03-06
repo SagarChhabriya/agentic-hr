@@ -27,6 +27,7 @@ import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
 import MyApplicationsPage from './pages/candidate/MyApplicationsPage';
+import AssessmentAttemptPage from './pages/candidate/AssessmentAttemptPage';
 
 function App() {
   return (
