@@ -1,5 +1,6 @@
 import { useState, useCallback, KeyboardEvent } from 'react';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { profileApi } from '../../services/api';
@@ -58,11 +59,12 @@ const emptyWork: WorkExperienceEntry = {
 export default function CandidateProfilePage() {
   const { user } = useUser();
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isDark = theme === 'dark';
 
   const [skillInput, setSkillInput] = useState('');
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ['profile'],
@@ -152,14 +154,22 @@ export default function CandidateProfilePage() {
 
   const updateMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => profileApi.update(body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      setToast('Profile saved successfully!');
+      setTimeout(() => {
+        navigate('/candidate/dashboard');
+      }, 1200);
+    },
   });
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => profileApi.uploadResume(file),
-    onSuccess: () => {
+    onSuccess: (data: ProfileData) => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      setResumeFile(null);
+      initForm(data);
+      setToast('Resume uploaded and profile auto-filled!');
+      setTimeout(() => setToast(null), 3000);
     },
   });
 
@@ -186,14 +196,18 @@ export default function CandidateProfilePage() {
     });
   };
 
-  const handleResumeUpload = () => {
-    if (resumeFile) {
-      if (!resumeFile.name.toLowerCase().endsWith('.pdf')) {
-        alert('Only PDF files are accepted');
-        return;
-      }
-      uploadMutation.mutate(resumeFile);
+  const handleResumeChoose = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Only PDF files are accepted');
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File exceeds 5 MB limit');
+      return;
+    }
+    uploadMutation.mutate(file);
   };
 
   const cardCls = isDark
@@ -228,6 +242,19 @@ export default function CandidateProfilePage() {
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-green-600 text-white shadow-lg">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm font-medium">{toast}</span>
+            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-80">×</button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">My Profile</h1>
         <p className="text-sm opacity-75">
@@ -236,6 +263,57 @@ export default function CandidateProfilePage() {
       </div>
 
       <div className="max-w-3xl space-y-6">
+        {/* Resume / CV — at the top */}
+        <section className={`rounded-lg border p-6 ${cardCls}`}>
+          <h2 className="text-lg font-semibold mb-4">Resume / CV</h2>
+          {profile?.resume_filename && (
+            <div className={`flex items-center gap-3 mb-4 p-3 rounded-lg ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-gray-50 border border-gray-200'}`}>
+              <svg className="w-8 h-8 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{profile.resume_filename}</p>
+                {profile.resume_url && (
+                  <a href={profile.resume_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View file</a>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => deleteResumeMutation.isPending ? undefined : deleteResumeMutation.mutate()}
+                disabled={deleteResumeMutation.isPending}
+                className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium disabled:opacity-50"
+              >
+                {deleteResumeMutation.isPending ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-4 items-center">
+            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors ${
+              isDark ? 'border-slate-600 hover:border-blue-500 bg-slate-900' : 'border-gray-300 hover:border-blue-500 bg-white'
+            } ${uploadMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+              <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              <span className="text-sm">
+                {uploadMutation.isPending ? 'Uploading & Auto-filling...' : 'Choose PDF Resume'}
+              </span>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleResumeChoose}
+                disabled={uploadMutation.isPending}
+                className="hidden"
+              />
+            </label>
+          </div>
+          <p className="text-xs opacity-60 mt-2">
+            PDF only, max 5 MB. Uploading a resume will auto-fill your profile fields below.
+          </p>
+        </section>
+
+        {/* Personal Info */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <h2 className="text-lg font-semibold mb-4">Personal Info</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -246,7 +324,7 @@ export default function CandidateProfilePage() {
                 value={form.phone || ''}
                 onChange={(e) => updateForm({ phone: e.target.value })}
                 className={inputCls}
-                placeholder="+1 234 567 8900"
+                placeholder="+92 300 1234567"
               />
             </div>
             <div>
@@ -256,7 +334,7 @@ export default function CandidateProfilePage() {
                 value={form.city || ''}
                 onChange={(e) => updateForm({ city: e.target.value })}
                 className={inputCls}
-                placeholder="San Francisco"
+                placeholder="Karachi"
               />
             </div>
           </div>
@@ -277,11 +355,12 @@ export default function CandidateProfilePage() {
               value={form.country || ''}
               onChange={(e) => updateForm({ country: e.target.value })}
               className={inputCls}
-              placeholder="United States"
+              placeholder="Pakistan"
             />
           </div>
         </section>
 
+        {/* Bio */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <h2 className="text-lg font-semibold mb-4">Bio</h2>
           <textarea
@@ -293,6 +372,7 @@ export default function CandidateProfilePage() {
           />
         </section>
 
+        {/* Skills */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <h2 className="text-lg font-semibold mb-4">Skills</h2>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -334,6 +414,7 @@ export default function CandidateProfilePage() {
           </div>
         </section>
 
+        {/* Experience */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <h2 className="text-lg font-semibold mb-4">Experience</h2>
           <div>
@@ -353,6 +434,7 @@ export default function CandidateProfilePage() {
           </div>
         </section>
 
+        {/* Education */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Education</h2>
@@ -391,7 +473,7 @@ export default function CandidateProfilePage() {
                       value={e.institution}
                       onChange={(ev) => updateEducation(i, { institution: ev.target.value })}
                       className={inputCls}
-                      placeholder="Stanford University"
+                      placeholder="University Name"
                     />
                   </div>
                   <div>
@@ -450,6 +532,7 @@ export default function CandidateProfilePage() {
           </div>
         </section>
 
+        {/* Work Experience */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Work Experience</h2>
@@ -551,6 +634,7 @@ export default function CandidateProfilePage() {
           </div>
         </section>
 
+        {/* Links */}
         <section className={`rounded-lg border p-6 ${cardCls}`}>
           <h2 className="text-lg font-semibold mb-4">Links</h2>
           <div className="space-y-4">
@@ -587,87 +671,7 @@ export default function CandidateProfilePage() {
           </div>
         </section>
 
-        <section className={`rounded-lg border p-6 ${cardCls}`}>
-          <h2 className="text-lg font-semibold mb-4">Resume / CV</h2>
-          {profile?.resume_filename && (
-            <div className={`flex items-center gap-3 mb-4 p-3 rounded-lg ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-gray-50 border border-gray-200'}`}>
-              <svg className="w-8 h-8 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{profile.resume_filename}</p>
-                {profile.resume_url && (
-                  <a href={profile.resume_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View file</a>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => deleteResumeMutation.isPending ? undefined : deleteResumeMutation.mutate()}
-                disabled={deleteResumeMutation.isPending}
-                className="shrink-0 px-3 py-1.5 rounded-lg border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium disabled:opacity-50"
-              >
-                {deleteResumeMutation.isPending ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-          )}
-
-          {/* Resume AI Score */}
-          {profile?.resume_score != null && (
-            <div className={`mb-4 p-4 rounded-lg border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-sm font-medium">Resume Quality Score</span>
-                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                  profile.resume_score >= 0.7
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : profile.resume_score >= 0.4
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
-                  {(profile.resume_score * 100).toFixed(0)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2 mb-2">
-                <div
-                  className={`h-2 rounded-full ${
-                    profile.resume_score >= 0.7 ? 'bg-green-500' : profile.resume_score >= 0.4 ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${profile.resume_score * 100}%` }}
-                />
-              </div>
-              {profile.resume_score_justification && (
-                <p className="text-xs opacity-75">{profile.resume_score_justification}</p>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-4 items-center">
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-colors ${
-              isDark ? 'border-slate-600 hover:border-blue-500 bg-slate-900' : 'border-gray-300 hover:border-blue-500 bg-white'
-            }`}>
-              <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              <span className="text-sm">{resumeFile ? resumeFile.name : 'Choose PDF file'}</span>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={handleResumeUpload}
-              disabled={!resumeFile || uploadMutation.isPending}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploadMutation.isPending ? 'Uploading & Analyzing...' : 'Upload Resume'}
-            </button>
-          </div>
-          <p className="text-xs opacity-60 mt-2">PDF only, max 5 MB. Your resume will be AI-analyzed for quality.</p>
-        </section>
-
+        {/* Save Button */}
         <div className="flex justify-end">
           <button
             type="button"

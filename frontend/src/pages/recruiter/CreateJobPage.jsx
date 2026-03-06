@@ -278,7 +278,7 @@ export default function CreateJobPage() {
                     ? 'border-slate-600 bg-slate-900 text-slate-100'
                     : 'border-gray-300 bg-white text-gray-900'
                 }`}
-                placeholder="e.g., $80,000 - $120,000"
+                placeholder="e.g., PKR 80,000 - PKR 150,000 / month"
               />
             </div>
 
@@ -515,36 +515,44 @@ export default function CreateJobPage() {
             <div className="mt-2 space-y-3">
               {availableQuestions.length === 0 ? (
                 <div className="text-sm opacity-75">
-                  No questions created yet.{' '}
+                  No saved questions yet.{' '}
                   <Link to="/recruiter/questions" className="text-blue-600 dark:text-blue-400 hover:underline">
                     Create questions first
                   </Link>
                 </div>
               ) : (
-                availableQuestions.map((q) => (
-                  <label
-                    key={q.id}
-                    className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                      selectedQuestionIds.includes(q.id)
-                        ? isDark ? 'border-blue-500 bg-blue-900/20' : 'border-blue-500 bg-blue-50'
-                        : isDark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedQuestionIds.includes(q.id)}
-                      onChange={() => toggleQuestion(q.id)}
-                      className="mt-0.5 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-sm font-medium">{q.question}</span>
-                      <span className={`ml-2 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                        ({q.type}{q.required ? ', required' : ''})
-                      </span>
-                    </div>
-                  </label>
-                ))
+                <>
+                  {availableQuestions.map((q) => (
+                    <label
+                      key={q.id}
+                      className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                        selectedQuestionIds.includes(q.id)
+                          ? isDark ? 'border-blue-500 bg-blue-900/20' : 'border-blue-500 bg-blue-50'
+                          : isDark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestionIds.includes(q.id)}
+                        onChange={() => toggleQuestion(q.id)}
+                        className="mt-0.5 w-4 h-4"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">{q.question}</span>
+                        <span className={`ml-2 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                          ({q.type}{q.required ? ', required' : ''})
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </>
               )}
+              <Link
+                to="/recruiter/questions"
+                className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2"
+              >
+                + Create / Add More Questions
+              </Link>
             </div>
           )}
         </section>

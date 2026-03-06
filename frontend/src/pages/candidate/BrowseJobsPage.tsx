@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { jobsApi } from '../../services/api';
+import { jobsApi, applicationsApi } from '../../services/api';
 
 const JOB_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP', 'REMOTE'];
 
@@ -17,7 +17,7 @@ interface PublicJob {
   application_deadline?: string;
 }
 
-function JobCard({ job }: { job: PublicJob }) {
+function JobCard({ job, isApplied }: { job: PublicJob; isApplied: boolean }) {
   const deadline = job.application_deadline
     ? new Date(job.application_deadline).toLocaleDateString(undefined, {
         month: 'short',
@@ -28,12 +28,24 @@ function JobCard({ job }: { job: PublicJob }) {
 
   return (
     <Link
-      to={`/jobs/${job.id}`}
-      className="block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 hover:border-blue-500 dark:hover:border-blue-500 transition-colors shadow-sm hover:shadow-md"
+      to={isApplied ? '#' : `/jobs/${job.id}`}
+      onClick={isApplied ? (e: React.MouseEvent) => e.preventDefault() : undefined}
+      className={`block rounded-xl border p-5 transition-colors shadow-sm ${
+        isApplied
+          ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10 cursor-default'
+          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md'
+      }`}
     >
-      <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 mb-2 line-clamp-1">
-        {job.title}
-      </h3>
+      <div className="flex items-start justify-between">
+        <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 mb-2 line-clamp-1">
+          {job.title}
+        </h3>
+        {isApplied && (
+          <span className="shrink-0 ml-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400">
+            Applied
+          </span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400 mb-3">
         <span>{job.location}</span>
         {job.salary && <span>{job.salary}</span>}
@@ -77,6 +89,15 @@ export default function BrowseJobsPage() {
     queryKey: ['jobs', 'public', params],
     queryFn: () => jobsApi.listPublic(params),
   });
+
+  const { data: myApplications = [] } = useQuery({
+    queryKey: ['myApplications'],
+    queryFn: applicationsApi.mine,
+  });
+
+  const appliedJobIds = new Set(
+    myApplications.map((app: { job_id: string }) => app.job_id)
+  );
 
   return (
     <div className="px-4 py-8">
@@ -133,7 +154,7 @@ export default function BrowseJobsPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {jobs.map((job: PublicJob) => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard key={job.id} job={job} isApplied={appliedJobIds.has(job.id)} />
                 ))}
               </div>
             )}

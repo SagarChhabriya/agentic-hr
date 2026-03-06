@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { jobsApi, applicationsApi } from '../../services/api';
+import { jobsApi, applicationsApi, profileApi } from '../../services/api';
 import axios from 'axios';
 
 type CustomQuestion = { id: string; question: string; type: string; required: boolean };
@@ -105,6 +105,13 @@ export default function ApplyJobPage() {
     enabled: !!job_id,
   });
 
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: profileApi.get,
+  });
+
+  const hasProfile = profile && (profile.phone || profile.bio || (profile.skills && profile.skills.length > 0));
+
   const applyMutation = useMutation({
     mutationFn: (body: { job_id: string; cover_letter?: string; custom_answers?: Record<string, string> }) =>
       applicationsApi.apply(body),
@@ -140,7 +147,7 @@ export default function ApplyJobPage() {
 
   const is409 = axios.isAxiosError(applyMutation.error) && applyMutation.error.response?.status === 409;
 
-  if (jobLoading || !job_id) {
+  if (jobLoading || profileLoading || !job_id) {
     return (
       <div className="flex justify-center items-center min-h-[40vh]">
         <div className="text-gray-600 dark:text-slate-400">Loading job...</div>
@@ -166,6 +173,27 @@ export default function ApplyJobPage() {
   }
 
   const jobData = job as JobData;
+
+  if (!hasProfile) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-6">
+          <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
+            Complete Your Profile First
+          </h2>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+            You need to create and fill in your profile before applying for a job. Please add your phone, bio, and skills at minimum.
+          </p>
+          <Link
+            to="/candidate/profile"
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+          >
+            Go to Profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">

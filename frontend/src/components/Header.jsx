@@ -60,7 +60,13 @@ export default function Header() {
         </>
       );
     }
-    return null;
+    return (
+      <>
+        <Link to="/dashboard" className="hover:text-blue-600">
+          Dashboard
+        </Link>
+      </>
+    );
   };
 
   return (
@@ -86,20 +92,7 @@ export default function Header() {
             </Link>
             {showAuthNav ? (
               <div className="hidden md:flex items-center space-x-6 text-sm font-medium">
-                {getRoleNavLinks() || (
-                  // Show default nav if role not set but user is signed in
-                  <>
-                    <Link to="/dashboard" className="hover:text-blue-600">
-                      Dashboard
-                    </Link>
-                    <Link to="/recruiter/jobs" className="hover:text-blue-600">
-                      Jobs
-                    </Link>
-                    <Link to="/recruiter/candidates" className="hover:text-blue-600">
-                      Candidates
-                    </Link>
-                  </>
-                )}
+                {getRoleNavLinks()}
               </div>
             ) : showPublicNav ? (
               <div className="hidden md:flex items-center space-x-6 text-sm font-medium">

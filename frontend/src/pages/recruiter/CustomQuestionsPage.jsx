@@ -180,6 +180,7 @@ export default function CustomQuestionsPage() {
                 <option value="TEXTAREA">Long Text Answer</option>
                 <option value="NUMBER">Number</option>
                 <option value="YES_NO">Yes/No</option>
+                <option value="OBJECTIVE">Objective / MCQ</option>
               </select>
             </div>
             <div>
