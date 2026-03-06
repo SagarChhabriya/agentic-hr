@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.job import Job
 from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
+from app.models.assessment import Assessment
 from app.schemas.application import (
     ApplicationCreate, ApplicationStatusUpdate,
     ApplicationResponse, CandidateApplicationResponse,
@@ -66,13 +67,31 @@ async def apply_to_job(
 
     # Send email notifications (fire and forget)
     try:
-        from app.core.email import notify_candidate_application_received, notify_recruiter_new_application
+        from app.core.email import (
+            notify_candidate_application_received,
+            notify_recruiter_new_application,
+            notify_candidate_assessment,
+        )
         notify_candidate_application_received(current_user.email, job.title)
         recruiter_result = await db.execute(select(User).where(User.id == job.created_by_id))
         recruiter = recruiter_result.scalar_one_or_none()
         if recruiter:
             name = _full_name(current_user)
             notify_recruiter_new_application(recruiter.email, name, job.title)
+
+        # If the job has an assessment attached, email it to the candidate
+        assessment_result = await db.execute(
+            select(Assessment).where(Assessment.job_id == job.id)
+        )
+        assessment = assessment_result.scalar_one_or_none()
+        if assessment:
+            notify_candidate_assessment(
+                candidate_email=current_user.email,
+                candidate_name=_full_name(current_user),
+                job_title=job.title,
+                assessment_name=assessment.name,
+                duration_minutes=assessment.duration_minutes,
+            )
     except Exception:
         pass
 

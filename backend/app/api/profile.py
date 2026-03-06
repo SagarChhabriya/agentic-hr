@@ -34,6 +34,8 @@ def _to_response(profile: CandidateProfile, user: User) -> CandidateProfileRespo
         github_url=profile.github_url,
         resume_url=profile.resume_url,
         resume_filename=profile.resume_filename,
+        resume_score=profile.resume_score,
+        resume_score_justification=profile.resume_score_justification,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
     )
@@ -116,6 +118,20 @@ async def upload_resume(
     url = storage_upload(contents, current_user.id, file.filename)
     profile.resume_url = url
     profile.resume_filename = file.filename
+
+    # AI-rank resume format/structure in background
+    try:
+        import pdfplumber, io
+        with pdfplumber.open(io.BytesIO(contents)) as pdf:
+            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        if text.strip():
+            from app.core.ai import rank_resume
+            ranking = rank_resume(text)
+            profile.resume_score = ranking.get("score")
+            profile.resume_score_justification = ranking.get("justification", "")
+    except Exception:
+        pass
+
     await db.flush()
     await db.refresh(profile)
     return _to_response(profile, current_user)
