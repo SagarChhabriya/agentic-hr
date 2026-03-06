@@ -11,6 +11,7 @@ class QuestionType(str, enum.Enum):
     TEXTAREA = "TEXTAREA"
     NUMBER = "NUMBER"
     YES_NO = "YES_NO"
+    OBJECTIVE = "OBJECTIVE"
 
 
 class CustomQuestion(Base):

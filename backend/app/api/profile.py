@@ -119,16 +119,55 @@ async def upload_resume(
     profile.resume_url = url
     profile.resume_filename = file.filename
 
-    # AI-rank resume format/structure in background
     try:
-        import pdfplumber, io
+        import pdfplumber, io, json
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
             text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         if text.strip():
-            from app.core.ai import rank_resume
+            from app.core.ai import rank_resume, _chat
             ranking = rank_resume(text)
             profile.resume_score = ranking.get("score")
             profile.resume_score_justification = ranking.get("justification", "")
+
+            # Auto-fill profile fields from resume
+            try:
+                extract_prompt = (
+                    "Extract structured data from this resume. Return valid JSON with keys: "
+                    "phone (str or null), city (str or null), country (str or null), "
+                    "bio (str — a 2-3 sentence professional summary), "
+                    "skills (array of skill strings), experience_years (int or null), "
+                    "education (array of {institution, degree, field_of_study, start_year, end_year}), "
+                    "work_experience (array of {company, title, description, start_date, end_date, current}), "
+                    "linkedin_url (str or null), github_url (str or null), portfolio_url (str or null)."
+                )
+                raw = _chat(extract_prompt, f"Resume:\n{text[:4000]}", temperature=0.2, max_tokens=3000)
+                start = raw.find("{")
+                end = raw.rfind("}") + 1
+                parsed = json.loads(raw[start:end])
+                if parsed.get("phone") and not profile.phone:
+                    profile.phone = parsed["phone"]
+                if parsed.get("city") and not profile.city:
+                    profile.city = parsed["city"]
+                if parsed.get("country") and not profile.country:
+                    profile.country = parsed["country"]
+                if parsed.get("bio") and not profile.bio:
+                    profile.bio = parsed["bio"]
+                if parsed.get("skills") and not profile.skills:
+                    profile.skills = parsed["skills"]
+                if parsed.get("experience_years") and not profile.experience_years:
+                    profile.experience_years = parsed["experience_years"]
+                if parsed.get("education") and not profile.education:
+                    profile.education = parsed["education"]
+                if parsed.get("work_experience") and not profile.work_experience:
+                    profile.work_experience = parsed["work_experience"]
+                if parsed.get("linkedin_url") and not profile.linkedin_url:
+                    profile.linkedin_url = parsed["linkedin_url"]
+                if parsed.get("github_url") and not profile.github_url:
+                    profile.github_url = parsed["github_url"]
+                if parsed.get("portfolio_url") and not profile.portfolio_url:
+                    profile.portfolio_url = parsed["portfolio_url"]
+            except Exception:
+                pass
     except Exception:
         pass
 

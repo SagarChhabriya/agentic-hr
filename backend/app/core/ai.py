@@ -54,7 +54,8 @@ def generate_job_description(
     system = (
         "You are an expert HR copywriter. Generate a professional, engaging job description. "
         "Return valid JSON with keys: description (str), requirements (str — each requirement on its own line), "
-        "salary_suggestion (str), skills (array of at least 10 relevant required skill strings for this role)."
+        "salary_suggestion (str — always in PKR per month, e.g. 'PKR 80,000 - PKR 150,000 / month'), "
+        "skills (array of at least 10 relevant required skill strings for this role)."
     )
     prompt_parts = [f"Job Title: {title}"]
     if location:
@@ -84,16 +85,19 @@ def generate_assessment_questions(
     count: int = 10,
 ) -> list[dict]:
     system = (
-        "You are an expert technical recruiter. Generate assessment questions for candidates. "
+        "You are an expert technical recruiter. Generate assessment questions SPECIFICALLY related to the job role, "
+        "its required skills, and responsibilities described below. Each question must test knowledge or ability "
+        "directly relevant to this specific job — NOT generic interview questions. "
+        "Cover the key skills and technical areas mentioned in the job description. "
         "Return valid JSON: an array of objects with keys: question (str), options (array of 4 strings), "
         "correct_index (int 0-3), difficulty (str: easy/medium/hard)."
     )
-    prompt = f"Job: {job_title}\n"
+    prompt = f"Job Title: {job_title}\n"
     if job_description:
-        prompt += f"Description: {job_description[:500]}\n"
+        prompt += f"Job Description: {job_description[:800]}\n"
     if skills:
-        prompt += f"Skills: {', '.join(skills)}\n"
-    prompt += f"Generate exactly {min(count, 10)} multiple-choice questions."
+        prompt += f"Required Skills to test: {', '.join(skills)}\n"
+    prompt += f"\nGenerate exactly {min(count, 10)} multiple-choice questions that specifically test a candidate's knowledge of the skills and responsibilities for this '{job_title}' role."
 
     raw = _chat(system, prompt, temperature=0.6, max_tokens=4096)
     try:
