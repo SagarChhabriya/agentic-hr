@@ -2,6 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -47,14 +48,18 @@ async def apply_to_job(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Already applied to this job")
 
-    # Snapshot resume URL from candidate profile
+    # Snapshot resume URL from candidate profile (resume is mandatory)
     resume_url = None
     profile_result = await db.execute(
         select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)
     )
     profile = profile_result.scalar_one_or_none()
-    if profile and profile.resume_url:
-        resume_url = profile.resume_url
+    if not profile or not profile.resume_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume is required. Please upload your resume in your profile before applying.",
+        )
+    resume_url = profile.resume_url
 
     application = Application(
         job_id=body.job_id,
@@ -190,6 +195,7 @@ async def get_application(
         raise HTTPException(status_code=403, detail="Not authorized")
     result = await db.execute(
         select(Application, Job, User)
+        .options(selectinload(Job.custom_questions))
         .join(Job, Application.job_id == Job.id)
         .join(User, Application.user_id == User.id)
         .where(Application.id == application_id, Job.created_by_id == current_user.id)
@@ -198,6 +204,8 @@ async def get_application(
     if not row:
         raise HTTPException(status_code=404, detail="Application not found")
     app, job, user = row
+
+    custom_question_labels = {q.id: q.question for q in job.custom_questions} if job.custom_questions else {}
 
     # Fetch candidate profile for recruiter view
     profile_result = await db.execute(
@@ -242,6 +250,7 @@ async def get_application(
         interview_score=app.interview_score,
         applied_at=app.applied_at,
         candidate_profile=candidate_profile,
+        custom_question_labels=custom_question_labels or None,
     )
 
 

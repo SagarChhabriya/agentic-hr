@@ -146,8 +146,10 @@ def rank_resume(resume_text: str) -> dict:
         "You are a professional resume reviewer. Evaluate the resume's FORMAT and STRUCTURE quality only "
         "(not content relevance). Consider: clear sections, consistent formatting, professional layout, "
         "readability, proper use of bullet points, chronological order, contact info presence, "
-        "appropriate length. Return valid JSON with keys: score (float 0.0-1.0), justification (str), "
-        "strengths (array of str), improvements (array of str)."
+        "appropriate length. Return valid JSON with keys: score (float 0.0-1.0), justification (str — 1-2 sentences), "
+        "strengths (array of str — max 3 short bullets), improvements (array of str — max 5 short bullets, each one concise line). "
+        "Keep improvements as actionable, brief bullets (e.g. 'Add quantifiable achievements', 'Use consistent date format'). "
+        "Be concise; avoid long paragraphs."
     )
     text_snippet = resume_text[:3000]
     raw = _chat(system, f"Resume text:\n{text_snippet}", temperature=0.3)

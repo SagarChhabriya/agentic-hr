@@ -86,8 +86,12 @@ export default function RecruiterCandidateDetailPage() {
           {application.resume_url && (
             <div>
               <span className="text-sm opacity-75">Resume</span>
-              <a href={application.resume_url} target="_blank" rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline block">
+              <a
+                href={application.resume_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              >
                 View Resume
               </a>
             </div>
@@ -104,7 +108,7 @@ export default function RecruiterCandidateDetailPage() {
               <div className="mt-2 space-y-2">
                 {Object.entries(application.custom_answers).map(([k, v]) => (
                   <div key={k} className={`p-2 rounded ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
-                    <p className="text-xs opacity-75">{k}</p>
+                    <p className="text-xs opacity-75">{(application.custom_question_labels && application.custom_question_labels[k]) || k}</p>
                     <p className="text-sm">{v}</p>
                   </div>
                 ))}

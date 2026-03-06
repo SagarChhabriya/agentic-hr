@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
-import { jobsApi, customQuestionsApi, aiApi } from '../../services/api';
+import { jobsApi, customQuestionsApi, assessmentsApi, aiApi } from '../../services/api';
 
 export default function CreateJobPage() {
   const { theme } = useTheme();
@@ -31,6 +31,10 @@ export default function CreateJobPage() {
     applicationDeadline: '',
     coverLetterRequired: false,
     customQuestions: [],
+    includeAssessment: false,
+    assessmentName: '',
+    assessmentDuration: 30,
+    assessmentAiGenerate: false,
   };
 
   const [formData, setFormData] = useState(() => loadDraft() || defaultForm);
@@ -53,6 +57,7 @@ export default function CreateJobPage() {
   });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [assessmentAiLoading, setAssessmentAiLoading] = useState(false);
 
   useEffect(() => {
     customQuestionsApi.list().then(setAvailableQuestions).catch(() => {});
@@ -169,6 +174,38 @@ export default function CreateJobPage() {
       });
       if (selectedQuestionIds.length > 0) {
         await jobsApi.setQuestions(job.id, selectedQuestionIds);
+      }
+      if (formData.includeAssessment && formData.assessmentName.trim()) {
+        const assessment = await assessmentsApi.create({
+          name: formData.assessmentName.trim(),
+          duration_minutes: formData.assessmentDuration || 30,
+          job_id: job.id,
+        });
+        if (formData.assessmentAiGenerate) {
+          setAssessmentAiLoading(true);
+          try {
+            const { questions } = await aiApi.generateQuestions({
+              job_title: formData.title,
+              job_description: formData.description,
+              skills: formData.requiredSkills,
+              count: 5,
+            });
+            if (questions?.length > 0) {
+              const mapped = questions.map((q) => ({
+                question_text: q.question || q.question_text,
+                options: q.options || [],
+                correct_index: q.correct_index ?? 0,
+              })).filter((q) => q.question_text && q.options?.length >= 2);
+              if (mapped.length > 0) {
+                await assessmentsApi.addQuestions(assessment.id, mapped);
+              }
+            }
+          } catch (aiErr) {
+            console.warn('AI assessment questions failed:', aiErr);
+          } finally {
+            setAssessmentAiLoading(false);
+          }
+        }
       }
       sessionStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY + '_questions');
@@ -553,6 +590,457 @@ export default function CreateJobPage() {
               >
                 + Create / Add More Questions
               </Link>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an email with a link to take the assessment.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-0">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                  placeholder="e.g., Technical Skills Assessment"
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessmentDuration: Math.min(180, Math.max(5, parseInt(e.target.value, 10) || 30)),
+                    }))
+                  }
+                  className={`w-full rounded-md border px-3 py-2 max-w-[120px] ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions based on job description</span>
+              </label>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an email with a link to take the assessment.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-0">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                  placeholder="e.g., Technical Skills Assessment"
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessmentDuration: parseInt(e.target.value, 10) || 30,
+                    }))
+                  }
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions based on job description</span>
+              </label>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an email with a link to take the assessment.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-0">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  placeholder="e.g., Technical Skills Assessment"
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessmentDuration: Math.min(180, Math.max(5, parseInt(e.target.value, 10) || 30)),
+                    }))
+                  }
+                  className={`w-full rounded-md border px-3 py-2 max-w-[120px] ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions based on job description</span>
+              </label>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an email with a link to take the assessment.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-0">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  placeholder="e.g., Technical Skills Assessment"
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessmentDuration: Math.min(180, Math.max(5, parseInt(e.target.value, 10) || 30)),
+                    }))
+                  }
+                  className={`w-full rounded-md border px-3 py-2 max-w-[120px] ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions based on job description</span>
+              </label>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an email with a link to take the assessment.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-6 border-l-2 border-slate-300 dark:border-slate-600">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  placeholder="e.g., Technical Skills Assessment"
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessmentDuration: parseInt(e.target.value, 10) || 30,
+                    }))
+                  }
+                  className={`w-full rounded-md border px-3 py-2 max-w-[120px] ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions</span>
+              </label>
+            </div>
+          )}
+        </section>
+
+        {/* Assessment (Optional) */}
+        <section
+          className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        >
+          <h2 className="text-xl font-semibold mb-4">Assessment (Optional)</h2>
+          <p className="text-sm opacity-75 mb-4">
+            Attach an MCQ assessment to this job. Candidates who apply will receive an assessment link via email.
+          </p>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            <span>Include assessment for this job</span>
+          </label>
+          {formData.includeAssessment && (
+            <div className="space-y-4 mt-4 pl-0">
+              <div>
+                <label htmlFor="assessmentName" className="block text-sm font-medium mb-1">
+                  Assessment Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="assessmentName"
+                  name="assessmentName"
+                  value={formData.assessmentName}
+                  onChange={handleChange}
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                  placeholder="e.g., Technical Skills Assessment"
+                />
+              </div>
+              <div>
+                <label htmlFor="assessmentDuration" className="block text-sm font-medium mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  id="assessmentDuration"
+                  name="assessmentDuration"
+                  min={5}
+                  max={180}
+                  value={formData.assessmentDuration}
+                  onChange={handleChange}
+                  className={`w-full rounded-md border px-3 py-2 ${
+                    isDark
+                      ? 'border-slate-600 bg-slate-900 text-slate-100'
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="assessmentAiGenerate"
+                  checked={formData.assessmentAiGenerate}
+                  onChange={handleChange}
+                  className="w-4 h-4"
+                />
+                <span>Use AI to generate MCQ questions based on job description</span>
+              </label>
             </div>
           )}
         </section>

@@ -90,6 +90,28 @@ async def update_profile(
     for k, v in data.items():
         setattr(profile, k, v)
     await db.flush()
+
+    # Re-evaluate resume score when profile is updated and resume exists
+    if profile.resume_url:
+        try:
+            import httpx
+            import pdfplumber
+            import io
+            from app.core.ai import rank_resume
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(profile.resume_url)
+                if resp.status_code == 200 and resp.content:
+                    with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+                        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                    if text.strip():
+                        ranking = rank_resume(text)
+                        raw_score = ranking.get("score", 0.5)
+                        profile.resume_score = round(float(raw_score) * 100, 1) if raw_score is not None else None
+                        profile.resume_score_justification = ranking.get("justification", "")
+                        await db.flush()
+        except Exception:
+            pass
+
     await db.refresh(profile)
     return _to_response(profile, current_user)
 
@@ -134,7 +156,8 @@ async def upload_resume(
         if text.strip():
             from app.core.ai import rank_resume, _chat
             ranking = rank_resume(text)
-            profile.resume_score = ranking.get("score")
+            raw_score = ranking.get("score", 0.5)
+            profile.resume_score = round(float(raw_score) * 100, 1) if raw_score is not None else None
             profile.resume_score_justification = ranking.get("justification", "")
 
             # Auto-fill profile fields from resume (always add ALL work experiences from resume)

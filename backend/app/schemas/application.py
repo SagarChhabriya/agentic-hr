@@ -57,6 +57,7 @@ class ApplicationResponse(BaseModel):
 class ApplicationDetailResponse(ApplicationResponse):
     """Application with candidate profile for recruiter detail view."""
     candidate_profile: Optional[CandidateProfileForRecruiter] = None
+    custom_question_labels: Optional[dict] = None  # question_id -> question text for display
 
 
 class CandidateApplicationResponse(BaseModel):

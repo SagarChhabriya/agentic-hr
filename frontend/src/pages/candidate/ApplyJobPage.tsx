@@ -111,6 +111,7 @@ export default function ApplyJobPage() {
   });
 
   const hasProfile = profile && (profile.phone || profile.bio || (profile.skills && profile.skills.length > 0));
+  const hasResume = !!profile?.resume_url;
 
   const applyMutation = useMutation({
     mutationFn: (body: { job_id: string; cover_letter?: string; custom_answers?: Record<string, string> }) =>
@@ -189,6 +190,27 @@ export default function ApplyJobPage() {
             className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
           >
             Go to Profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasResume) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-6">
+          <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
+            Resume Required
+          </h2>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+            You must upload your resume before applying for jobs. Please go to your profile and upload a PDF resume.
+          </p>
+          <Link
+            to="/candidate/profile"
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+          >
+            Go to Profile & Upload Resume
           </Link>
         </div>
       </div>
