@@ -59,7 +59,7 @@ async def list_public_jobs(
 
 @router.get("/public/{job_id}", response_model=PublicJobResponse)
 async def get_public_job(job_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Job).where(Job.id == job_id, Job.status == "active"))
+    result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")

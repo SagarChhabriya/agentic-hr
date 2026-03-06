@@ -53,7 +53,8 @@ def generate_job_description(
 ) -> dict:
     system = (
         "You are an expert HR copywriter. Generate a professional, engaging job description. "
-        "Return valid JSON with keys: description (str), requirements (str), salary_suggestion (str)."
+        "Return valid JSON with keys: description (str), requirements (str — each requirement on its own line), "
+        "salary_suggestion (str), skills (array of at least 10 relevant required skill strings for this role)."
     )
     prompt_parts = [f"Job Title: {title}"]
     if location:
