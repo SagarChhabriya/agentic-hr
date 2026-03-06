@@ -55,6 +55,8 @@ class CandidateProfileResponse(BaseModel):
     github_url: Optional[str] = None
     resume_url: Optional[str] = None
     resume_filename: Optional[str] = None
+    resume_score: Optional[float] = None
+    resume_score_justification: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

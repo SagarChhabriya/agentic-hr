@@ -12,6 +12,8 @@ from app.api.applications import router as applications_router
 from app.api.custom_questions import router as custom_questions_router
 from app.api.assessments import router as assessments_router
 from app.api.profile import router as profile_router
+from app.api.ai import router as ai_router
+from app.api.dashboard import router as dashboard_router
 from app.api.webhooks.clerk import router as clerk_webhook_router
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,9 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created/verified successfully")
+        from app.core.migrations import run_startup_migrations
+        await run_startup_migrations(engine)
+        logger.info("Startup migrations completed")
     except Exception as e:
         if "already exists" in str(e):
             logger.info("Tables already exist (concurrent worker race) — safe to ignore")
@@ -59,6 +64,8 @@ app.include_router(applications_router, prefix=f"/{settings.api_prefix}")
 app.include_router(custom_questions_router, prefix=f"/{settings.api_prefix}")
 app.include_router(assessments_router, prefix=f"/{settings.api_prefix}")
 app.include_router(profile_router, prefix=f"/{settings.api_prefix}")
+app.include_router(ai_router, prefix=f"/{settings.api_prefix}")
+app.include_router(dashboard_router, prefix=f"/{settings.api_prefix}")
 
 # Webhook routes (no API prefix needed)
 app.include_router(clerk_webhook_router)

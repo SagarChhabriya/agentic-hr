@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, Integer, ForeignKey, JSON
+from sqlalchemy import String, DateTime, Text, Integer, Float, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -28,6 +28,8 @@ class CandidateProfile(Base):
     github_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     resume_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     resume_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resume_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    resume_score_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
