@@ -14,6 +14,9 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("applications", "cover_letter", "TEXT"),
     ("applications", "resume_url", "VARCHAR(1000)"),
     ("applications", "custom_answers", "JSONB"),
+    ("applications", "assessment_score", "INTEGER"),
+    ("applications", "interview_score", "INTEGER"),
+    ("applications", "updated_at", "TIMESTAMP DEFAULT NOW()"),
     ("candidate_profiles", "resume_score", "DOUBLE PRECISION"),
     ("candidate_profiles", "resume_score_justification", "TEXT"),
     ("candidate_profiles", "expected_salary_min", "INTEGER"),
@@ -22,16 +25,19 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
 
 
 async def run_startup_migrations(engine: AsyncEngine) -> None:
-    async with engine.begin() as conn:
-        for table, column, col_def in _COLUMN_MIGRATIONS:
-            stmt = text(
-                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_def}"
-            )
-            try:
+    """Add missing columns to existing tables. Each migration runs in its own transaction."""
+    for table, column, col_def in _COLUMN_MIGRATIONS:
+        try:
+            async with engine.begin() as conn:
+                stmt = text(
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_def}"
+                )
                 await conn.execute(stmt)
-                logger.info("Ensured column %s.%s exists", table, column)
-            except Exception as e:
-                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
-                    logger.info("Column %s.%s already exists", table, column)
-                else:
-                    logger.warning("Migration for %s.%s failed: %s", table, column, e)
+            logger.info("Ensured column %s.%s exists", table, column)
+        except Exception as e:
+            err = str(e).lower()
+            if "already exists" in err or "duplicate" in err:
+                logger.info("Column %s.%s already exists", table, column)
+            else:
+                logger.error("Migration for %s.%s failed: %s", table, column, e)
+                raise

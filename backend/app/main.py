@@ -21,18 +21,25 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create tables (may skip if already exist)
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created/verified successfully")
-        from app.core.migrations import run_startup_migrations
-        await run_startup_migrations(engine)
-        logger.info("Startup migrations completed")
     except Exception as e:
         if "already exists" in str(e):
             logger.info("Tables already exist (concurrent worker race) — safe to ignore")
         else:
-            logger.exception("Database startup failed (app will start; DB routes may fail): %s", e)
+            logger.exception("Database create_all failed: %s", e)
+
+    # Always run migrations (add missing columns to existing tables)
+    try:
+        from app.core.migrations import run_startup_migrations
+        await run_startup_migrations(engine)
+        logger.info("Startup migrations completed")
+    except Exception as e:
+        logger.exception("Startup migrations failed — app may not work correctly: %s", e)
+        raise
     yield
     await engine.dispose()
 
