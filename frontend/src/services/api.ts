@@ -115,4 +115,33 @@ export const customQuestionsApi = {
   delete: (id: string) => apiClient.delete(`/custom-questions/${id}`),
 };
 
+export const dashboardApi = {
+  recruiter: () => apiClient.get('/dashboard/recruiter').then((r) => r.data),
+};
+
+export const aiApi = {
+  generateJD: (body: {
+    title: string;
+    location?: string;
+    job_type?: string;
+    skills?: string[];
+    experience?: string;
+    extra_context?: string;
+  }) => apiClient.post('/ai/generate-jd', body).then((r) => r.data),
+  generateQuestions: (body: {
+    job_title: string;
+    job_description?: string;
+    skills?: string[];
+    count?: number;
+  }) => apiClient.post('/ai/generate-questions', body).then((r) => r.data),
+  rankResume: (body: { resume_text: string }) =>
+    apiClient.post('/ai/rank-resume', body).then((r) => r.data),
+  rankResumeForJob: (body: {
+    resume_text: string;
+    job_title: string;
+    job_description?: string;
+    required_skills?: string[];
+  }) => apiClient.post('/ai/rank-resume-for-job', body).then((r) => r.data),
+};
+
 export default apiClient;

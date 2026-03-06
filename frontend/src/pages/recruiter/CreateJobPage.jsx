@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
-import { jobsApi, customQuestionsApi } from '../../services/api';
+import { jobsApi, customQuestionsApi, aiApi } from '../../services/api';
 
 export default function CreateJobPage() {
   const { theme } = useTheme();
@@ -28,10 +28,40 @@ export default function CreateJobPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableQuestions, setAvailableQuestions] = useState([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   useEffect(() => {
     customQuestionsApi.list().then(setAvailableQuestions).catch(() => {});
   }, []);
+
+  const handleAiGenerateJD = async () => {
+    if (!formData.title.trim()) {
+      setAiError('Enter a job title first');
+      return;
+    }
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await aiApi.generateJD({
+        title: formData.title,
+        location: formData.location,
+        job_type: formData.jobType,
+        skills: formData.requiredSkills,
+        experience: formData.experienceRequired,
+      });
+      setFormData((prev) => ({
+        ...prev,
+        description: result.description || prev.description,
+        requirements: result.requirements || prev.requirements,
+        salary: result.salary_suggestion || prev.salary,
+      }));
+    } catch (err) {
+      setAiError(err?.response?.data?.detail || 'AI generation failed. Check GROQ_API_KEY.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -95,8 +125,28 @@ export default function CreateJobPage() {
   return (
     <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Create New Job Posting</h1>
-        <p className="text-sm opacity-75">Fill in the details to post a new job</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Create New Job Posting</h1>
+            <p className="text-sm opacity-75">Fill in the details to post a new job</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAiGenerateJD}
+            disabled={aiLoading}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+              isDark
+                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                : 'bg-purple-600 hover:bg-purple-700 text-white'
+            } disabled:opacity-50`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {aiLoading ? 'Generating...' : 'AI Generate Description'}
+          </button>
+        </div>
+        {aiError && <p className="mt-2 text-sm text-red-500">{aiError}</p>}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
