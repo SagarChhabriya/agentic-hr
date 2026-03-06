@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     # Clerk - JWKS URL for verifying session tokens (e.g. https://xxx.clerk.accounts.dev/.well-known/jwks.json)
     clerk_jwks_url: str = Field("", validation_alias="CLERK_JWKS_URL")
 
+    # Supabase Storage (for resumes/CVs)
+    supabase_url: str = Field("", validation_alias="SUPABASE_URL")
+    supabase_service_key: str = Field("", validation_alias="SUPABASE_SERVICE_KEY")
+    supabase_bucket: str = "resumes"
+
+    # Email (Resend)
+    resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
+    email_from: str = Field("noreply@hire-base.vercel.app", validation_alias="EMAIL_FROM")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

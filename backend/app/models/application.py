@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Integer
+from sqlalchemy import String, DateTime, ForeignKey, Integer, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -29,6 +29,9 @@ class Application(Base):
     status: Mapped[str] = mapped_column(
         String(20), default=ApplicationStatus.APPLIED.value, nullable=False, index=True
     )
+    cover_letter: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resume_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    custom_answers: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     assessment_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     interview_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

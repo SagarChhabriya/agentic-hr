@@ -52,3 +52,31 @@ class JobResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CustomQuestionBrief(BaseModel):
+    id: str
+    question: str
+    type: str
+    required: bool
+
+
+class PublicJobResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    salary: Optional[str]
+    location: str
+    job_type: str
+    employment_type: str
+    experience_required: Optional[str]
+    required_skills: list
+    requirements: Optional[str]
+    application_deadline: Optional[date]
+    cover_letter_required: bool
+    created_at: datetime
+    custom_questions: list[CustomQuestionBrief] = []
+    company_name: str = "Agentic HR"
+
+    class Config:
+        from_attributes = True

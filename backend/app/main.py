@@ -11,6 +11,7 @@ from app.api.jobs import router as jobs_router
 from app.api.applications import router as applications_router
 from app.api.custom_questions import router as custom_questions_router
 from app.api.assessments import router as assessments_router
+from app.api.profile import router as profile_router
 from app.api.webhooks.clerk import router as clerk_webhook_router
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ app.include_router(jobs_router, prefix=f"/{settings.api_prefix}")
 app.include_router(applications_router, prefix=f"/{settings.api_prefix}")
 app.include_router(custom_questions_router, prefix=f"/{settings.api_prefix}")
 app.include_router(assessments_router, prefix=f"/{settings.api_prefix}")
+app.include_router(profile_router, prefix=f"/{settings.api_prefix}")
 
 # Webhook routes (no API prefix needed)
 app.include_router(clerk_webhook_router)

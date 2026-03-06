@@ -40,3 +40,6 @@ class User(Base):
     applications: Mapped[list["Application"]] = relationship(
         "Application", back_populates="user", cascade="all, delete-orphan"
     )
+    profile: Mapped["CandidateProfile | None"] = relationship(
+        "CandidateProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )

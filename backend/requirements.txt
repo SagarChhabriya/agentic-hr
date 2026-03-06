@@ -12,3 +12,5 @@ python-multipart==0.0.9
 httpx>=0.25.0
 pyjwt[crypto]>=2.8.0
 gunicorn==24.0.0
+supabase>=2.0.0
+resend>=2.0.0

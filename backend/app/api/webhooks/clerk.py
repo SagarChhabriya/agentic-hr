@@ -97,8 +97,8 @@ async def handle_clerk_webhook(
                 return JSONResponse({"status": "success", "message": "already_exists"})
 
             existing_email = await db.execute(select(User).where(User.email == email))
-            if existing_email.scalar_one_or_none():
-                u = existing_email.scalar_one()
+            u = existing_email.scalar_one_or_none()
+            if u:
                 u.clerk_id = clerk_id
                 u.role = role
                 u.first_name = first_name or u.first_name

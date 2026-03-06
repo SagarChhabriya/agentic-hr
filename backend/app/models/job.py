@@ -49,3 +49,6 @@ class Job(Base):
     created_by = relationship("User", back_populates="jobs")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
     assessments = relationship("Assessment", back_populates="job", cascade="all, delete-orphan")
+    custom_questions = relationship(
+        "CustomQuestion", secondary="job_custom_questions", lazy="selectin"
+    )

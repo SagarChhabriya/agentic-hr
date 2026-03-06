@@ -2,14 +2,17 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.job import Job
 from app.models.application import Application
-from app.schemas.application import ApplicationResponse
+from app.models.candidate_profile import CandidateProfile
+from app.schemas.application import (
+    ApplicationCreate, ApplicationStatusUpdate,
+    ApplicationResponse, CandidateApplicationResponse,
+)
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -18,6 +21,98 @@ def _full_name(u: User) -> str:
     parts = [u.first_name, u.last_name]
     return " ".join(p for p in parts if p).strip() or "Unknown"
 
+
+# --- Candidate endpoints ---
+
+@router.post("", response_model=CandidateApplicationResponse, status_code=201)
+async def apply_to_job(
+    body: ApplicationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Candidate applies to a job."""
+    job_result = await db.execute(select(Job).where(Job.id == body.job_id, Job.status == "active"))
+    job = job_result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or not active")
+
+    existing = await db.execute(
+        select(Application).where(
+            Application.job_id == body.job_id, Application.user_id == current_user.id
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Already applied to this job")
+
+    # Snapshot resume URL from candidate profile
+    resume_url = None
+    profile_result = await db.execute(
+        select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    if profile and profile.resume_url:
+        resume_url = profile.resume_url
+
+    application = Application(
+        job_id=body.job_id,
+        user_id=current_user.id,
+        cover_letter=body.cover_letter,
+        resume_url=resume_url,
+        custom_answers=body.custom_answers,
+    )
+    db.add(application)
+    await db.flush()
+    await db.refresh(application)
+
+    # Send email notifications (fire and forget)
+    try:
+        from app.core.email import notify_candidate_application_received, notify_recruiter_new_application
+        notify_candidate_application_received(current_user.email, job.title)
+        recruiter_result = await db.execute(select(User).where(User.id == job.created_by_id))
+        recruiter = recruiter_result.scalar_one_or_none()
+        if recruiter:
+            name = _full_name(current_user)
+            notify_recruiter_new_application(recruiter.email, name, job.title)
+    except Exception:
+        pass
+
+    return CandidateApplicationResponse(
+        id=application.id,
+        job_id=application.job_id,
+        job_title=job.title,
+        job_location=job.location,
+        status=application.status,
+        applied_at=application.applied_at,
+    )
+
+
+@router.get("/mine", response_model=list[CandidateApplicationResponse])
+async def my_applications(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Candidate views their own applications."""
+    q = (
+        select(Application, Job)
+        .join(Job, Application.job_id == Job.id)
+        .where(Application.user_id == current_user.id)
+        .order_by(Application.applied_at.desc())
+    )
+    result = await db.execute(q)
+    return [
+        CandidateApplicationResponse(
+            id=app.id,
+            job_id=app.job_id,
+            job_title=job.title,
+            job_location=job.location,
+            status=app.status,
+            applied_at=app.applied_at,
+        )
+        for app, job in result.all()
+    ]
+
+
+# --- Recruiter endpoints ---
 
 @router.get("", response_model=list[ApplicationResponse])
 async def list_applications(
@@ -50,9 +145,65 @@ async def list_applications(
             name=_full_name(user),
             email=user.email,
             status=app.status,
+            cover_letter=app.cover_letter,
+            resume_url=app.resume_url,
+            custom_answers=app.custom_answers,
             assessment_score=app.assessment_score,
             interview_score=app.interview_score,
             applied_at=app.applied_at,
         )
         for app, job, user in rows
     ]
+
+
+@router.patch("/{application_id}/status", response_model=ApplicationResponse)
+async def update_application_status(
+    application_id: str,
+    body: ApplicationStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter updates application status (applied/assessment/interview/selected/rejected)."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    valid_statuses = {"applied", "assessment", "interview", "selected", "rejected"}
+    if body.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+    old_status = app.status
+    app.status = body.status
+    await db.flush()
+    await db.refresh(app)
+
+    if old_status != body.status:
+        try:
+            from app.core.email import notify_candidate_status_change
+            notify_candidate_status_change(user.email, job.title, body.status)
+        except Exception:
+            pass
+
+    return ApplicationResponse(
+        id=app.id,
+        job_id=app.job_id,
+        job_title=job.title,
+        user_id=app.user_id,
+        name=_full_name(user),
+        email=user.email,
+        status=app.status,
+        cover_letter=app.cover_letter,
+        resume_url=app.resume_url,
+        custom_answers=app.custom_answers,
+        assessment_score=app.assessment_score,
+        interview_score=app.interview_score,
+        applied_at=app.applied_at,
+    )

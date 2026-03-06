@@ -46,8 +46,19 @@ def _verify_clerk_token(token: str) -> dict | None:
         return None
 
 
+import time
+
+_clerk_cache: dict[str, tuple[dict, float]] = {}
+_CLERK_CACHE_TTL = 300  # 5 minutes
+
+
 def _fetch_clerk_user(clerk_id: str) -> dict | None:
-    """Fetch full user object from Clerk API."""
+    """Fetch full user object from Clerk API (cached for 5 min)."""
+    now = time.monotonic()
+    cached = _clerk_cache.get(clerk_id)
+    if cached and (now - cached[1]) < _CLERK_CACHE_TTL:
+        return cached[0]
+
     import os
     clerk_secret = os.getenv("CLERK_SECRET_KEY", "")
     if not clerk_secret:
@@ -59,7 +70,11 @@ def _fetch_clerk_user(clerk_id: str) -> dict | None:
             headers={"Authorization": f"Bearer {clerk_secret}"},
             timeout=10.0,
         )
-        return resp.json() if resp.status_code == 200 else None
+        if resp.status_code == 200:
+            data = resp.json()
+            _clerk_cache[clerk_id] = (data, now)
+            return data
+        return None
     except Exception as e:
         logger.warning("Failed to fetch Clerk user %s: %s", clerk_id, e)
         return None
