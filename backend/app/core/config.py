@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
     email_from: str = Field("noreply@hire-base.vercel.app", validation_alias="EMAIL_FROM")
 
+    # AI / LLM (Groq)
+    groq_api_key: str = Field("", validation_alias="GROQ_API_KEY")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -13,10 +13,24 @@ def _get_supabase():
     return create_client(settings.supabase_url, settings.supabase_service_key)
 
 
+def _ensure_bucket(client, bucket_name: str) -> None:
+    """Create the storage bucket if it doesn't exist."""
+    try:
+        client.storage.get_bucket(bucket_name)
+    except Exception:
+        try:
+            client.storage.create_bucket(bucket_name, options={"public": True})
+            logger.info("Created Supabase bucket: %s", bucket_name)
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                logger.warning("Could not create bucket %s: %s", bucket_name, e)
+
+
 def upload_resume(file_bytes: bytes, user_id: str, filename: str) -> str:
     """Upload a resume to Supabase Storage and return the public URL."""
     settings = get_settings()
     client = _get_supabase()
+    _ensure_bucket(client, settings.supabase_bucket)
     ts = int(time.time())
     safe_name = filename.replace(" ", "_")
     path = f"{user_id}/{ts}_{safe_name}"

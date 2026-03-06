@@ -72,3 +72,29 @@ def notify_candidate_application_received(candidate_email: str, job_title: str):
         <a href="https://hire-base.vercel.app/candidate/applications">Agentic HR</a>.</p>
         """,
     )
+
+
+def notify_candidate_assessment(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+    assessment_name: str,
+    duration_minutes: int,
+):
+    _send(
+        to=candidate_email,
+        subject=f"Assessment for {job_title}: {assessment_name}",
+        html=f"""
+        <h2>Assessment Invitation</h2>
+        <p>Hi {candidate_name},</p>
+        <p>As part of your application for <strong>{job_title}</strong>, you are invited to complete
+        the following assessment:</p>
+        <div style="background:#f3f4f6;padding:16px;border-radius:8px;margin:16px 0;">
+          <p style="margin:0;font-weight:bold;">{assessment_name}</p>
+          <p style="margin:4px 0 0;color:#6b7280;">Duration: {duration_minutes} minutes</p>
+        </div>
+        <p>Please log in to <a href="https://hire-base.vercel.app/candidate/dashboard">Agentic HR</a>
+        to begin your assessment.</p>
+        <p>Good luck!</p>
+        """,
+    )
