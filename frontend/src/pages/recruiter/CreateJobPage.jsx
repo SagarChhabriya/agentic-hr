@@ -8,26 +8,49 @@ export default function CreateJobPage() {
   const navigate = useNavigate();
   const isDark = theme === 'dark';
 
-  const [formData, setFormData] = useState({
+  const STORAGE_KEY = 'createJobFormDraft';
+
+  const loadDraft = () => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  };
+
+  const defaultForm = {
     title: '',
     description: '',
     salary: '',
     location: '',
-    jobType: 'FULL_TIME', // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
-    employmentType: 'PERMANENT', // PERMANENT, TEMPORARY
+    jobType: 'FULL_TIME',
+    employmentType: 'PERMANENT',
     experienceRequired: '',
     requiredSkills: [],
     requirements: '',
     applicationDeadline: '',
     coverLetterRequired: false,
     customQuestions: [],
-  });
+  };
+
+  const [formData, setFormData] = useState(() => loadDraft() || defaultForm);
+
+  // Persist form data to sessionStorage on every change
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+  }, [formData]);
 
   const [newSkill, setNewSkill] = useState('');
   const [showCustomQuestions, setShowCustomQuestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableQuestions, setAvailableQuestions] = useState([]);
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY + '_questions');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
@@ -43,18 +66,46 @@ export default function CreateJobPage() {
     setAiLoading(true);
     setAiError('');
     try {
+      const twoWeeks = new Date();
+      twoWeeks.setDate(twoWeeks.getDate() + 14);
+      const deadlineStr = twoWeeks.toISOString().split('T')[0];
+
       const result = await aiApi.generateJD({
         title: formData.title,
-        location: formData.location,
-        job_type: formData.jobType,
+        location: formData.location || 'Remote',
+        job_type: formData.jobType || 'PART_TIME',
         skills: formData.requiredSkills,
-        experience: formData.experienceRequired,
+        experience: formData.experienceRequired || '1-2 years',
+        extra_context: 'Also return a key "skills" as a JSON array of at least 10 relevant required skills for this job.',
       });
+
+      let requirements = result.requirements || '';
+      if (requirements) {
+        const lines = requirements.split('\n').map((l) => l.trim()).filter(Boolean);
+        requirements = lines.map((l) => {
+          const cleaned = l.replace(/^[-•*●◦▪]\s*/, '').replace(/^\d+\.\s*/, '');
+          return `● ${cleaned}`;
+        }).join('\n');
+      }
+
+      let aiSkills = [];
+      if (result.skills && Array.isArray(result.skills)) {
+        aiSkills = result.skills;
+      }
+
       setFormData((prev) => ({
         ...prev,
         description: result.description || prev.description,
-        requirements: result.requirements || prev.requirements,
+        requirements: requirements || prev.requirements,
         salary: result.salary_suggestion || prev.salary,
+        location: prev.location || 'Remote',
+        jobType: prev.jobType || 'PART_TIME',
+        employmentType: prev.employmentType || 'PERMANENT',
+        experienceRequired: prev.experienceRequired || '1-2 years',
+        applicationDeadline: prev.applicationDeadline || deadlineStr,
+        requiredSkills: aiSkills.length > 0
+          ? [...new Set([...prev.requiredSkills, ...aiSkills])].slice(0, 15)
+          : prev.requiredSkills,
       }));
     } catch (err) {
       setAiError(err?.response?.data?.detail || 'AI generation failed. Check GROQ_API_KEY.');
@@ -88,6 +139,10 @@ export default function CreateJobPage() {
     }));
   };
 
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY + '_questions', JSON.stringify(selectedQuestionIds));
+  }, [selectedQuestionIds]);
+
   const toggleQuestion = (qid) => {
     setSelectedQuestionIds((prev) =>
       prev.includes(qid) ? prev.filter((id) => id !== qid) : [...prev, qid]
@@ -115,6 +170,8 @@ export default function CreateJobPage() {
       if (selectedQuestionIds.length > 0) {
         await jobsApi.setQuestions(job.id, selectedQuestionIds);
       }
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY + '_questions');
       navigate('/recruiter/jobs');
     } catch (err) {
       console.error(err);

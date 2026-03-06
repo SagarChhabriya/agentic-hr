@@ -20,6 +20,8 @@ import CreateJobPage from './pages/recruiter/CreateJobPage';
 import CustomQuestionsPage from './pages/recruiter/CustomQuestionsPage';
 import AssessmentsPage from './pages/recruiter/AssessmentsPage';
 import CandidatesPage from './pages/recruiter/CandidatesPage';
+import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
+import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
 import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
@@ -94,6 +96,22 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
                 <CreateJobPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="recruiter/jobs/:id"
+            element={
+              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
+                <RecruiterJobDetailPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="recruiter/jobs/:id/edit"
+            element={
+              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
+                <RecruiterEditJobPage />
               </RoleProtectedRoute>
             }
           />
