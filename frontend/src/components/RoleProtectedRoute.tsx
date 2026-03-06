@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
 
 interface RoleProtectedRouteProps {
@@ -9,13 +9,15 @@ interface RoleProtectedRouteProps {
 export default function RoleProtectedRoute({ children, allowedRoles }: RoleProtectedRouteProps) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
+  const location = useLocation();
 
   if (!isLoaded) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
 
   if (!isSignedIn) {
-    return <Navigate to="/login" replace />;
+    const returnTo = location.pathname + location.search;
+    return <Navigate to="/login" state={{ from: returnTo }} replace />;
   }
 
   // Check both publicMetadata and unsafeMetadata for role

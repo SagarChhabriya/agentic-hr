@@ -83,7 +83,9 @@ def notify_candidate_assessment(
     assessment_id: str,
     application_id: str,
 ):
-    assessment_link = f"https://hire-base.vercel.app/assessment/attempt/{assessment_id}?application_id={application_id}"
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    assessment_link = f"{base}/assessment/attempt/{assessment_id}?application_id={application_id}"
     _send(
         to=candidate_email,
         subject=f"Assessment for {job_title}: {assessment_name}",

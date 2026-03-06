@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi } from '../../services/api';
 
@@ -18,6 +18,14 @@ export default function RecruiterCandidateDetailPage() {
     queryKey: ['application', id, 'assessment-result'],
     queryFn: () => applicationsApi.getAssessmentResult(id),
     enabled: !!id && !!application,
+  });
+
+  const queryClient = useQueryClient();
+  const resendMutation = useMutation({
+    mutationFn: () => applicationsApi.resendAssessment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+    },
   });
 
   if (isLoading) {
@@ -67,15 +75,27 @@ export default function RecruiterCandidateDetailPage() {
           </div>
           <div>
             <span className="text-sm opacity-75">Status</span>
-            <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
-              application.status === 'selected' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-              : application.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-              : application.status === 'interview' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-              : application.status === 'assessment' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-            }`}>
-              {application.status}
-            </span>
+            <div className="flex items-center gap-3 mt-1">
+              <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
+                application.status === 'selected' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                : application.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                : application.status === 'interview' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                : application.status === 'assessment' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+              }`}>
+                {application.status}
+              </span>
+              {application.job_has_assessment && (
+                <button
+                  type="button"
+                  onClick={() => resendMutation.mutate()}
+                  disabled={resendMutation.isPending}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {resendMutation.isPending ? 'Sending...' : 'Resend assessment email'}
+                </button>
+              )}
+            </div>
           </div>
           {application.assessment_score != null && (
             <div>

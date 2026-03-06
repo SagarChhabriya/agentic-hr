@@ -207,6 +207,10 @@ async def get_application(
 
     custom_question_labels = {q.id: q.question for q in job.custom_questions} if job.custom_questions else {}
 
+    # Check if job has assessment
+    assessment_check = await db.execute(select(Assessment).where(Assessment.job_id == job.id).limit(1))
+    job_has_assessment = assessment_check.scalar_one_or_none() is not None
+
     # Fetch candidate profile for recruiter view
     profile_result = await db.execute(
         select(CandidateProfile).where(CandidateProfile.user_id == app.user_id)
@@ -251,6 +255,7 @@ async def get_application(
         applied_at=app.applied_at,
         candidate_profile=candidate_profile,
         custom_question_labels=custom_question_labels or None,
+        job_has_assessment=job_has_assessment,
     )
 
 
@@ -313,6 +318,47 @@ async def get_application_assessment_result(
     }
 
 
+@router.post("/{application_id}/resend-assessment")
+async def resend_assessment_email(
+    application_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter resends the assessment link email to the candidate."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+    assessment_result = await db.execute(
+        select(Assessment).where(Assessment.job_id == job.id)
+    )
+    assessment = assessment_result.scalar_one_or_none()
+    if not assessment:
+        raise HTTPException(status_code=400, detail="Job has no assessment attached")
+    try:
+        from app.core.email import notify_candidate_assessment
+        notify_candidate_assessment(
+            candidate_email=user.email,
+            candidate_name=_full_name(user),
+            job_title=job.title,
+            assessment_name=assessment.name,
+            duration_minutes=assessment.duration_minutes,
+            assessment_id=assessment.id,
+            application_id=app.id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+    return {"sent": True, "message": "Assessment link emailed to candidate"}
+
+
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)
 async def update_application_status(
     application_id: str,
@@ -344,8 +390,26 @@ async def update_application_status(
 
     if old_status != body.status:
         try:
-            from app.core.email import notify_candidate_status_change
-            notify_candidate_status_change(user.email, job.title, body.status)
+            from app.core.email import notify_candidate_status_change, notify_candidate_assessment
+            if body.status == "assessment":
+                assessment_result = await db.execute(
+                    select(Assessment).where(Assessment.job_id == job.id)
+                )
+                assessment = assessment_result.scalar_one_or_none()
+                if assessment:
+                    notify_candidate_assessment(
+                        candidate_email=user.email,
+                        candidate_name=_full_name(user),
+                        job_title=job.title,
+                        assessment_name=assessment.name,
+                        duration_minutes=assessment.duration_minutes,
+                        assessment_id=assessment.id,
+                        application_id=app.id,
+                    )
+                else:
+                    notify_candidate_status_change(user.email, job.title, body.status)
+            else:
+                notify_candidate_status_change(user.email, job.title, body.status)
         except Exception:
             pass
 

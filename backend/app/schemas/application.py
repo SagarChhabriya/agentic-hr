@@ -58,6 +58,7 @@ class ApplicationDetailResponse(ApplicationResponse):
     """Application with candidate profile for recruiter detail view."""
     candidate_profile: Optional[CandidateProfileForRecruiter] = None
     custom_question_labels: Optional[dict] = None  # question_id -> question text for display
+    job_has_assessment: Optional[bool] = None  # True when job has an assessment attached
 
 
 class CandidateApplicationResponse(BaseModel):

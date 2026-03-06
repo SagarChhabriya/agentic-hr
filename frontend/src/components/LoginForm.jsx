@@ -33,7 +33,7 @@ export default function LoginForm() {
           routing="path"
           path="/login"
           signUpUrl="/register"
-          afterSignInUrl="/dashboard"
+          afterSignInUrl={location.state?.from || "/dashboard"}
         />
       </div>
     </div>

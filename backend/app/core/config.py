@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # Email (Resend)
     resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")
     email_from: str = Field("noreply@hire-base.vercel.app", validation_alias="EMAIL_FROM")
+    frontend_url: str = Field(
+        "https://hire-base.vercel.app",
+        validation_alias="FRONTEND_URL",
+    )
 
     # AI / LLM (Groq)
     groq_api_key: str = Field("", validation_alias="GROQ_API_KEY")

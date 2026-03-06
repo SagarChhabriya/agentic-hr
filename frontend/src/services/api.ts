@@ -83,6 +83,8 @@ export const applicationsApi = {
   get: (id: string) => apiClient.get(`/applications/${id}`).then((r) => r.data),
   getAssessmentResult: (applicationId: string) =>
     apiClient.get(`/applications/${applicationId}/assessment-result`).then((r) => r.data),
+  resendAssessment: (id: string) =>
+    apiClient.post(`/applications/${id}/resend-assessment`).then((r) => r.data),
   apply: (body: { job_id: string; cover_letter?: string; custom_answers?: Record<string, string> }) =>
     apiClient.post('/applications', body).then((r) => r.data),
   mine: () => apiClient.get('/applications/mine').then((r) => r.data),
