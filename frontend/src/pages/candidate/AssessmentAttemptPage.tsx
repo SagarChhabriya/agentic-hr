@@ -4,8 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { assessmentsApi } from '../../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-
 export default function AssessmentAttemptPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const [searchParams] = useSearchParams();
@@ -21,27 +19,13 @@ export default function AssessmentAttemptPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['assessment-for-attempt', assessmentId, applicationId],
     queryFn: () =>
-      fetch(
-        `${API_URL}/assessments/${assessmentId}/for-attempt?application_id=${applicationId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${await (window as any).__clerk_session?.getToken?.() || localStorage.getItem('accessToken')}`,
-          },
-        }
-      ).then((r) => {
-        if (!r.ok) throw new Error('Failed to load assessment');
-        return r.json();
-      }),
+      assessmentsApi.getForAttempt(assessmentId!, applicationId!),
     enabled: !!assessmentId && !!applicationId,
   });
 
   const submitMutation = useMutation({
     mutationFn: (body: { application_id: string; assessment_id: string; answers: { question_id: string; selected_index: number }[] }) =>
-      fetch(`${API_URL}/assessments/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        body: JSON.stringify(body),
-      }).then((r) => r.json()),
+      assessmentsApi.submitAttempt(body),
     onSuccess: () => {
       setSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ['applications', 'mine'] });
