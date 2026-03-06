@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     # AI / LLM (Groq)
     groq_api_key: str = Field("", validation_alias="GROQ_API_KEY")
 
+    # LiveKit (AI video interviews)
+    livekit_url: str = Field("", validation_alias="LIVEKIT_URL")
+    livekit_api_key: str = Field("", validation_alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str = Field("", validation_alias="LIVEKIT_API_SECRET")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

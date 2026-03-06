@@ -39,3 +39,4 @@ class Application(Base):
 
     job = relationship("Job", back_populates="applications")
     user = relationship("User", back_populates="applications")
+    interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")

@@ -1,23 +1,88 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
-    <footer className="mt-8 border-t border-gray-200 dark:border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm">
-        <p className="mb-2 sm:mb-0 opacity-70">
-          © {new Date().getFullYear()} Agentic HR Automation. All rights reserved.
-        </p>
-        <div className="flex items-center space-x-4">
-          <a href="#about" className="hover:underline">
-            About
-          </a>
-          <a href="#privacy" className="hover:underline">
-            Privacy
-          </a>
-          <a href="#terms" className="hover:underline">
-            Terms
-          </a>
+    <footer className="mt-auto border-t border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
+          {/* Brand */}
+          <div className="sm:col-span-2 lg:col-span-1">
+            <Link to="/" className="flex items-center text-xl font-extrabold tracking-tight mb-4">
+              <span className="rounded bg-blue-600 text-white px-2 py-0.5 mr-2 text-sm">HR</span>
+              <span>Agentic</span>
+            </Link>
+            <p className="text-sm opacity-75 max-w-xs">
+              Modern HR automation for job posting, AI assessments, and LiveKit interviews.
+            </p>
+          </div>
+
+          {/* Product */}
+          <div>
+            <h4 className="font-semibold mb-4">Product</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <a href="#features" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Features
+                </a>
+              </li>
+              <li>
+                <a href="#pricing" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Pricing
+                </a>
+              </li>
+              <li>
+                <a href="#contact" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Contact
+                </a>
+              </li>
+              <li>
+                <Link to="/jobs" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Browse Jobs
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4 className="font-semibold mb-4">Company</h4>
+            <ul className="space-y-3 text-sm">
+              <li>
+                <a href="#about" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  About
+                </a>
+              </li>
+              <li>
+                <a href="#privacy" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Privacy
+                </a>
+              </li>
+              <li>
+                <a href="#terms" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Terms
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <p className="opacity-70">
+            © {new Date().getFullYear()} Agentic HR Automation. All rights reserved.
+          </p>
+          <div className="flex items-center gap-6">
+            <a href="#about" className="opacity-75 hover:opacity-100 transition-opacity">
+              About
+            </a>
+            <a href="#privacy" className="opacity-75 hover:opacity-100 transition-opacity">
+              Privacy
+            </a>
+            <a href="#terms" className="opacity-75 hover:opacity-100 transition-opacity">
+              Terms
+            </a>
+          </div>
         </div>
       </div>
     </footer>
   );
 }
-

@@ -14,6 +14,7 @@ from app.api.assessments import router as assessments_router
 from app.api.profile import router as profile_router
 from app.api.ai import router as ai_router
 from app.api.dashboard import router as dashboard_router
+from app.api.interviews import router as interviews_router
 from app.api.webhooks.clerk import router as clerk_webhook_router
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("Startup migrations failed — app may not work correctly: %s", e)
         raise
+
+    # Warn if email is not configured (assessment/status emails will be skipped)
+    s = get_settings()
+    if not s.resend_api_key:
+        logger.warning(
+            "RESEND_API_KEY not set — all emails (assessment links, status updates, etc.) will be skipped. "
+            "Add RESEND_API_KEY to .env to enable email. See env.example."
+        )
+
     yield
     await engine.dispose()
 
@@ -73,6 +83,7 @@ app.include_router(assessments_router, prefix=f"/{settings.api_prefix}")
 app.include_router(profile_router, prefix=f"/{settings.api_prefix}")
 app.include_router(ai_router, prefix=f"/{settings.api_prefix}")
 app.include_router(dashboard_router, prefix=f"/{settings.api_prefix}")
+app.include_router(interviews_router, prefix=f"/{settings.api_prefix}")
 
 # Webhook routes (no API prefix needed)
 app.include_router(clerk_webhook_router)
@@ -81,6 +92,18 @@ app.include_router(clerk_webhook_router)
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "agentic-hr-backend"}
+
+
+@app.get("/health/email")
+def health_email():
+    """Check if email (Resend) is configured. Does not expose secrets."""
+    s = get_settings()
+    configured = bool(s.resend_api_key)
+    return {
+        "status": "ok" if configured else "not_configured",
+        "email_configured": configured,
+        "message": "Emails will be sent" if configured else "RESEND_API_KEY not set — emails skipped",
+    }
 
 
 @app.get("/health/db")
