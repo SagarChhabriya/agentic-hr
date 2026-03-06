@@ -200,7 +200,7 @@ export default function CreateJobPage() {
       }
       sessionStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY + '_questions');
-      navigate('/recruiter/jobs');
+      navigate('/recruiter/jobs', { state: { showPublishReminder: true } });
     } catch (err) {
       console.error(err);
       setIsSubmitting(false);

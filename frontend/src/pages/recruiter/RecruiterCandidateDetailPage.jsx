@@ -1,7 +1,83 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
-import { applicationsApi } from '../../services/api';
+import { applicationsApi, interviewsApi } from '../../services/api';
+
+const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://hire-base.vercel.app';
+
+function ScheduleInterviewSection({ applicationId, isDark }) {
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [scheduleDateTime, setScheduleDateTime] = useState('');
+  const { data: interviewsData } = useQuery({
+    queryKey: ['interviews', applicationId],
+    queryFn: () => interviewsApi.listByApplication(applicationId),
+    enabled: !!applicationId,
+  });
+  const scheduleMutation = useMutation({
+    mutationFn: (body) => interviewsApi.schedule(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interviews', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setShowModal(false);
+      setScheduleDateTime('');
+    },
+  });
+  const handleSchedule = () => {
+    if (!scheduleDateTime) return;
+    scheduleMutation.mutate({
+      application_id: applicationId,
+      scheduled_at: new Date(scheduleDateTime).toISOString(),
+      duration_minutes: 30,
+    });
+  };
+  const interviews = interviewsData?.interviews || [];
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setShowModal(true)}
+        className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white"
+      >
+        Schedule AI Interview
+      </button>
+      {interviews.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm font-medium">Scheduled interviews:</p>
+          {interviews.map((i) => (
+            <div key={i.id} className={`p-3 rounded border ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+              <p className="text-sm">{new Date(i.scheduled_at).toLocaleString()} · {i.duration_minutes} min · {i.status}</p>
+              <p className="text-xs mt-1 opacity-75">
+                Candidate link: {FRONTEND_URL}/interview/room/{i.id}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {showModal && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowModal(false)} />
+          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-lg w-full max-w-md ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+            <h3 className="font-semibold mb-4">Schedule AI Interview</h3>
+            <input
+              type="datetime-local"
+              value={scheduleDateTime}
+              onChange={(e) => setScheduleDateTime(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+              className={`w-full px-3 py-2 rounded border mb-4 ${isDark ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-300'}`}
+            />
+            <div className="flex gap-2">
+              <button onClick={handleSchedule} disabled={scheduleMutation.isPending || !scheduleDateTime}
+                className="px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50">Schedule</button>
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded border">Cancel</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function RecruiterCandidateDetailPage() {
   const { id } = useParams();
@@ -21,12 +97,41 @@ export default function RecruiterCandidateDetailPage() {
   });
 
   const queryClient = useQueryClient();
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDateTime, setScheduleDateTime] = useState('');
+
+  const { data: interviewsData } = useQuery({
+    queryKey: ['interviews', id],
+    queryFn: () => interviewsApi.listByApplication(id),
+    enabled: !!id,
+  });
+
   const resendMutation = useMutation({
     mutationFn: () => applicationsApi.resendAssessment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['application', id] });
     },
   });
+
+  const scheduleMutation = useMutation({
+    mutationFn: (body) => interviewsApi.schedule(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interviews', id] });
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      setShowScheduleModal(false);
+      setScheduleDateTime('');
+    },
+  });
+
+  const handleSchedule = () => {
+    if (!scheduleDateTime) return;
+    const dt = new Date(scheduleDateTime);
+    scheduleMutation.mutate({
+      application_id: id,
+      scheduled_at: dt.toISOString(),
+      duration_minutes: 30,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -300,6 +405,15 @@ export default function RecruiterCandidateDetailPage() {
           )}
         </div>
       )}
+
+      {/* AI Interviews */}
+      <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+        <h2 className="text-xl font-semibold mb-4">AI Interviews</h2>
+        <p className="text-sm opacity-75 mb-4">
+          Schedule an AI-powered video interview. The candidate will join via LiveKit; an LLM agent conducts the interview based on the job description.
+        </p>
+        <ScheduleInterviewSection applicationId={id} isDark={isDark} />
+      </div>
     </div>
   );
 }

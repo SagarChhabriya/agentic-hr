@@ -1,4 +1,4 @@
-import { useState, useCallback, KeyboardEvent } from 'react';
+import { useState, useCallback, useEffect, KeyboardEvent } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -69,11 +69,17 @@ export default function CandidateProfilePage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', user?.id],
     queryFn: profileApi.get,
+    enabled: !!user?.id,
   });
 
   const [form, setForm] = useState<ProfileData | null>(null);
+
+  // Reset form when user changes (e.g. after sign-out/sign-in) so we don't show previous user's data
+  useEffect(() => {
+    setForm(null);
+  }, [user?.id]);
 
   const initForm = useCallback(
     (p: ProfileData) => {
@@ -157,7 +163,7 @@ export default function CandidateProfilePage() {
   const updateMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => profileApi.update(body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
       setToast('Profile saved successfully!');
       setTimeout(() => {
         navigate('/candidate/dashboard');
@@ -168,7 +174,7 @@ export default function CandidateProfilePage() {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => profileApi.uploadResume(file),
     onSuccess: (data: ProfileData) => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
       initForm(data);
       setToast('Resume uploaded and profile auto-filled!');
       setTimeout(() => setToast(null), 3000);
@@ -177,7 +183,7 @@ export default function CandidateProfilePage() {
 
   const deleteResumeMutation = useMutation({
     mutationFn: () => profileApi.deleteResume(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile', user?.id] }),
   });
 
   const handleSave = () => {

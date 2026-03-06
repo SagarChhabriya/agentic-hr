@@ -92,6 +92,16 @@ export const applicationsApi = {
     apiClient.patch(`/applications/${id}/status`, { status }).then((r) => r.data),
 };
 
+export const interviewsApi = {
+  schedule: (body: { application_id: string; scheduled_at: string; duration_minutes?: number }) =>
+    apiClient.post('/interviews', body).then((r) => r.data),
+  getToken: (interviewId: string) =>
+    apiClient.post(`/interviews/${interviewId}/token`).then((r) => r.data),
+  listByApplication: (applicationId: string) =>
+    apiClient.get(`/interviews/by-application/${applicationId}`).then((r) => r.data),
+  mine: () => apiClient.get('/interviews/mine').then((r) => r.data),
+};
+
 export const profileApi = {
   get: () => apiClient.get('/profile').then((r) => r.data),
   update: (body: Record<string, unknown>) => apiClient.put('/profile', body).then((r) => r.data),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi } from '../../services/api';
@@ -46,7 +46,7 @@ function ShareMenu({ job, isDark }) {
               }}
               className={`flex items-center gap-2 px-4 py-2 text-sm w-full hover:bg-blue-50 dark:hover:bg-slate-700 ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>
               <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-              LinkedIn (copies details)
+              LinkedIn
             </button>
             <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(jobUrl)}&text=${text}`} target="_blank" rel="noopener noreferrer"
               className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-slate-700 ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>
@@ -77,8 +77,11 @@ function ShareMenu({ job, isDark }) {
 
 export default function JobsPage() {
   const { theme } = useTheme();
+  const location = useLocation();
   const isDark = theme === 'dark';
   const [filter, setFilter] = useState('all');
+  const [dismissPublishReminder, setDismissPublishReminder] = useState(false);
+  const showPublishReminder = location.state?.showPublishReminder && !dismissPublishReminder;
   const { data: jobs = [], isLoading, error } = useQuery({
     queryKey: ['jobs', filter],
     queryFn: () => jobsApi.list(filter),
@@ -111,6 +114,25 @@ export default function JobsPage() {
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+      {showPublishReminder && (
+        <div className={`mb-6 rounded-lg border p-4 flex items-center justify-between ${
+          isDark ? 'border-amber-600/50 bg-amber-900/20' : 'border-amber-400 bg-amber-50'
+        }`}>
+          <p className="text-amber-800 dark:text-amber-200 font-medium">
+            Job created successfully. Remember to publish it when you&apos;re ready so candidates can apply.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDismissPublishReminder(true)}
+            className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 p-1"
+            aria-label="Dismiss"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

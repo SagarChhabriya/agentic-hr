@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { jobsApi, applicationsApi, profileApi } from '../../services/api';
 import axios from 'axios';
@@ -88,6 +89,7 @@ function CustomQuestionInput({
 }
 
 export default function ApplyJobPage() {
+  const { user } = useUser();
   const params = useParams<{ job_id?: string; id?: string }>();
   const job_id = params.job_id ?? params.id;
   const navigate = useNavigate();
@@ -106,8 +108,9 @@ export default function ApplyJobPage() {
   });
 
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ['profile', user?.id],
     queryFn: profileApi.get,
+    enabled: !!user?.id,
   });
 
   const hasProfile = profile && (profile.phone || profile.bio || (profile.skills && profile.skills.length > 0));

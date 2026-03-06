@@ -28,6 +28,7 @@ import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
 import MyApplicationsPage from './pages/candidate/MyApplicationsPage';
 import AssessmentAttemptPage from './pages/candidate/AssessmentAttemptPage';
+import InterviewRoomPage from './pages/candidate/InterviewRoomPage';
 
 function App() {
   return (
@@ -155,6 +156,15 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
                 <AssessmentAttemptPage />
+              </RoleProtectedRoute>
+            }
+          />
+          {/* AI Interview room - candidate joins LiveKit */}
+          <Route
+            path="interview/room/:interviewId"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <InterviewRoomPage />
               </RoleProtectedRoute>
             }
           />
