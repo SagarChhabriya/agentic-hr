@@ -13,6 +13,28 @@ class ApplicationStatusUpdate(BaseModel):
     status: str
 
 
+class CandidateProfileForRecruiter(BaseModel):
+    """Candidate profile fields visible to recruiters when viewing an application."""
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    bio: Optional[str] = None
+    skills: list = Field(default_factory=list)
+    experience_years: Optional[int] = None
+    education: list = Field(default_factory=list)
+    work_experience: list = Field(default_factory=list)
+    linkedin_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    github_url: Optional[str] = None
+    resume_url: Optional[str] = None
+    resume_filename: Optional[str] = None
+    resume_score: Optional[float] = None
+    resume_score_justification: Optional[str] = None
+    expected_salary_min: Optional[int] = None
+    expected_salary_max: Optional[int] = None
+
+
 class ApplicationResponse(BaseModel):
     id: str
     job_id: str
@@ -30,6 +52,11 @@ class ApplicationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ApplicationDetailResponse(ApplicationResponse):
+    """Application with candidate profile for recruiter detail view."""
+    candidate_profile: Optional[CandidateProfileForRecruiter] = None
 
 
 class CandidateApplicationResponse(BaseModel):

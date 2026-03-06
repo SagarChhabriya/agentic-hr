@@ -26,6 +26,15 @@ class GenerateQuestionsRequest(BaseModel):
     count: int = Field(10, ge=1, le=10)
 
 
+class GenerateFromPromptRequest(BaseModel):
+    prompt: str = Field(..., min_length=10)
+    job_title: str = ""
+    job_description: str = ""
+    skills: list[str] = Field(default_factory=list)
+    count: int = Field(10, ge=1, le=15)
+    question_type: str = "mcq"  # mcq or mixed
+
+
 class RankResumeRequest(BaseModel):
     resume_text: str = Field(..., min_length=10)
 
@@ -73,6 +82,28 @@ async def generate_questions(
             job_description=body.job_description,
             skills=body.skills,
             count=body.count,
+        )
+        return {"questions": questions}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.post("/generate-questions-from-prompt")
+async def generate_questions_from_prompt(
+    body: GenerateFromPromptRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    try:
+        from app.core.ai import generate_assessment_questions_from_prompt
+        questions = generate_assessment_questions_from_prompt(
+            prompt=body.prompt,
+            job_title=body.job_title,
+            job_description=body.job_description,
+            skills=body.skills,
+            count=body.count,
+            question_type=body.question_type,
         )
         return {"questions": questions}
     except RuntimeError as e:

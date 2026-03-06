@@ -80,6 +80,9 @@ export const jobsApi = {
 export const applicationsApi = {
   list: (status?: string) =>
     apiClient.get('/applications', { params: status && status !== 'all' ? { status } : {} }).then((r) => r.data),
+  get: (id: string) => apiClient.get(`/applications/${id}`).then((r) => r.data),
+  getAssessmentResult: (applicationId: string) =>
+    apiClient.get(`/applications/${applicationId}/assessment-result`).then((r) => r.data),
   apply: (body: { job_id: string; cover_letter?: string; custom_answers?: Record<string, string> }) =>
     apiClient.post('/applications', body).then((r) => r.data),
   mine: () => apiClient.get('/applications/mine').then((r) => r.data),
@@ -104,6 +107,12 @@ export const assessmentsApi = {
   list: () => apiClient.get('/assessments').then((r) => r.data),
   create: (body: { name: string; duration_minutes: number; job_id?: string }) =>
     apiClient.post('/assessments', body).then((r) => r.data),
+  getForAttempt: (assessmentId: string, applicationId: string) =>
+    apiClient.get(`/assessments/${assessmentId}/for-attempt`, { params: { application_id: applicationId } }).then((r) => r.data),
+  addQuestions: (assessmentId: string, questions: Array<{ question_text: string; options: string[]; correct_index: number }>) =>
+    apiClient.put(`/assessments/${assessmentId}/questions`, { questions }).then((r) => r.data),
+  submitAttempt: (body: { application_id: string; assessment_id: string; answers: Array<{ question_id: string; selected_index: number }> }) =>
+    apiClient.post('/assessments/submit', body).then((r) => r.data),
 };
 
 export const customQuestionsApi = {
@@ -134,6 +143,14 @@ export const aiApi = {
     skills?: string[];
     count?: number;
   }) => apiClient.post('/ai/generate-questions', body).then((r) => r.data),
+  generateQuestionsFromPrompt: (body: {
+    prompt: string;
+    job_title?: string;
+    job_description?: string;
+    skills?: string[];
+    count?: number;
+    question_type?: string;
+  }) => apiClient.post('/ai/generate-questions-from-prompt', body).then((r) => r.data),
   rankResume: (body: { resume_text: string }) =>
     apiClient.post('/ai/rank-resume', body).then((r) => r.data),
   rankResumeForJob: (body: {

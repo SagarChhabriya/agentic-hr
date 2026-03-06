@@ -33,6 +33,8 @@ class CandidateProfileUpdate(BaseModel):
     linkedin_url: Optional[str] = None
     portfolio_url: Optional[str] = None
     github_url: Optional[str] = None
+    expected_salary_min: Optional[int] = None
+    expected_salary_max: Optional[int] = None
 
 
 class CandidateProfileResponse(BaseModel):
@@ -57,6 +59,8 @@ class CandidateProfileResponse(BaseModel):
     resume_filename: Optional[str] = None
     resume_score: Optional[float] = None
     resume_score_justification: Optional[str] = None
+    expected_salary_min: Optional[int] = None
+    expected_salary_max: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

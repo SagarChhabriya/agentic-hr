@@ -36,6 +36,8 @@ def _to_response(profile: CandidateProfile, user: User) -> CandidateProfileRespo
         resume_filename=profile.resume_filename,
         resume_score=profile.resume_score,
         resume_score_justification=profile.resume_score_justification,
+        expected_salary_min=profile.expected_salary_min,
+        expected_salary_max=profile.expected_salary_max,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
     )
@@ -74,6 +76,12 @@ async def update_profile(
         await db.flush()
 
     data = body.model_dump(exclude_unset=True)
+    for k in ("expected_salary_min", "expected_salary_max"):
+        if k in data and data[k] is not None:
+            try:
+                data[k] = int(data[k])
+            except (ValueError, TypeError):
+                data[k] = None
     # Serialize pydantic sub-models to dicts for JSON columns
     if "education" in data and data["education"] is not None:
         data["education"] = [e.model_dump() if hasattr(e, "model_dump") else e for e in data["education"]]
@@ -129,16 +137,17 @@ async def upload_resume(
             profile.resume_score = ranking.get("score")
             profile.resume_score_justification = ranking.get("justification", "")
 
-            # Auto-fill profile fields from resume
+            # Auto-fill profile fields from resume (always add ALL work experiences from resume)
             try:
                 extract_prompt = (
-                    "Extract structured data from this resume. Return valid JSON with keys: "
+                    "Extract ALL structured data from this resume. Return valid JSON with keys: "
                     "phone (str or null), city (str or null), country (str or null), "
                     "bio (str — a 2-3 sentence professional summary), "
                     "skills (array of skill strings), experience_years (int or null), "
                     "education (array of {institution, degree, field_of_study, start_year, end_year}), "
-                    "work_experience (array of {company, title, description, start_date, end_date, current}), "
-                    "linkedin_url (str or null), github_url (str or null), portfolio_url (str or null)."
+                    "work_experience (array of ALL jobs/positions — each: {company, title, description, start_date, end_date, current}), "
+                    "linkedin_url (str or null), github_url (str or null), portfolio_url (str or null). "
+                    "IMPORTANT: Extract EVERY work experience entry from the resume into work_experience array."
                 )
                 raw = _chat(extract_prompt, f"Resume:\n{text[:4000]}", temperature=0.2, max_tokens=3000)
                 start = raw.find("{")
@@ -158,7 +167,8 @@ async def upload_resume(
                     profile.experience_years = parsed["experience_years"]
                 if parsed.get("education") and not profile.education:
                     profile.education = parsed["education"]
-                if parsed.get("work_experience") and not profile.work_experience:
+                # Always add ALL work experiences from resume to profile
+                if parsed.get("work_experience") and isinstance(parsed["work_experience"], list):
                     profile.work_experience = parsed["work_experience"]
                 if parsed.get("linkedin_url") and not profile.linkedin_url:
                     profile.linkedin_url = parsed["linkedin_url"]

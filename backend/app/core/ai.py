@@ -78,6 +78,37 @@ def generate_job_description(
         return {"description": raw, "requirements": "", "salary_suggestion": ""}
 
 
+def generate_assessment_questions_from_prompt(
+    prompt: str,
+    job_title: str = "",
+    job_description: str = "",
+    skills: Optional[list[str]] = None,
+    count: int = 10,
+    question_type: str = "mcq",
+) -> list[dict]:
+    """Generate assessment questions from a custom prompt. question_type: mcq, mixed, or custom."""
+    system = (
+        "You are an expert technical recruiter. The user will provide instructions or a draft for assessment questions. "
+        "Generate questions that align with the job description and requirements. "
+        "Return valid JSON: an array of objects with keys: question (str), options (array of 4 strings), "
+        "correct_index (int 0-3), difficulty (str: easy/medium/hard)."
+    )
+    ctx = f"Job: {job_title}\n" if job_title else ""
+    if job_description:
+        ctx += f"Description: {job_description[:600]}\n"
+    if skills:
+        ctx += f"Skills: {', '.join(skills)}\n"
+    ctx += f"\nUser instructions/prompt:\n{prompt}\n\nGenerate exactly {min(count, 15)} multiple-choice questions."
+    raw = _chat(system, ctx, temperature=0.6, max_tokens=4096)
+    try:
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        questions = json.loads(raw[start:end])
+        return questions[:count]
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+
 def generate_assessment_questions(
     job_title: str,
     job_description: str = "",

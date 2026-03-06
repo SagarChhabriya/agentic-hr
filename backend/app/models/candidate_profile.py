@@ -30,6 +30,8 @@ class CandidateProfile(Base):
     resume_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resume_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     resume_score_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expected_salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

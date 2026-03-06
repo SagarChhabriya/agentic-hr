@@ -10,9 +10,11 @@ from app.models.job import Job
 from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.assessment import Assessment
+from app.models.assessment_attempt import AssessmentAttempt
 from app.schemas.application import (
     ApplicationCreate, ApplicationStatusUpdate,
-    ApplicationResponse, CandidateApplicationResponse,
+    ApplicationResponse, ApplicationDetailResponse,
+    CandidateProfileForRecruiter, CandidateApplicationResponse,
 )
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -91,6 +93,8 @@ async def apply_to_job(
                 job_title=job.title,
                 assessment_name=assessment.name,
                 duration_minutes=assessment.duration_minutes,
+                assessment_id=assessment.id,
+                application_id=application.id,
             )
     except Exception:
         pass
@@ -173,6 +177,131 @@ async def list_applications(
         )
         for app, job, user in rows
     ]
+
+
+@router.get("/{application_id}", response_model=ApplicationDetailResponse)
+async def get_application(
+    application_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter gets a single application (candidate) detail with candidate profile."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+
+    # Fetch candidate profile for recruiter view
+    profile_result = await db.execute(
+        select(CandidateProfile).where(CandidateProfile.user_id == app.user_id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    candidate_profile = None
+    if profile:
+        candidate_profile = CandidateProfileForRecruiter(
+            phone=profile.phone,
+            address=profile.address,
+            city=profile.city,
+            country=profile.country,
+            bio=profile.bio,
+            skills=profile.skills or [],
+            experience_years=profile.experience_years,
+            education=profile.education or [],
+            work_experience=profile.work_experience or [],
+            linkedin_url=profile.linkedin_url,
+            portfolio_url=profile.portfolio_url,
+            github_url=profile.github_url,
+            resume_url=profile.resume_url,
+            resume_filename=profile.resume_filename,
+            resume_score=profile.resume_score,
+            resume_score_justification=profile.resume_score_justification,
+            expected_salary_min=profile.expected_salary_min,
+            expected_salary_max=profile.expected_salary_max,
+        )
+
+    return ApplicationDetailResponse(
+        id=app.id,
+        job_id=app.job_id,
+        job_title=job.title,
+        user_id=app.user_id,
+        name=_full_name(user),
+        email=user.email,
+        status=app.status,
+        cover_letter=app.cover_letter,
+        resume_url=app.resume_url,
+        custom_answers=app.custom_answers,
+        assessment_score=app.assessment_score,
+        interview_score=app.interview_score,
+        applied_at=app.applied_at,
+        candidate_profile=candidate_profile,
+    )
+
+
+@router.get("/{application_id}/assessment-result")
+async def get_application_assessment_result(
+    application_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter gets assessment attempt result for an application."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+    attempt_result = await db.execute(
+        select(AssessmentAttempt)
+        .where(AssessmentAttempt.application_id == application_id)
+        .order_by(AssessmentAttempt.completed_at.desc())
+        .limit(1)
+    )
+    attempt = attempt_result.scalar_one_or_none()
+    if not attempt:
+        return {
+            "application_id": application_id,
+            "candidate_name": _full_name(user),
+            "job_title": job.title,
+            "assessment_score": app.assessment_score,
+            "has_attempt": False,
+            "attempt": None,
+            "message": "No assessment attempt recorded yet",
+        }
+    return {
+        "application_id": application_id,
+        "candidate_name": _full_name(user),
+        "job_title": job.title,
+        "assessment_score": app.assessment_score,
+        "has_attempt": True,
+        "correct_count": attempt.correct_count,
+        "wrong_count": attempt.wrong_count,
+        "total_questions": attempt.total_questions,
+        "score_percent": attempt.score_percent,
+        "answers": attempt.answers,
+        "attempt": {
+            "id": attempt.id,
+            "correct_count": attempt.correct_count,
+            "wrong_count": attempt.wrong_count,
+            "total_questions": attempt.total_questions,
+            "score_percent": attempt.score_percent,
+            "completed_at": attempt.completed_at,
+            "answers": attempt.answers,
+        },
+    }
 
 
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)

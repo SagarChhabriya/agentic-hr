@@ -1,5 +1,6 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -8,10 +9,22 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.job import Job
+from app.models.application import Application
 from app.models.assessment import Assessment, AssessmentQuestion
+from app.models.assessment_attempt import AssessmentAttempt
 from app.schemas.assessment import AssessmentCreate, AssessmentResponse
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
+
+
+class AddQuestionsBody(BaseModel):
+    questions: list[dict] = Field(...)  # [{question_text, options, correct_index}]
+
+
+class SubmitAttemptBody(BaseModel):
+    application_id: str = Field(...)
+    assessment_id: str = Field(...)
+    answers: list[dict] = Field(...)  # [{question_id, selected_index}]
 
 
 @router.get("", response_model=list[AssessmentResponse])
@@ -76,3 +89,153 @@ async def create_assessment(
         questions_count=0,
         created_at=a.created_at,
     )
+
+
+@router.get("/{assessment_id}/for-attempt")
+async def get_assessment_for_attempt(
+    assessment_id: str,
+    application_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Candidate gets assessment questions. Validates application belongs to them and job has this assessment."""
+    if current_user.role != "CANDIDATE":
+        raise HTTPException(status_code=403, detail="Candidates only")
+    app_result = await db.execute(
+        select(Application).where(
+            Application.id == application_id,
+            Application.user_id == current_user.id,
+        )
+    )
+    app = app_result.scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    a_result = await db.execute(
+        select(Assessment)
+        .options(selectinload(Assessment.questions))
+        .where(Assessment.id == assessment_id, Assessment.job_id == app.job_id)
+    )
+    a = a_result.scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found for this application")
+    questions = sorted(a.questions, key=lambda q: q.order_index)
+    return {
+        "id": a.id,
+        "name": a.name,
+        "duration_minutes": a.duration_minutes,
+        "application_id": application_id,
+        "questions": [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "options": q.options,
+                "order_index": q.order_index,
+            }
+            for q in questions
+        ],
+    }
+
+
+@router.put("/{assessment_id}/questions")
+async def add_assessment_questions(
+    assessment_id: str,
+    body: AddQuestionsBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter adds questions to an assessment."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    a_result = await db.execute(
+        select(Assessment).where(
+            Assessment.id == assessment_id,
+            Assessment.created_by_id == current_user.id,
+        )
+    )
+    a = a_result.scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    for i, q in enumerate(body.questions):
+        aq = AssessmentQuestion(
+            assessment_id=a.id,
+            question_text=q.get("question", q.get("question_text", "")),
+            options=q.get("options", []),
+            correct_index=int(q.get("correct_index", 0)),
+            order_index=i,
+        )
+        db.add(aq)
+    await db.flush()
+    return {"ok": True, "added": len(body.questions)}
+
+
+@router.post("/submit")
+async def submit_assessment_attempt(
+    body: SubmitAttemptBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Candidate submits assessment answers. Scores and stores the attempt with full answer details."""
+    if current_user.role != "CANDIDATE":
+        raise HTTPException(status_code=403, detail="Candidates only")
+    app_result = await db.execute(
+        select(Application).where(
+            Application.id == body.application_id,
+            Application.user_id == current_user.id,
+        )
+    )
+    app = app_result.scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    a_result = await db.execute(
+        select(Assessment)
+        .options(selectinload(Assessment.questions))
+        .where(Assessment.id == body.assessment_id, Assessment.job_id == app.job_id)
+    )
+    a = a_result.scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    q_map = {str(q.id): q for q in a.questions}
+    correct = 0
+    wrong = 0
+    answers_with_result = []
+    for ans in body.answers:
+        qid = ans.get("question_id") or ans.get("questionId")
+        sel = int(ans.get("selected_index", ans.get("selectedIndex", -1)))
+        q = q_map.get(str(qid)) if qid else None
+        is_correct = q and sel == q.correct_index if q else False
+        if is_correct:
+            correct += 1
+        elif q and sel >= 0:
+            wrong += 1
+        answers_with_result.append({
+            "question_id": qid,
+            "question_text": q.question_text if q else None,
+            "options": q.options if q else [],
+            "correct_index": q.correct_index if q else None,
+            "selected_index": sel,
+            "is_correct": is_correct,
+        })
+    total = len(a.questions)
+    score_pct = (correct / total * 100) if total else 0
+    attempt = AssessmentAttempt(
+        application_id=app.id,
+        assessment_id=a.id,
+        user_id=current_user.id,
+        answers=answers_with_result,
+        correct_count=correct,
+        wrong_count=wrong,
+        total_questions=total,
+        score_percent=score_pct,
+    )
+    db.add(attempt)
+    app.assessment_score = int(round(score_pct))
+    await db.flush()
+    await db.refresh(attempt)
+    return {
+        "id": attempt.id,
+        "correct_count": correct,
+        "wrong_count": wrong,
+        "total_questions": total,
+        "score_percent": score_pct,
+        "answers": answers_with_result,
+    }

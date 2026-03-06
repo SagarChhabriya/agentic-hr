@@ -80,7 +80,10 @@ def notify_candidate_assessment(
     job_title: str,
     assessment_name: str,
     duration_minutes: int,
+    assessment_id: str,
+    application_id: str,
 ):
+    assessment_link = f"https://hire-base.vercel.app/assessment/attempt/{assessment_id}?application_id={application_id}"
     _send(
         to=candidate_email,
         subject=f"Assessment for {job_title}: {assessment_name}",
@@ -93,8 +96,8 @@ def notify_candidate_assessment(
           <p style="margin:0;font-weight:bold;">{assessment_name}</p>
           <p style="margin:4px 0 0;color:#6b7280;">Duration: {duration_minutes} minutes</p>
         </div>
-        <p>Please log in to <a href="https://hire-base.vercel.app/candidate/dashboard">Agentic HR</a>
-        to begin your assessment.</p>
-        <p>Good luck!</p>
+        <p><a href="{assessment_link}" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Attempt Assessment</a></p>
+        <p>Or copy this link: <a href="{assessment_link}">{assessment_link}</a></p>
+        <p>You must be logged in to attempt. Good luck!</p>
         """,
     )

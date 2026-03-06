@@ -37,6 +37,8 @@ type ProfileData = {
   portfolio_url?: string | null;
   github_url?: string | null;
   resume_filename?: string | null;
+  expected_salary_min?: number | null;
+  expected_salary_max?: number | null;
 };
 
 const emptyEducation: EducationEntry = {
@@ -193,6 +195,8 @@ export default function CandidateProfilePage() {
       linkedin_url: form.linkedin_url || null,
       portfolio_url: form.portfolio_url || null,
       github_url: form.github_url || null,
+      expected_salary_min: form.expected_salary_min ?? null,
+      expected_salary_max: form.expected_salary_max ?? null,
     });
   };
 
@@ -357,6 +361,43 @@ export default function CandidateProfilePage() {
               className={inputCls}
               placeholder="Pakistan"
             />
+          </div>
+        </section>
+
+        {/* Expected Salary (PKR/month) */}
+        <section className={`rounded-lg border p-6 ${cardCls}`}>
+          <h2 className="text-lg font-semibold mb-4">Expected Salary (PKR/month)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Minimum (PKR)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.expected_salary_min ?? ''}
+                onChange={(e) =>
+                  updateForm({
+                    expected_salary_min: e.target.value ? parseInt(e.target.value, 10) : null,
+                  })
+                }
+                className={inputCls}
+                placeholder="e.g. 50000"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Maximum (PKR)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.expected_salary_max ?? ''}
+                onChange={(e) =>
+                  updateForm({
+                    expected_salary_max: e.target.value ? parseInt(e.target.value, 10) : null,
+                  })
+                }
+                className={inputCls}
+                placeholder="e.g. 150000"
+              />
+            </div>
           </div>
         </section>
 

@@ -22,6 +22,7 @@ import AssessmentsPage from './pages/recruiter/AssessmentsPage';
 import CandidatesPage from './pages/recruiter/CandidatesPage';
 import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
 import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
+import RecruiterCandidateDetailPage from './pages/recruiter/RecruiterCandidateDetailPage';
 import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
@@ -136,6 +137,23 @@ function App() {
             element={
               <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
                 <CandidatesPage />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="recruiter/candidates/:id"
+            element={
+              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
+                <RecruiterCandidateDetailPage />
+              </RoleProtectedRoute>
+            }
+          />
+          {/* Assessment attempt - candidate must be logged in */}
+          <Route
+            path="assessment/attempt/:assessmentId"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <AssessmentAttemptPage />
               </RoleProtectedRoute>
             }
           />

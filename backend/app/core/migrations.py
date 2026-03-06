@@ -16,6 +16,8 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("applications", "custom_answers", "JSONB"),
     ("candidate_profiles", "resume_score", "DOUBLE PRECISION"),
     ("candidate_profiles", "resume_score_justification", "TEXT"),
+    ("candidate_profiles", "expected_salary_min", "INTEGER"),
+    ("candidate_profiles", "expected_salary_max", "INTEGER"),
 ]
 
 
