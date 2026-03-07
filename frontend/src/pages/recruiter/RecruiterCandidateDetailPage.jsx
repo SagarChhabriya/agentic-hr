@@ -10,6 +10,7 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState('');
+  const [error, setError] = useState(null);
   const { data: interviewsData } = useQuery({
     queryKey: ['interviews', applicationId],
     queryFn: () => interviewsApi.listByApplication(applicationId),
@@ -22,23 +23,49 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
       queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
       setShowModal(false);
       setScheduleDateTime('');
+      setError(null);
+    },
+    onError: (err) => {
+      const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to schedule interview';
+      setError(Array.isArray(message) ? message.join(', ') : String(message));
     },
   });
-  const handleSchedule = () => {
-    if (!scheduleDateTime) return;
+  const handleSchedule = (e) => {
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    setError(null);
+    if (!scheduleDateTime) {
+      setError('Please select a date and time.');
+      return;
+    }
+    const dt = new Date(scheduleDateTime);
+    if (isNaN(dt.getTime()) || dt <= new Date()) {
+      setError('Please select a future date and time.');
+      return;
+    }
     scheduleMutation.mutate({
       application_id: applicationId,
-      scheduled_at: new Date(scheduleDateTime).toISOString(),
+      scheduled_at: dt.toISOString(),
       duration_minutes: 30,
     });
+  };
+  const closeModal = () => {
+    setShowModal(false);
+    setError(null);
+    if (!scheduleMutation.isPending) setScheduleDateTime('');
   };
   const interviews = interviewsData?.interviews || [];
   return (
     <div>
       <button
         type="button"
-        onClick={() => setShowModal(true)}
-        className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setError(null);
+          setShowModal(true);
+        }}
+        className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
       >
         Schedule AI Interview
       </button>
@@ -57,20 +84,51 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
       )}
       {showModal && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowModal(false)} />
-          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-lg w-full max-w-md ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
-            <h3 className="font-semibold mb-4">Schedule AI Interview</h3>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={closeModal}
+            onKeyDown={(e) => e.key === 'Escape' && closeModal()}
+            role="presentation"
+            aria-hidden="true"
+          />
+          <div
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-lg w-full max-w-md shadow-xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-interview-title"
+          >
+            <h3 id="schedule-interview-title" className="font-semibold mb-4">Schedule AI Interview</h3>
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm">
+                {error}
+              </div>
+            )}
             <input
               type="datetime-local"
               value={scheduleDateTime}
-              onChange={(e) => setScheduleDateTime(e.target.value)}
+              onChange={(e) => { setScheduleDateTime(e.target.value); setError(null); }}
               min={new Date().toISOString().slice(0, 16)}
-              className={`w-full px-3 py-2 rounded border mb-4 ${isDark ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-300'}`}
+              className={`w-full px-3 py-2 rounded border mb-4 ${isDark ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-gray-300 text-gray-900'}`}
+              disabled={scheduleMutation.isPending}
+              aria-invalid={!!error}
             />
             <div className="flex gap-2">
-              <button onClick={handleSchedule} disabled={scheduleMutation.isPending || !scheduleDateTime}
-                className="px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50">Schedule</button>
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded border">Cancel</button>
+              <button
+                type="button"
+                onClick={handleSchedule}
+                disabled={scheduleMutation.isPending || !scheduleDateTime}
+                className="px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {scheduleMutation.isPending ? 'Scheduling…' : 'Schedule'}
+              </button>
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={scheduleMutation.isPending}
+                className="px-4 py-2 rounded border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </>

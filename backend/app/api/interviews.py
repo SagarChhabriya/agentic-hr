@@ -1,5 +1,5 @@
 """API for AI interview scheduling and LiveKit token generation."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -65,7 +65,8 @@ async def schedule_interview(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
 
-    if scheduled_at < datetime.utcnow():
+    now_utc = datetime.now(timezone.utc)
+    if scheduled_at < now_utc:
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
 
     room_name = f"interview-{app.id}-{int(scheduled_at.timestamp())}"
@@ -117,15 +118,18 @@ async def get_interview_token(
         raise HTTPException(status_code=400, detail="Interview was cancelled")
 
     # Check if within allowed window (e.g. 15 min before to 30 min after scheduled)
-    now = datetime.utcnow()
-    window_start = interview.scheduled_at - timedelta(minutes=15)
-    window_end = interview.scheduled_at + timedelta(minutes=interview.duration_minutes + 30)
-    if now < window_start:
+    now_utc = datetime.now(timezone.utc)
+    scheduled_at = interview.scheduled_at
+    if scheduled_at.tzinfo is None:
+        scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+    window_start = scheduled_at - timedelta(minutes=15)
+    window_end = scheduled_at + timedelta(minutes=interview.duration_minutes + 30)
+    if now_utc < window_start:
         raise HTTPException(
             status_code=400,
-            detail=f"Interview opens 15 minutes before scheduled time. Your interview is at {interview.scheduled_at.isoformat()}",
+            detail=f"Interview opens 15 minutes before scheduled time. Your interview is at {scheduled_at.isoformat()}",
         )
-    if now > window_end:
+    if now_utc > window_end:
         raise HTTPException(status_code=400, detail="Interview window has ended")
 
     # Generate LiveKit token

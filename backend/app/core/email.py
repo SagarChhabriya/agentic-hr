@@ -1,7 +1,14 @@
 import logging
+import threading
+import time
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Resend rate limit: 20 requests per second (enforce min ~50ms between sends)
+_resend_lock = threading.Lock()
+_resend_last_send_time: float = 0
+_RESEND_MIN_INTERVAL = 0.055  # seconds (1/18 to stay safely under 20/s)
 
 
 def _send(to: str, subject: str, html: str) -> bool:
@@ -9,6 +16,13 @@ def _send(to: str, subject: str, html: str) -> bool:
     if not settings.resend_api_key:
         logger.warning("RESEND_API_KEY not set — email to %s skipped", to)
         return False
+    with _resend_lock:
+        now = time.monotonic()
+        elapsed = now - _resend_last_send_time
+        if elapsed < _RESEND_MIN_INTERVAL:
+            sleep_time = _RESEND_MIN_INTERVAL - elapsed
+            logger.debug("Resend rate limit: sleeping %.2fs", sleep_time)
+            time.sleep(sleep_time)
     try:
         import resend
         resend.api_key = settings.resend_api_key
@@ -18,6 +32,9 @@ def _send(to: str, subject: str, html: str) -> bool:
             "subject": subject,
             "html": html,
         })
+        with _resend_lock:
+            global _resend_last_send_time
+            _resend_last_send_time = time.monotonic()
         logger.info("Email sent to %s: %s", to, subject)
         return True
     except Exception as e:
