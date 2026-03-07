@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi } from '../../services/api';
 
@@ -78,6 +78,7 @@ function ShareMenu({ job, isDark }) {
 export default function JobsPage() {
   const { theme } = useTheme();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const isDark = theme === 'dark';
   const [filter, setFilter] = useState('all');
   const [dismissPublishReminder, setDismissPublishReminder] = useState(false);
@@ -85,6 +86,12 @@ export default function JobsPage() {
   const { data: jobs = [], isLoading, error } = useQuery({
     queryKey: ['jobs', filter],
     queryFn: () => jobsApi.list(filter),
+  });
+  const publishMutation = useMutation({
+    mutationFn: (jobId) => jobsApi.update(jobId, { status: 'active' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    },
   });
   const filteredJobs = filter === 'all' ? jobs : jobs.filter((job) => job.status === filter);
 
@@ -224,7 +231,17 @@ export default function JobsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                  {job.status === 'draft' && (
+                    <button
+                      type="button"
+                      onClick={() => publishMutation.mutate(job.id)}
+                      disabled={publishMutation.isPending}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                    >
+                      {publishMutation.isPending ? 'Publishing…' : 'Publish Job'}
+                    </button>
+                  )}
                   <ShareMenu job={job} isDark={isDark} />
                   <Link
                     to={`/recruiter/jobs/${job.id}`}

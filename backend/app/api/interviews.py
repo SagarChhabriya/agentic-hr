@@ -1,4 +1,5 @@
 """API for AI interview scheduling and LiveKit token generation."""
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,8 +116,8 @@ async def schedule_interview(
             duration_minutes=body.duration_minutes,
             interview_id=interview.id,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger(__name__).warning("Interview scheduled email failed for %s: %s", candidate_user.email, e)
 
     return ScheduleInterviewResponse(
         id=interview.id,
@@ -299,8 +300,8 @@ async def reschedule_interview(
             duration_minutes=body.duration_minutes,
             interview_id=interview.id,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger(__name__).warning("Reschedule email failed for %s: %s", candidate_user.email, e)
 
     return ScheduleInterviewResponse(
         id=interview.id,

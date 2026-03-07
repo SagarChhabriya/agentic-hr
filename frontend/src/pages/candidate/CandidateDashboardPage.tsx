@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
@@ -34,7 +35,28 @@ export default function CandidateDashboardPage() {
     status: string;
   }> = (myInterviewsData as any)?.interviews ?? [];
 
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const recentApplications = applications.slice(0, 5);
+
+  function formatTimeUntil(scheduledAtIso: string): string {
+    const target = new Date(scheduledAtIso).getTime();
+    const now = Date.now();
+    const ms = target - now;
+    if (ms <= 0) return 'Started — join now';
+    const sec = Math.floor(ms / 1000);
+    const min = Math.floor(sec / 60);
+    const hr = Math.floor(min / 60);
+    const day = Math.floor(hr / 24);
+    if (day >= 1) return `${day} day${day !== 1 ? 's' : ''} remaining`;
+    if (hr >= 1) return `${hr} hour${hr !== 1 ? 's' : ''} remaining`;
+    if (min >= 1) return `${min} minute${min !== 1 ? 's' : ''} remaining`;
+    return `${sec} second${sec !== 1 ? 's' : ''} remaining`;
+  }
 
   if (isLoading) {
     return (
@@ -157,6 +179,7 @@ export default function CandidateDashboardPage() {
               try {
                 when = new Date(iv.scheduled_at).toLocaleString();
               } catch {}
+              const timeLeft = formatTimeUntil(iv.scheduled_at);
               return (
                 <div
                   key={iv.id}
@@ -168,6 +191,9 @@ export default function CandidateDashboardPage() {
                     <p className="font-medium">{iv.job_title}</p>
                     <p className="text-xs opacity-75">
                       Scheduled at {when} · {iv.duration_minutes} min
+                    </p>
+                    <p className="text-sm font-medium text-purple-600 dark:text-purple-400 mt-1">
+                      {timeLeft}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

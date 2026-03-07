@@ -14,8 +14,12 @@ _RESEND_MIN_INTERVAL = 0.055  # seconds (1/18 to stay safely under 20/s)
 def _send(to: str, subject: str, html: str) -> bool:
     settings = get_settings()
     if not settings.resend_api_key:
-        logger.warning("RESEND_API_KEY not set — email to %s skipped", to)
+        logger.warning(
+            "RESEND_API_KEY not set — email to %s skipped. Set RESEND_API_KEY in .env and verify your 'from' domain in Resend dashboard.",
+            to,
+        )
         return False
+    logger.info("Sending email to %s: %s", to, subject)
     with _resend_lock:
         now = time.monotonic()
         elapsed = now - _resend_last_send_time
