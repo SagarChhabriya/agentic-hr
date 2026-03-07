@@ -90,6 +90,10 @@ export const applicationsApi = {
   mine: () => apiClient.get('/applications/mine').then((r) => r.data),
   updateStatus: (id: string, status: string) =>
     apiClient.patch(`/applications/${id}/status`, { status }).then((r) => r.data),
+  scheduleInPerson: (id: string, body: { scheduled_at: string; notes?: string }) =>
+    apiClient.post(`/applications/${id}/in-person-schedule`, body).then((r) => r.data),
+  sendOfferLetter: (id: string) =>
+    apiClient.post(`/applications/${id}/send-offer`).then((r) => r.data),
 };
 
 export const interviewsApi = {

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,7 @@ from app.models.candidate_profile import CandidateProfile
 from app.models.assessment import Assessment
 from app.models.assessment_attempt import AssessmentAttempt
 from app.schemas.application import (
-    ApplicationCreate, ApplicationStatusUpdate,
+    ApplicationCreate, ApplicationStatusUpdate, InPersonScheduleBody,
     ApplicationResponse, ApplicationDetailResponse,
     CandidateProfileForRecruiter, CandidateApplicationResponse,
 )
@@ -178,6 +179,9 @@ async def list_applications(
             custom_answers=app.custom_answers,
             assessment_score=app.assessment_score,
             interview_score=app.interview_score,
+            in_person_scheduled_at=app.in_person_scheduled_at,
+            in_person_notes=app.in_person_notes,
+            offer_sent_at=app.offer_sent_at,
             applied_at=app.applied_at,
         )
         for app, job, user in rows
@@ -252,6 +256,9 @@ async def get_application(
         custom_answers=app.custom_answers,
         assessment_score=app.assessment_score,
         interview_score=app.interview_score,
+        in_person_scheduled_at=app.in_person_scheduled_at,
+        in_person_notes=app.in_person_notes,
+        offer_sent_at=app.offer_sent_at,
         applied_at=app.applied_at,
         candidate_profile=candidate_profile,
         custom_question_labels=custom_question_labels or None,
@@ -359,6 +366,130 @@ async def resend_assessment_email(
     return {"sent": True, "message": "Assessment link emailed to candidate"}
 
 
+def _parse_scheduled_at(scheduled_at_str: str) -> datetime:
+    """Parse datetime-local or ISO string to naive UTC for storage."""
+    try:
+        parsed = datetime.fromisoformat(scheduled_at_str.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601 or datetime-local.")
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    if parsed <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
+    return parsed
+
+
+@router.post("/{application_id}/in-person-schedule", response_model=ApplicationResponse)
+async def schedule_in_person_interview(
+    application_id: str,
+    body: InPersonScheduleBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter schedules an in-person interview and notifies the candidate."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+    scheduled_at = _parse_scheduled_at(body.scheduled_at)
+    app.in_person_scheduled_at = scheduled_at
+    app.in_person_notes = body.notes
+    await db.flush()
+    try:
+        from app.core.email import notify_candidate_in_person_scheduled
+        scheduled_display = scheduled_at.strftime("%A, %B %d, %Y at %I:%M %p UTC")
+        notify_candidate_in_person_scheduled(
+            candidate_email=user.email,
+            candidate_name=_full_name(user),
+            job_title=job.title,
+            scheduled_at_str=scheduled_display,
+            notes=body.notes,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("In-person schedule email failed for %s: %s", user.email, e)
+    await db.refresh(app)
+    return ApplicationResponse(
+        id=app.id,
+        job_id=app.job_id,
+        job_title=job.title,
+        user_id=app.user_id,
+        name=_full_name(user),
+        email=user.email,
+        status=app.status,
+        cover_letter=app.cover_letter,
+        resume_url=app.resume_url,
+        custom_answers=app.custom_answers,
+        assessment_score=app.assessment_score,
+        interview_score=app.interview_score,
+        in_person_scheduled_at=app.in_person_scheduled_at,
+        in_person_notes=app.in_person_notes,
+        offer_sent_at=app.offer_sent_at,
+        applied_at=app.applied_at,
+    )
+
+
+@router.post("/{application_id}/send-offer", response_model=ApplicationResponse)
+async def send_offer_letter(
+    application_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter sends an offer letter email to the candidate."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Application, Job, User)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Application.id == application_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job, user = row
+    app.offer_sent_at = datetime.utcnow()
+    await db.flush()
+    try:
+        from app.core.email import notify_candidate_offer_letter
+        notify_candidate_offer_letter(
+            candidate_email=user.email,
+            candidate_name=_full_name(user),
+            job_title=job.title,
+            company_name="Agentic HR",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Offer letter email failed for %s: %s", user.email, e)
+    await db.refresh(app)
+    return ApplicationResponse(
+        id=app.id,
+        job_id=app.job_id,
+        job_title=job.title,
+        user_id=app.user_id,
+        name=_full_name(user),
+        email=user.email,
+        status=app.status,
+        cover_letter=app.cover_letter,
+        resume_url=app.resume_url,
+        custom_answers=app.custom_answers,
+        assessment_score=app.assessment_score,
+        interview_score=app.interview_score,
+        in_person_scheduled_at=app.in_person_scheduled_at,
+        in_person_notes=app.in_person_notes,
+        offer_sent_at=app.offer_sent_at,
+        applied_at=app.applied_at,
+    )
+
+
 @router.patch("/{application_id}/status", response_model=ApplicationResponse)
 async def update_application_status(
     application_id: str,
@@ -426,5 +557,8 @@ async def update_application_status(
         custom_answers=app.custom_answers,
         assessment_score=app.assessment_score,
         interview_score=app.interview_score,
+        in_person_scheduled_at=app.in_person_scheduled_at,
+        in_person_notes=app.in_person_notes,
+        offer_sent_at=app.offer_sent_at,
         applied_at=app.applied_at,
     )

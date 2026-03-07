@@ -126,6 +126,58 @@ def notify_candidate_interview_scheduled(
     )
 
 
+def notify_candidate_in_person_scheduled(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+    scheduled_at_str: str,
+    notes: str | None = None,
+):
+    """Notify candidate that an in-person interview has been scheduled."""
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    apps_link = f"{base}/candidate/applications"
+    notes_html = f"<p><strong>Notes:</strong> {notes}</p>" if notes else ""
+    _send(
+        to=candidate_email,
+        subject=f"In-person interview scheduled: {job_title}",
+        html=f"""
+        <h2>In-Person Interview Scheduled</h2>
+        <p>Hi {candidate_name},</p>
+        <p>You have been invited for an <strong>in-person interview</strong> for your application to <strong>{job_title}</strong>.</p>
+        <div style="background:#f3f4f6;padding:16px;border-radius:8px;margin:16px 0;">
+          <p style="margin:0;"><strong>When:</strong> {scheduled_at_str}</p>
+        </div>
+        {notes_html}
+        <p>Please be on time. If you need to reschedule, contact the recruiter.</p>
+        <p>View your applications at <a href="{apps_link}">Agentic HR</a>.</p>
+        """,
+    )
+
+
+def notify_candidate_offer_letter(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+    company_name: str = "the company",
+):
+    """Send offer letter notification email to the candidate."""
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    _send(
+        to=candidate_email,
+        subject=f"Offer letter: {job_title}",
+        html=f"""
+        <h2>Congratulations – Offer Letter</h2>
+        <p>Hi {candidate_name},</p>
+        <p>We are pleased to extend an offer of employment for the position of <strong>{job_title}</strong> at {company_name}.</p>
+        <p>Please log in to your account to view the full offer details and next steps.</p>
+        <p><a href="{base}/candidate/applications" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">View my applications</a></p>
+        <p>We look forward to welcoming you to the team.</p>
+        """,
+    )
+
+
 def notify_candidate_assessment(
     candidate_email: str,
     candidate_name: str,

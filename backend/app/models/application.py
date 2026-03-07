@@ -34,6 +34,9 @@ class Application(Base):
     custom_answers: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     assessment_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     interview_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    in_person_scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    in_person_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    offer_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

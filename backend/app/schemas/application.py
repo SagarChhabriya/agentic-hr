@@ -13,6 +13,11 @@ class ApplicationStatusUpdate(BaseModel):
     status: str
 
 
+class InPersonScheduleBody(BaseModel):
+    scheduled_at: str  # ISO or datetime-local string
+    notes: Optional[str] = None
+
+
 class CandidateProfileForRecruiter(BaseModel):
     """Candidate profile fields visible to recruiters when viewing an application."""
     phone: Optional[str] = None
@@ -48,6 +53,9 @@ class ApplicationResponse(BaseModel):
     custom_answers: Optional[dict] = None
     assessment_score: Optional[int] = None
     interview_score: Optional[int] = None
+    in_person_scheduled_at: Optional[datetime] = None
+    in_person_notes: Optional[str] = None
+    offer_sent_at: Optional[datetime] = None
     applied_at: datetime
 
     class Config:

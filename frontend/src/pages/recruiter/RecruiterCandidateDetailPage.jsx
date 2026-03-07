@@ -6,6 +6,227 @@ import { applicationsApi, interviewsApi } from '../../services/api';
 
 const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://hire-base.vercel.app';
 
+/** Placeholder readiness for in-person (assessment + interview); backend can replace with real score later. */
+function getReadyForInPersonLabel(application, assessmentResult) {
+  const assessmentScore = application.assessment_score ?? assessmentResult?.score_percent;
+  const interviewScore = application.interview_score;
+  if (assessmentScore != null && interviewScore != null) {
+    const combined = Math.round((Number(assessmentScore) + Number(interviewScore)) / 2);
+    return combined >= 60 ? { label: 'Recommended for in-person', score: combined } : { label: 'Review before inviting', score: combined };
+  }
+  if (assessmentScore != null) return { label: 'Assessment done — invite after AI interview', score: Number(assessmentScore) };
+  return { label: 'Complete assessment and AI interview first', score: null };
+}
+
+function HiringNextStepsSection({ application, applicationId, assessmentResult, isDark, queryClient }) {
+  const [inPersonDateTime, setInPersonDateTime] = useState('');
+  const [inPersonNotes, setInPersonNotes] = useState('');
+  const [showOfferConfirm, setShowOfferConfirm] = useState(false);
+  const [message, setMessage] = useState(null); // success or backend-not-ready
+
+  const updateStatusMutation = useMutation({
+    mutationFn: (status) => applicationsApi.updateStatus(applicationId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setMessage({ type: 'success', text: 'Candidate marked as invited for in-person.' });
+      setTimeout(() => setMessage(null), 4000);
+    },
+    onError: (err) => {
+      setMessage({ type: 'error', text: err?.response?.data?.detail ?? err?.message ?? 'Update failed' });
+    },
+  });
+
+  const scheduleInPersonMutation = useMutation({
+    mutationFn: (body) => applicationsApi.scheduleInPerson(applicationId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setMessage({ type: 'success', text: 'In-person interview scheduled; candidate will be notified.' });
+      setInPersonDateTime('');
+      setInPersonNotes('');
+      setTimeout(() => setMessage(null), 4000);
+    },
+    onError: (err) => {
+      const status = err?.response?.status;
+      if (status === 404 || status === 501) {
+        setMessage({ type: 'info', text: 'In-person scheduling will be available once the backend is connected.' });
+      } else {
+        setMessage({ type: 'error', text: err?.response?.data?.detail ?? err?.message ?? 'Scheduling failed' });
+      }
+    },
+  });
+
+  const sendOfferMutation = useMutation({
+    mutationFn: () => applicationsApi.sendOfferLetter(applicationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setShowOfferConfirm(false);
+      setMessage({ type: 'success', text: 'Offer letter sent to candidate.' });
+      setTimeout(() => setMessage(null), 4000);
+    },
+    onError: (err) => {
+      const status = err?.response?.status;
+      if (status === 404 || status === 501) {
+        setMessage({ type: 'info', text: 'Offer letter feature will be available once the backend is set up.' });
+      } else {
+        setMessage({ type: 'error', text: err?.response?.data?.detail ?? err?.message ?? 'Failed to send offer' });
+      }
+      setShowOfferConfirm(false);
+    },
+  });
+
+  const readiness = getReadyForInPersonLabel(application, assessmentResult);
+  const showSection = application.status === 'interview' || application.status === 'selected';
+  if (!showSection) return null;
+
+  const handleScheduleInPerson = (e) => {
+    e.preventDefault();
+    if (!inPersonDateTime) {
+      setMessage({ type: 'error', text: 'Please select a date and time.' });
+      return;
+    }
+    const dt = new Date(inPersonDateTime);
+    if (isNaN(dt.getTime()) || dt <= new Date()) {
+      setMessage({ type: 'error', text: 'Please select a future date and time.' });
+      return;
+    }
+    setMessage(null);
+    scheduleInPersonMutation.mutate({ scheduled_at: inPersonDateTime, notes: inPersonNotes || undefined });
+  };
+
+  const borderCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
+  const inputCls = `w-full px-3 py-2 rounded border ${isDark ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-gray-300 text-gray-900'}`;
+
+  return (
+    <div className={`rounded-lg border p-6 mb-6 ${borderCls}`}>
+      <h2 className="text-xl font-semibold mb-2">Hiring next steps</h2>
+      <p className="text-sm opacity-75 mb-6">
+        Rate for in-person, schedule an on-site interview, or send an offer letter.
+      </p>
+
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${
+          message.type === 'success' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+          : message.type === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* 1. Rate for in-person */}
+      <div className={`p-4 rounded-lg border mb-4 ${isDark ? 'border-slate-600 bg-slate-900/50' : 'border-gray-200 bg-gray-50'}`}>
+        <h3 className="font-medium mb-2">Rate for in-person interview</h3>
+        <p className="text-sm opacity-80 mb-2">{readiness.label}</p>
+        {readiness.score != null && (
+          <p className="text-sm font-medium mb-3">Combined score: {readiness.score}%</p>
+        )}
+        {application.status === 'interview' && (
+          <button
+            type="button"
+            onClick={() => updateStatusMutation.mutate('selected')}
+            disabled={updateStatusMutation.isPending}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+          >
+            {updateStatusMutation.isPending ? 'Updating…' : 'Invite for in-person'}
+          </button>
+        )}
+        {application.status === 'selected' && (
+          <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Invited for in-person</span>
+        )}
+      </div>
+
+      {/* 2. Schedule in-person (when selected) */}
+      {application.status === 'selected' && (
+        <div className={`p-4 rounded-lg border mb-4 ${isDark ? 'border-slate-600 bg-slate-900/50' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className="font-medium mb-2">Schedule in-person interview</h3>
+          {application.in_person_scheduled_at && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-2">
+              Scheduled for {new Date(application.in_person_scheduled_at).toLocaleString()}
+              {application.in_person_notes && ` · ${application.in_person_notes}`}
+            </p>
+          )}
+          <p className="text-sm opacity-80 mb-3">Pick a date and time; the candidate will be notified by email.</p>
+          <form onSubmit={handleScheduleInPerson} className="space-y-3">
+            <input
+              type="datetime-local"
+              value={inPersonDateTime}
+              onChange={(e) => setInPersonDateTime(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+              className={inputCls}
+              disabled={scheduleInPersonMutation.isPending}
+            />
+            <textarea
+              placeholder="Optional notes (e.g. location, format)"
+              value={inPersonNotes}
+              onChange={(e) => setInPersonNotes(e.target.value)}
+              rows={2}
+              className={inputCls}
+              disabled={scheduleInPersonMutation.isPending}
+            />
+            <button
+              type="submit"
+              disabled={scheduleInPersonMutation.isPending || !inPersonDateTime}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            >
+              {scheduleInPersonMutation.isPending ? 'Scheduling…' : application.in_person_scheduled_at ? 'Reschedule in-person & notify' : 'Schedule in-person & notify'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* 3. Offer letter */}
+      {application.status === 'selected' && (
+        <div className={`p-4 rounded-lg border ${isDark ? 'border-slate-600 bg-slate-900/50' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className="font-medium mb-2">Offer letter</h3>
+          {application.offer_sent_at ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+              Offer sent on {new Date(application.offer_sent_at).toLocaleString()}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm opacity-80 mb-3">Send an offer letter to the candidate by email.</p>
+              <button
+                type="button"
+                onClick={() => setShowOfferConfirm(true)}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white"
+              >
+                Send offer letter
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {showOfferConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowOfferConfirm(false)} aria-hidden="true" />
+          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-lg w-full max-w-md shadow-xl ${borderCls}`}>
+            <h3 className="font-semibold mb-2">Send offer letter?</h3>
+            <p className="text-sm opacity-80 mb-4">An offer letter will be sent to {application.email}.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => sendOfferMutation.mutate()}
+                disabled={sendOfferMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+              >
+                {sendOfferMutation.isPending ? 'Sending…' : 'Send'}
+              </button>
+              <button
+                type="button"
+                onClick={() => !sendOfferMutation.isPending && setShowOfferConfirm(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ScheduleInterviewSection({ applicationId, isDark }) {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
@@ -553,6 +774,9 @@ export default function RecruiterCandidateDetailPage() {
         </p>
         <ScheduleInterviewSection applicationId={id} isDark={isDark} />
       </div>
+
+      {/* Hiring next steps: rate for in-person, schedule in-person, offer letter */}
+      <HiringNextStepsSection application={application} applicationId={id} assessmentResult={assessmentResult} isDark={isDark} queryClient={queryClient} />
     </div>
   );
 }
