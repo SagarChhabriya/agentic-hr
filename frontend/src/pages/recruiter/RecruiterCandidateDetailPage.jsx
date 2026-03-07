@@ -267,15 +267,20 @@ export default function RecruiterCandidateDetailPage() {
             </div>
           )}
           {application.resume_url && (
-            <div>
-              <span className="text-sm opacity-75">Resume</span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="text-sm opacity-75 block">Resume</span>
+                <span className="text-xs opacity-60">
+                  Uploaded by candidate · opens in new tab
+                </span>
+              </div>
               <a
                 href={application.resume_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-colors"
               >
-                View Resume
+                <span>View Resume</span>
               </a>
             </div>
           )}

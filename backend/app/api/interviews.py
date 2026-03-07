@@ -61,15 +61,24 @@ async def schedule_interview(
     app, job = row
 
     try:
-        scheduled_at = datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
 
+    # Normalize to UTC for comparison, then store as naive UTC for the DB (TIMESTAMP WITHOUT TIME ZONE)
+    if parsed.tzinfo is None:
+        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
+    else:
+        scheduled_at_aware = parsed.astimezone(timezone.utc)
+
     now_utc = datetime.now(timezone.utc)
-    if scheduled_at < now_utc:
+    if scheduled_at_aware < now_utc:
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
 
-    room_name = f"interview-{app.id}-{int(scheduled_at.timestamp())}"
+    # asyncpg + TIMESTAMP WITHOUT TIME ZONE expects naive datetimes; store as naive UTC
+    scheduled_at = scheduled_at_aware.replace(tzinfo=None)
+
+    room_name = f"interview-{app.id}-{int(scheduled_at_aware.timestamp())}"
     interview = Interview(
         application_id=body.application_id,
         scheduled_at=scheduled_at,
