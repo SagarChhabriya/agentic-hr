@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
-import { applicationsApi } from '../../services/api';
+import { applicationsApi, interviewsApi } from '../../services/api';
 import { JobsIcon, AssessmentIcon, InterviewIcon, CheckIcon } from '../../components/icons/IconComponents';
 
 export default function CandidateDashboardPage() {
@@ -15,10 +15,24 @@ export default function CandidateDashboardPage() {
     queryFn: applicationsApi.mine,
   });
 
+  const { data: myInterviewsData } = useQuery({
+    queryKey: ['interviews', 'mine'],
+    queryFn: interviewsApi.mine,
+  });
+
   const total = applications.length;
   const pending = applications.filter((a) => a.status === 'applied' || a.status === 'assessment').length;
   const interviews = applications.filter((a) => a.status === 'interview').length;
   const selected = applications.filter((a) => a.status === 'selected').length;
+
+  const upcomingInterviews: Array<{
+    id: string;
+    application_id: string;
+    job_title: string;
+    scheduled_at: string;
+    duration_minutes: number;
+    status: string;
+  }> = (myInterviewsData as any)?.interviews ?? [];
 
   const recentApplications = applications.slice(0, 5);
 
@@ -114,6 +128,70 @@ export default function CandidateDashboardPage() {
             My Applications
           </Link>
         </div>
+      </div>
+
+      {/* Upcoming AI Interviews */}
+      <div
+        className={`mb-8 rounded-lg border p-6 ${
+          isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <InterviewIcon className="w-5 h-5" />
+            Upcoming AI Interviews
+          </h2>
+          <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+            Candidate side
+          </span>
+        </div>
+        {upcomingInterviews.length === 0 ? (
+          <p className="text-sm opacity-75">
+            You don&apos;t have any AI interviews scheduled yet. When a recruiter schedules one, it will
+            appear here and you&apos;ll also get an email with the join link.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {upcomingInterviews.map((iv) => {
+              let when = iv.scheduled_at;
+              try {
+                when = new Date(iv.scheduled_at).toLocaleString();
+              } catch {}
+              return (
+                <div
+                  key={iv.id}
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border ${
+                    isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <div>
+                    <p className="font-medium">{iv.job_title}</p>
+                    <p className="text-xs opacity-75">
+                      Scheduled at {when} · {iv.duration_minutes} min
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium capitalize ${
+                        iv.status === 'scheduled'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {iv.status}
+                    </span>
+                    <Link
+                      to={`/interview/room/${iv.id}`}
+                      className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Join / Details
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div

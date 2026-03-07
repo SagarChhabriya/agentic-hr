@@ -100,6 +100,10 @@ export const interviewsApi = {
   listByApplication: (applicationId: string) =>
     apiClient.get(`/interviews/by-application/${applicationId}`).then((r) => r.data),
   mine: () => apiClient.get('/interviews/mine').then((r) => r.data),
+  cancel: (interviewId: string) =>
+    apiClient.post(`/interviews/${interviewId}/cancel`).then((r) => r.data),
+  reschedule: (interviewId: string, body: { scheduled_at: string; duration_minutes?: number }) =>
+    apiClient.post(`/interviews/${interviewId}/reschedule`, body).then((r) => r.data),
 };
 
 export const profileApi = {

@@ -91,6 +91,37 @@ def notify_candidate_application_received(candidate_email: str, job_title: str):
     )
 
 
+def notify_candidate_interview_scheduled(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+    scheduled_at_str: str,
+    duration_minutes: int,
+    interview_id: str,
+):
+    """Notify candidate that an AI interview has been scheduled for them."""
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    join_link = f"{base}/interview/room/{interview_id}"
+    _send(
+        to=candidate_email,
+        subject=f"AI Interview scheduled: {job_title}",
+        html=f"""
+        <h2>Your AI Interview is Scheduled</h2>
+        <p>Hi {candidate_name},</p>
+        <p>An AI-powered video interview has been scheduled for your application to <strong>{job_title}</strong>.</p>
+        <div style="background:#f3f4f6;padding:16px;border-radius:8px;margin:16px 0;">
+          <p style="margin:0;"><strong>When:</strong> {scheduled_at_str}</p>
+          <p style="margin:8px 0 0;"><strong>Duration:</strong> {duration_minutes} minutes</p>
+        </div>
+        <p>You can join the interview from 15 minutes before the scheduled time. Have your camera and microphone ready.</p>
+        <p><a href="{join_link}" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Join Interview</a></p>
+        <p>Or copy this link: <a href="{join_link}">{join_link}</a></p>
+        <p>You must be logged in to join. Good luck!</p>
+        """,
+    )
+
+
 def notify_candidate_assessment(
     candidate_email: str,
     candidate_name: str,

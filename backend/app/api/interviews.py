@@ -36,6 +36,11 @@ class LiveKitTokenResponse(BaseModel):
     livekit_url: str
 
 
+class RescheduleInterviewRequest(BaseModel):
+    scheduled_at: str  # ISO or datetime-local
+    duration_minutes: int = 30
+
+
 # --- Recruiter: Schedule interview ---
 @router.post("", response_model=ScheduleInterviewResponse, status_code=201)
 async def schedule_interview(
@@ -48,8 +53,9 @@ async def schedule_interview(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(
-        select(Application, Job)
+        select(Application, Job, User)
         .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
         .where(
             Application.id == body.application_id,
             Job.created_by_id == current_user.id,
@@ -58,25 +64,28 @@ async def schedule_interview(
     row = result.one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Application not found")
-    app, job = row
+    app, job, candidate_user = row
 
     try:
+        # Accept either a raw 'YYYY-MM-DDTHH:MM' (datetime-local) or a full ISO string with timezone/Z.
         parsed = datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
 
-    # Normalize to UTC for comparison, then store as naive UTC for the DB (TIMESTAMP WITHOUT TIME ZONE)
-    if parsed.tzinfo is None:
-        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
-    else:
+    # Normalize for comparison and storage:
+    # - If a timezone is present, convert to UTC and store as naive UTC.
+    # - If no timezone, treat as naive server-local/UTC and store as-is.
+    if parsed.tzinfo is not None:
         scheduled_at_aware = parsed.astimezone(timezone.utc)
+        scheduled_at = scheduled_at_aware.replace(tzinfo=None)
+        now = datetime.utcnow()
+    else:
+        scheduled_at = parsed
+        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
+        now = datetime.utcnow()
 
-    now_utc = datetime.now(timezone.utc)
-    if scheduled_at_aware < now_utc:
+    if scheduled_at < now:
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
-
-    # asyncpg + TIMESTAMP WITHOUT TIME ZONE expects naive datetimes; store as naive UTC
-    scheduled_at = scheduled_at_aware.replace(tzinfo=None)
 
     room_name = f"interview-{app.id}-{int(scheduled_at_aware.timestamp())}"
     interview = Interview(
@@ -92,6 +101,22 @@ async def schedule_interview(
     if app.status != "interview":
         app.status = "interview"
         await db.flush()
+
+    # Notify candidate by email (fire-and-forget; do not block response)
+    try:
+        from app.core.email import notify_candidate_interview_scheduled
+        candidate_name = " ".join(p for p in [candidate_user.first_name, candidate_user.last_name] if p).strip() or candidate_user.email or "Candidate"
+        scheduled_at_display = scheduled_at_aware.strftime("%A, %B %d, %Y at %I:%M %p UTC")
+        notify_candidate_interview_scheduled(
+            candidate_email=candidate_user.email,
+            candidate_name=candidate_name,
+            job_title=job.title,
+            scheduled_at_str=scheduled_at_display,
+            duration_minutes=body.duration_minutes,
+            interview_id=interview.id,
+        )
+    except Exception:
+        pass
 
     return ScheduleInterviewResponse(
         id=interview.id,
@@ -177,6 +202,112 @@ async def get_interview_token(
         token=jwt_token,
         room_name=room_name,
         livekit_url=livekit_url.rstrip("/"),
+    )
+
+
+# --- Recruiter: Cancel interview ---
+@router.post("/{interview_id}/cancel")
+async def cancel_interview(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter cancels a scheduled AI interview."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(
+        select(Interview, Application, Job)
+        .join(Application, Interview.application_id == Application.id)
+        .join(Job, Application.job_id == Job.id)
+        .where(Interview.id == interview_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    interview, app, job = row
+
+    interview.status = InterviewStatus.CANCELLED.value
+    await db.flush()
+
+    # Optionally move application status back from interview; keep current status for now.
+
+    return {"id": interview.id, "status": interview.status}
+
+
+# --- Recruiter: Reschedule interview ---
+@router.post("/{interview_id}/reschedule", response_model=ScheduleInterviewResponse)
+async def reschedule_interview(
+    interview_id: str,
+    body: RescheduleInterviewRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter reschedules an existing AI interview."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(
+        select(Interview, Application, Job, User)
+        .join(Application, Interview.application_id == Application.id)
+        .join(Job, Application.job_id == Job.id)
+        .join(User, Application.user_id == User.id)
+        .where(Interview.id == interview_id, Job.created_by_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    interview, app, job, candidate_user = row
+
+    try:
+        parsed = datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
+
+    if parsed.tzinfo is not None:
+        scheduled_at_aware = parsed.astimezone(timezone.utc)
+        scheduled_at = scheduled_at_aware.replace(tzinfo=None)
+        now = datetime.utcnow()
+    else:
+        scheduled_at = parsed
+        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
+        now = datetime.utcnow()
+
+    if scheduled_at < now:
+        raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
+
+    interview.scheduled_at = scheduled_at
+    interview.duration_minutes = body.duration_minutes
+    interview.status = InterviewStatus.SCHEDULED.value
+    await db.flush()
+
+    # Fire-and-forget email update (same template as initial schedule)
+    try:
+        from app.core.email import notify_candidate_interview_scheduled
+
+        candidate_name = " ".join(
+            p for p in [candidate_user.first_name, candidate_user.last_name] if p
+        ).strip() or candidate_user.email or "Candidate"
+        scheduled_at_display = scheduled_at_aware.strftime(
+            "%A, %B %d, %Y at %I:%M %p UTC"
+        )
+        notify_candidate_interview_scheduled(
+            candidate_email=candidate_user.email,
+            candidate_name=candidate_name,
+            job_title=job.title,
+            scheduled_at_str=scheduled_at_display,
+            duration_minutes=body.duration_minutes,
+            interview_id=interview.id,
+        )
+    except Exception:
+        pass
+
+    return ScheduleInterviewResponse(
+        id=interview.id,
+        application_id=interview.application_id,
+        scheduled_at=scheduled_at_aware.isoformat(),
+        duration_minutes=interview.duration_minutes,
+        status=interview.status,
     )
 
 

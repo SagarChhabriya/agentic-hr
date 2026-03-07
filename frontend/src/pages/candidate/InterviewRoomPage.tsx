@@ -42,9 +42,13 @@ export default function InterviewRoomPage() {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center p-8 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
         <h1 className="text-2xl font-bold mb-4">AI Interview</h1>
-        <p className="text-center mb-6 max-w-md">
+        <p className="text-center mb-4 max-w-md">
           Click below to join your scheduled interview. Ensure your camera and microphone are ready.
           An AI interviewer will conduct the session based on the job description.
+        </p>
+        <p className="text-center text-sm opacity-80 mb-6 max-w-md">
+          If you see a camera error, allow camera/microphone in your browser and close other apps using them.
+          If the AI interviewer never appears, the interview agent service may not be running—contact support.
         </p>
         {tokenMutation.isError && (
           <p className="text-red-500 mb-4">

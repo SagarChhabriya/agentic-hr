@@ -11,6 +11,7 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
   const [showModal, setShowModal] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState('');
   const [error, setError] = useState(null);
+  const [editingInterviewId, setEditingInterviewId] = useState(null);
   const { data: interviewsData } = useQuery({
     queryKey: ['interviews', applicationId],
     queryFn: () => interviewsApi.listByApplication(applicationId),
@@ -24,10 +25,35 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
       setShowModal(false);
       setScheduleDateTime('');
       setError(null);
+      setEditingInterviewId(null);
     },
     onError: (err) => {
       const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to schedule interview';
       setError(Array.isArray(message) ? message.join(', ') : String(message));
+    },
+  });
+  const rescheduleMutation = useMutation({
+    mutationFn: ({ interviewId, scheduled_at, duration_minutes }) =>
+      interviewsApi.reschedule(interviewId, { scheduled_at, duration_minutes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interviews', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setShowModal(false);
+      setScheduleDateTime('');
+      setError(null);
+      setEditingInterviewId(null);
+    },
+    onError: (err) => {
+      const message = err?.response?.data?.detail ?? err?.message ?? 'Failed to reschedule interview';
+      setError(Array.isArray(message) ? message.join(', ') : String(message));
+    },
+  });
+  const cancelMutation = useMutation({
+    mutationFn: (interviewId) => interviewsApi.cancel(interviewId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interviews', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setEditingInterviewId(null);
     },
   });
   const handleSchedule = (e) => {
@@ -43,18 +69,29 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
       setError('Please select a future date and time.');
       return;
     }
-    scheduleMutation.mutate({
-      application_id: applicationId,
-      scheduled_at: dt.toISOString(),
-      duration_minutes: 30,
-    });
+    if (editingInterviewId) {
+      rescheduleMutation.mutate({
+        interviewId: editingInterviewId,
+        scheduled_at: scheduleDateTime,
+        duration_minutes: 30,
+      });
+    } else {
+      scheduleMutation.mutate({
+        application_id: applicationId,
+        // Send raw datetime-local string; backend normalizes safely
+        scheduled_at: scheduleDateTime,
+        duration_minutes: 30,
+      });
+    }
   };
   const closeModal = () => {
     setShowModal(false);
     setError(null);
-    if (!scheduleMutation.isPending) setScheduleDateTime('');
+    setEditingInterviewId(null);
+    if (!scheduleMutation.isPending && !rescheduleMutation.isPending) setScheduleDateTime('');
   };
   const interviews = interviewsData?.interviews || [];
+  const hasScheduled = interviews.some((i) => i.status === 'scheduled');
   return (
     <div>
       <button
@@ -62,22 +99,61 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (hasScheduled) return;
           setError(null);
+          setEditingInterviewId(null);
+          setScheduleDateTime('');
           setShowModal(true);
         }}
-        className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+        disabled={hasScheduled}
+        className={`px-4 py-2 rounded-lg text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 ${
+          hasScheduled
+            ? 'bg-purple-400 cursor-not-allowed opacity-70'
+            : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+        }`}
       >
-        Schedule AI Interview
+        {hasScheduled ? 'Interview Scheduled' : 'Schedule AI Interview'}
       </button>
       {interviews.length > 0 && (
         <div className="mt-4 space-y-2">
           <p className="text-sm font-medium">Scheduled interviews:</p>
           {interviews.map((i) => (
             <div key={i.id} className={`p-3 rounded border ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
-              <p className="text-sm">{new Date(i.scheduled_at).toLocaleString()} · {i.duration_minutes} min · {i.status}</p>
+              <p className="text-sm">
+                {new Date(i.scheduled_at).toLocaleString()} · {i.duration_minutes} min · {i.status}
+              </p>
               <p className="text-xs mt-1 opacity-75">
                 Candidate link: {FRONTEND_URL}/interview/room/{i.id}
               </p>
+              {i.status === 'scheduled' && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingInterviewId(i.id);
+                      try {
+                        const iso = new Date(i.scheduled_at).toISOString().slice(0, 16);
+                        setScheduleDateTime(iso);
+                      } catch {
+                        setScheduleDateTime('');
+                      }
+                      setError(null);
+                      setShowModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Reschedule
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelMutation.mutate(i.id)}
+                    disabled={cancelMutation.isPending}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700"
+                  >
+                    {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -183,10 +259,10 @@ export default function RecruiterCandidateDetailPage() {
 
   const handleSchedule = () => {
     if (!scheduleDateTime) return;
-    const dt = new Date(scheduleDateTime);
     scheduleMutation.mutate({
       application_id: id,
-      scheduled_at: dt.toISOString(),
+      // Send raw datetime-local string; backend normalizes safely
+      scheduled_at: scheduleDateTime,
       duration_minutes: 30,
     });
   };
