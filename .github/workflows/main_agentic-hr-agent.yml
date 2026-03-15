@@ -40,7 +40,8 @@ jobs:
       - name: Image meta
         id: meta
         run: |
-          echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          # echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          echo "repo=sagarchhabriya/agentic-hr-agent" >> "$GITHUB_OUTPUT"
           echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push agent image
@@ -62,7 +63,8 @@ jobs:
       - name: Image meta
         id: meta
         run: |
-          echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          # echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          echo "repo=sagarchhabriya/agentic-hr-agent" >> "$GITHUB_OUTPUT"
           echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Azure Web App (container)
