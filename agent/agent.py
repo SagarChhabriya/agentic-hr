@@ -39,8 +39,7 @@ If the candidate seems stuck, you may rephrase or offer a brief hint. Wrap up by
         )
 
 
-# Port 8081 for Azure health checks (set WEBSITES_PORT=8081 in Azure)
-server = AgentServer(host="0.0.0.0", port=8081)
+server = AgentServer()
 
 
 @server.rtc_session(agent_name="interview-agent")
