@@ -7,6 +7,7 @@ created by the API (e.g. interview-{application_id}-{timestamp}).
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,18 +15,20 @@ from dotenv import load_dotenv
 # Load .env from agent directory so LIVEKIT_URL, etc. are set for both main and worker
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-# Validate required env vars at import (fail fast if missing)
+# Validate required env vars only when starting the agent (skip for download-files during Docker build)
 _REQUIRED = ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "GROQ_API_KEY", "DEEPGRAM_API_KEY")
-for k in _REQUIRED:
-    if not os.getenv(k):
-        raise RuntimeError(f"{k} must be set (check .env or Azure Application settings)")
+if "download-files" not in sys.argv:
+    for k in _REQUIRED:
+        if not os.getenv(k):
+            raise RuntimeError(f"{k} must be set (check .env or Azure Application settings)")
 
 _log = logging.getLogger("livekit.agents")
-_log.info(
-    "Agent starting: LIVEKIT_URL=%s (keys set: %s)",
-    os.getenv("LIVEKIT_URL", ""),
-    "yes" if all(os.getenv(k) for k in _REQUIRED) else "no",
-)
+if "download-files" not in sys.argv:
+    _log.info(
+        "Agent starting: LIVEKIT_URL=%s (keys set: %s)",
+        os.getenv("LIVEKIT_URL", ""),
+        "yes" if all(os.getenv(k) for k in _REQUIRED) else "no",
+    )
 
 from livekit import agents
 from livekit.agents import Agent, AgentSession, AgentServer

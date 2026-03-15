@@ -97,9 +97,11 @@ export default function CandidateProfilePage() {
     []
   );
 
-  if (profile && !form) {
-    initForm(profile as ProfileData);
-  }
+  useEffect(() => {
+    if (profile && !form) {
+      initForm(profile as ProfileData);
+    }
+  }, [profile, form, initForm]);
 
   const updateForm = (updates: Partial<ProfileData>) => {
     if (form) setForm({ ...form, ...updates });
@@ -174,7 +176,9 @@ export default function CandidateProfilePage() {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => profileApi.uploadResume(file),
     onSuccess: (data: ProfileData) => {
-      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+      if (user?.id) {
+        queryClient.setQueryData(['profile', user.id], data);
+      }
       initForm(data);
       setToast('Resume uploaded and profile auto-filled!');
       setTimeout(() => setToast(null), 3000);
