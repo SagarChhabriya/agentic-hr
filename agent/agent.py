@@ -60,8 +60,8 @@ If the candidate seems stuck, you may rephrase or offer a brief hint. Wrap up by
 server = AgentServer()
 
 
-# agent_name= explicit dispatch: token must include RoomAgentDispatch for agent to be requested.
-@server.rtc_session(agent_name="interview-agent")
+# No agent_name = automatic dispatch: joins every new room in the project.
+@server.rtc_session()
 async def interview_agent(ctx: agents.JobContext) -> None:
     """Entrypoint: join the room and run the voice pipeline (Deepgram STT -> Groq LLM -> Deepgram TTS)."""
     import logging

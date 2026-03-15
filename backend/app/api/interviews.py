@@ -110,21 +110,23 @@ async def schedule_interview(
         app.status = "interview"
         await db.flush()
 
-    # Notify candidate by email (fire-and-forget; do not block response)
+    # Notify candidate by email (non-blocking via asyncio.to_thread)
     try:
+        import asyncio
         from app.core.email import notify_candidate_interview_scheduled
         candidate_name = " ".join(
             p for p in [candidate_user.first_name, candidate_user.last_name] if p
         ).strip() or candidate_user.email or "Candidate"
         scheduled_at_display = local_aware.strftime("%A, %B %d, %Y at %I:%M %p %Z")
-        notify_candidate_interview_scheduled(
-            candidate_email=candidate_user.email,
-            candidate_name=candidate_name,
-            job_title=job.title,
-            scheduled_at_str=scheduled_at_display,
-            duration_minutes=body.duration_minutes,
-            interview_id=interview.id,
-        )
+        asyncio.create_task(asyncio.to_thread(
+            notify_candidate_interview_scheduled,
+            candidate_user.email,
+            candidate_name,
+            job.title,
+            scheduled_at_display,
+            body.duration_minutes,
+            interview.id,
+        ))
     except Exception as e:
         logging.getLogger(__name__).warning("Interview scheduled email failed for %s: %s", candidate_user.email, e)
 
@@ -183,8 +185,6 @@ async def get_interview_token(
 
     try:
         from livekit import api
-        from livekit.protocol.room import RoomConfiguration
-        from livekit.protocol.agent_dispatch import RoomAgentDispatch
     except ImportError:
         raise HTTPException(
             status_code=503,
@@ -202,10 +202,7 @@ async def get_interview_token(
         can_subscribe=True,
         can_publish_data=True,
     ))
-    # Explicit dispatch: when candidate joins, request interview-agent (self-hosted on Azure)
-    token.with_room_config(RoomConfiguration(
-        agents=[RoomAgentDispatch(agent_name="interview-agent")],
-    ))
+    # Agent uses automatic dispatch (joins every new room); no RoomAgentDispatch needed.
     jwt_token = token.to_jwt()
     livekit_url = settings.livekit_url or "wss://your-livekit-server.livekit.cloud"
 
@@ -292,24 +289,25 @@ async def reschedule_interview(
     interview.status = InterviewStatus.SCHEDULED.value
     await db.flush()
 
-    # Fire-and-forget email update (same template as initial schedule)
+    # Fire-and-forget email update (non-blocking via asyncio.to_thread)
     try:
+        import asyncio
         from app.core.email import notify_candidate_interview_scheduled
-
         candidate_name = " ".join(
             p for p in [candidate_user.first_name, candidate_user.last_name] if p
         ).strip() or candidate_user.email or "Candidate"
         scheduled_at_display = local_aware.strftime(
             "%A, %B %d, %Y at %I:%M %p %Z"
         )
-        notify_candidate_interview_scheduled(
-            candidate_email=candidate_user.email,
-            candidate_name=candidate_name,
-            job_title=job.title,
-            scheduled_at_str=scheduled_at_display,
-            duration_minutes=body.duration_minutes,
-            interview_id=interview.id,
-        )
+        asyncio.create_task(asyncio.to_thread(
+            notify_candidate_interview_scheduled,
+            candidate_user.email,
+            candidate_name,
+            job.title,
+            scheduled_at_display,
+            body.duration_minutes,
+            interview.id,
+        ))
     except Exception as e:
         logging.getLogger(__name__).warning("Reschedule email failed for %s: %s", candidate_user.email, e)
 

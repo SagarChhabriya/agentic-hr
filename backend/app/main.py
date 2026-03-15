@@ -97,13 +97,71 @@ def health():
 @app.get("/health/email")
 def health_email():
     """Check if email (Resend) is configured. Does not expose secrets."""
+    from app.core.email import _PLACEHOLDER_KEYS
     s = get_settings()
-    configured = bool(s.resend_api_key)
+    key = s.resend_api_key or ""
+    is_placeholder = key in _PLACEHOLDER_KEYS
+    configured = bool(key) and not is_placeholder
+    issues = []
+    if not key:
+        issues.append("RESEND_API_KEY is not set")
+    elif is_placeholder:
+        issues.append("RESEND_API_KEY is still a placeholder value — set a real key from resend.com/api-keys")
+    if not s.email_from or "@" not in s.email_from:
+        issues.append("EMAIL_FROM is not set or invalid")
     return {
-        "status": "ok" if configured else "not_configured",
+        "status": "ok" if configured else "misconfigured",
         "email_configured": configured,
-        "message": "Emails will be sent" if configured else "RESEND_API_KEY not set — emails skipped",
+        "from": s.email_from or "(not set)",
+        "issues": issues,
+        "message": "Emails should send — use POST /health/email/test to send a real test" if configured else "Emails will NOT send until issues are resolved",
     }
+
+
+@app.post("/health/email/test")
+async def health_email_test(to: str):
+    """
+    Send a real test email via Resend and return the result.
+    Usage: POST /health/email/test?to=you@example.com
+    This endpoint is for diagnostics only — do not expose publicly in production.
+    """
+    import asyncio
+    from app.core.email import _PLACEHOLDER_KEYS
+    s = get_settings()
+    key = s.resend_api_key or ""
+    if not key or key in _PLACEHOLDER_KEYS:
+        return {
+            "sent": False,
+            "error": "RESEND_API_KEY is not configured or is a placeholder",
+            "from": s.email_from,
+            "to": to,
+        }
+    try:
+        import resend
+        resend.api_key = key
+        result = await asyncio.to_thread(
+            resend.Emails.send,
+            {
+                "from": s.email_from,
+                "to": [to],
+                "subject": "Agentic HR — email test",
+                "html": "<h2>Email test successful</h2><p>If you see this, Resend email is working correctly.</p>",
+            },
+        )
+        return {
+            "sent": True,
+            "resend_id": getattr(result, "id", None) or str(result),
+            "from": s.email_from,
+            "to": to,
+        }
+    except Exception as exc:
+        return {
+            "sent": False,
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+            "from": s.email_from,
+            "to": to,
+        }
 
 
 @app.get("/health/db")

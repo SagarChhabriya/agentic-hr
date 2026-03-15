@@ -73,19 +73,20 @@ async def apply_to_job(
     await db.flush()
     await db.refresh(application)
 
-    # Send email notifications (fire and forget)
+    # Send email notifications (non-blocking via asyncio.to_thread)
     try:
+        import asyncio
         from app.core.email import (
             notify_candidate_application_received,
             notify_recruiter_new_application,
             notify_candidate_assessment,
         )
-        notify_candidate_application_received(current_user.email, job.title)
+        asyncio.create_task(asyncio.to_thread(notify_candidate_application_received, current_user.email, job.title))
         recruiter_result = await db.execute(select(User).where(User.id == job.created_by_id))
         recruiter = recruiter_result.scalar_one_or_none()
         if recruiter:
             name = _full_name(current_user)
-            notify_recruiter_new_application(recruiter.email, name, job.title)
+            asyncio.create_task(asyncio.to_thread(notify_recruiter_new_application, recruiter.email, name, job.title))
 
         # If the job has an assessment attached, email it to the candidate
         assessment_result = await db.execute(
@@ -93,15 +94,16 @@ async def apply_to_job(
         )
         assessment = assessment_result.scalar_one_or_none()
         if assessment:
-            notify_candidate_assessment(
-                candidate_email=current_user.email,
-                candidate_name=_full_name(current_user),
-                job_title=job.title,
-                assessment_name=assessment.name,
-                duration_minutes=assessment.duration_minutes,
-                assessment_id=assessment.id,
-                application_id=application.id,
-            )
+            asyncio.create_task(asyncio.to_thread(
+                notify_candidate_assessment,
+                current_user.email,
+                _full_name(current_user),
+                job.title,
+                assessment.name,
+                assessment.duration_minutes,
+                assessment.id,
+                application.id,
+            ))
     except Exception:
         pass
 
@@ -351,15 +353,17 @@ async def resend_assessment_email(
     if not assessment:
         raise HTTPException(status_code=400, detail="Job has no assessment attached")
     try:
+        import asyncio
         from app.core.email import notify_candidate_assessment
-        notify_candidate_assessment(
-            candidate_email=user.email,
-            candidate_name=_full_name(user),
-            job_title=job.title,
-            assessment_name=assessment.name,
-            duration_minutes=assessment.duration_minutes,
-            assessment_id=assessment.id,
-            application_id=app.id,
+        await asyncio.to_thread(
+            notify_candidate_assessment,
+            user.email,
+            _full_name(user),
+            job.title,
+            assessment.name,
+            assessment.duration_minutes,
+            assessment.id,
+            app.id,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
@@ -404,15 +408,17 @@ async def schedule_in_person_interview(
     app.in_person_notes = body.notes
     await db.flush()
     try:
+        import asyncio
         from app.core.email import notify_candidate_in_person_scheduled
         scheduled_display = scheduled_at.strftime("%A, %B %d, %Y at %I:%M %p UTC")
-        notify_candidate_in_person_scheduled(
-            candidate_email=user.email,
-            candidate_name=_full_name(user),
-            job_title=job.title,
-            scheduled_at_str=scheduled_display,
-            notes=body.notes,
-        )
+        asyncio.create_task(asyncio.to_thread(
+            notify_candidate_in_person_scheduled,
+            user.email,
+            _full_name(user),
+            job.title,
+            scheduled_display,
+            body.notes,
+        ))
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("In-person schedule email failed for %s: %s", user.email, e)
@@ -459,13 +465,15 @@ async def send_offer_letter(
     app.offer_sent_at = datetime.utcnow()
     await db.flush()
     try:
+        import asyncio
         from app.core.email import notify_candidate_offer_letter
-        notify_candidate_offer_letter(
-            candidate_email=user.email,
-            candidate_name=_full_name(user),
-            job_title=job.title,
-            company_name="Agentic HR",
-        )
+        asyncio.create_task(asyncio.to_thread(
+            notify_candidate_offer_letter,
+            user.email,
+            _full_name(user),
+            job.title,
+            "Agentic HR",
+        ))
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("Offer letter email failed for %s: %s", user.email, e)
@@ -521,6 +529,7 @@ async def update_application_status(
 
     if old_status != body.status:
         try:
+            import asyncio
             from app.core.email import notify_candidate_status_change, notify_candidate_assessment
             if body.status == "assessment":
                 assessment_result = await db.execute(
@@ -528,19 +537,20 @@ async def update_application_status(
                 )
                 assessment = assessment_result.scalar_one_or_none()
                 if assessment:
-                    notify_candidate_assessment(
-                        candidate_email=user.email,
-                        candidate_name=_full_name(user),
-                        job_title=job.title,
-                        assessment_name=assessment.name,
-                        duration_minutes=assessment.duration_minutes,
-                        assessment_id=assessment.id,
-                        application_id=app.id,
-                    )
+                    asyncio.create_task(asyncio.to_thread(
+                        notify_candidate_assessment,
+                        user.email,
+                        _full_name(user),
+                        job.title,
+                        assessment.name,
+                        assessment.duration_minutes,
+                        assessment.id,
+                        app.id,
+                    ))
                 else:
-                    notify_candidate_status_change(user.email, job.title, body.status)
+                    asyncio.create_task(asyncio.to_thread(notify_candidate_status_change, user.email, job.title, body.status))
             else:
-                notify_candidate_status_change(user.email, job.title, body.status)
+                asyncio.create_task(asyncio.to_thread(notify_candidate_status_change, user.email, job.title, body.status))
         except Exception:
             pass
 

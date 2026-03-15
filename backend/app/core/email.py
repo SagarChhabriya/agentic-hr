@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import threading
 import time
@@ -10,16 +11,23 @@ _resend_lock = threading.Lock()
 _resend_last_send_time: float = 0
 _RESEND_MIN_INTERVAL = 0.055  # seconds (1/18 to stay safely under 20/s)
 
+# Placeholder values that indicate the key is not configured
+_PLACEHOLDER_KEYS = {"re_xxxxxxxxxxxx", "re_placeholder", ""}
+
 
 def _send(to: str, subject: str, html: str) -> bool:
     settings = get_settings()
-    if not settings.resend_api_key:
+    api_key = settings.resend_api_key or ""
+
+    if not api_key or api_key in _PLACEHOLDER_KEYS:
         logger.warning(
-            "RESEND_API_KEY not set — email to %s skipped. Set RESEND_API_KEY in .env and verify your 'from' domain in Resend dashboard.",
+            "RESEND_API_KEY not configured — email to %s skipped. "
+            "Set a real RESEND_API_KEY in Azure Application settings and verify the 'from' domain in Resend dashboard.",
             to,
         )
         return False
-    logger.info("Sending email to %s: %s", to, subject)
+
+    logger.info("Sending email to %s: %s (from: %s)", to, subject, settings.email_from)
     with _resend_lock:
         now = time.monotonic()
         elapsed = now - _resend_last_send_time
@@ -29,7 +37,7 @@ def _send(to: str, subject: str, html: str) -> bool:
             time.sleep(sleep_time)
     try:
         import resend
-        resend.api_key = settings.resend_api_key
+        resend.api_key = api_key
         resend.Emails.send({
             "from": settings.email_from,
             "to": [to],
@@ -39,11 +47,20 @@ def _send(to: str, subject: str, html: str) -> bool:
         with _resend_lock:
             global _resend_last_send_time
             _resend_last_send_time = time.monotonic()
-        logger.info("Email sent to %s: %s", to, subject)
+        logger.info("Email sent successfully to %s: %s", to, subject)
         return True
     except Exception as e:
-        logger.exception("Failed to send email to %s: %s", to, e)
+        logger.error(
+            "Failed to send email to %s (%s). Error: %s. "
+            "Check RESEND_API_KEY validity and that domain '%s' is verified in Resend dashboard.",
+            to, subject, e, settings.email_from.split("@")[-1] if "@" in settings.email_from else settings.email_from,
+        )
         return False
+
+
+async def send_async(to: str, subject: str, html: str) -> bool:
+    """Non-blocking wrapper: runs _send in a thread so async handlers are not blocked."""
+    return await asyncio.to_thread(_send, to, subject, html)
 
 
 def notify_recruiter_new_application(
