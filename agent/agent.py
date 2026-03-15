@@ -39,12 +39,17 @@ If the candidate seems stuck, you may rephrase or offer a brief hint. Wrap up by
         )
 
 
-server = AgentServer()
+# Port 8081 for Azure health checks (set WEBSITES_PORT=8081 in Azure)
+server = AgentServer(host="0.0.0.0", port=8081)
 
 
 @server.rtc_session(agent_name="interview-agent")
 async def interview_agent(ctx: agents.JobContext) -> None:
     """Entrypoint: join the room and run the voice pipeline (Deepgram STT -> Groq LLM -> Deepgram TTS)."""
+    import logging
+    log = logging.getLogger("livekit.agents")
+    log.info("interview_agent: starting session for room %s", ctx.room.name)
+
     session = AgentSession(
         stt=deepgram.STT(
             model=DEEPGRAM_STT_MODEL,
@@ -62,9 +67,15 @@ async def interview_agent(ctx: agents.JobContext) -> None:
         # No custom room_options - use defaults; add noise_cancellation back if needed
     )
 
-    await session.generate_reply(
-        instructions="Greet the candidate and introduce yourself as the AI interviewer. Ask them to tell you their name and then proceed with the first interview question."
-    )
+    log.info("interview_agent: session started, generating greeting")
+    try:
+        await session.generate_reply(
+            instructions="Greet the candidate and introduce yourself as the AI interviewer. Ask them to tell you their name and then proceed with the first interview question."
+        )
+        log.info("interview_agent: greeting sent")
+    except Exception as e:
+        log.error("interview_agent: generate_reply failed: %s", e, exc_info=True)
+        raise
 
 
 if __name__ == "__main__":

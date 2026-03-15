@@ -14,5 +14,5 @@ RUN uv sync --no-dev
 # Download Silero VAD and turn-detector models at build time
 RUN uv run agent.py download-files
 
-# Production: connect to LiveKit and join rooms
-CMD ["uv", "run", "agent.py", "start"]
+# Production: connect to LiveKit and join rooms (DEBUG logs for troubleshooting)
+CMD ["uv", "run", "agent.py", "start", "--log-level=DEBUG"]

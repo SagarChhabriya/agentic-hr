@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { AxiosError } from 'axios';
 import '@livekit/components-styles';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -51,8 +52,16 @@ export default function InterviewRoomPage() {
           If the AI interviewer never appears, the interview agent service may not be running—contact support.
         </p>
         {tokenMutation.isError && (
-          <p className="text-red-500 mb-4">
-            {(tokenMutation.error as Error)?.message || 'Failed to get interview access'}
+          <p className="text-red-500 mb-4 text-sm">
+            {(() => {
+              const err = tokenMutation.error as AxiosError<any>;
+              const detail = err.response?.data?.detail;
+              if (typeof detail === 'string') {
+                // Backend may say: "Interview will be available at 2026-03-15T18:30:00+05:00 (Asia/Karachi)."
+                return detail;
+              }
+              return err.message || 'Failed to get interview access';
+            })()}
           </p>
         )}
         <button

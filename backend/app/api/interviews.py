@@ -200,6 +200,10 @@ async def get_interview_token(
         can_subscribe=True,
         can_publish_data=True,
     ))
+    # Dispatch the interview-agent to the room when the candidate joins
+    token.with_room_config(api.RoomConfiguration(
+        agents=[api.RoomAgentDispatch(agent_name="interview-agent")],
+    ))
 
     jwt_token = token.to_jwt()
     livekit_url = settings.livekit_url or "wss://your-livekit-server.livekit.cloud"
@@ -311,7 +315,7 @@ async def reschedule_interview(
     return ScheduleInterviewResponse(
         id=interview.id,
         application_id=interview.application_id,
-        scheduled_at=scheduled_at_aware.isoformat(),
+        scheduled_at=local_aware.isoformat(),
         duration_minutes=interview.duration_minutes,
         status=interview.status,
     )
