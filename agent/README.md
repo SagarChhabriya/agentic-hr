@@ -69,7 +69,7 @@ By default, the agent is dispatched to **every new room** in your LiveKit projec
 | **Deepgram API key** | STT and TTS for the voice pipeline. |
 | **Running agent process** | Must be running (e.g. `uv run agent.py dev`) so it can join when a candidate enters an interview room. |
 
-**Deployment:** Push to `main` with changes under `agent/` to trigger **Azure** deploy (see [docs/agent-deployment.md](../docs/agent-deployment.md) for one-time Web App + secrets setup). For LiveKit Cloud, see the same doc.
+**Deployment (Azure cloud):** See [docs/agent-azure-setup.md](../docs/agent-azure-setup.md) for a step-by-step guide. Push to `main` triggers GitHub Actions → build → deploy to Azure Web App.
 ---
 
 ## What else is required?
@@ -83,3 +83,17 @@ By default, the agent is dispatched to **every new room** in your LiveKit projec
 | **Model files** | Run `uv run agent.py download-files` once to fetch Silero VAD and turn-detector models. |
 
 No extra services are needed: the backend already has LiveKit and Groq; you only add **Deepgram** for the voice agent and run the **agent process** alongside the backend.
+
+## Troubleshooting: agent in room but not speaking
+
+If the agent joins the room (visible as "agent-xxx") but does not respond when the candidate speaks:
+
+1. **Test API keys** — Run `uv run python test_voice.py` to verify Deepgram and Groq work. Fix any failures in `agent/.env`.
+2. **Windows IPC issues** — The terminal may show `DuplexClosed` or `ConnectionResetError` between the worker and inference subprocess. This is a known issue on Windows. **Solution: run the agent via Docker** (Linux container avoids it):
+   ```bash
+   docker build -t interview-agent .
+   docker run --env-file .env interview-agent
+   ```
+3. **Check env vars on Azure** — If deployed to Azure, add `DEEPGRAM_API_KEY` and `GROQ_API_KEY` in Web App → Configuration → Application settings.
+4. **Enable debug logging** — Set `LIVEKIT_AGENTS_LOG_LEVEL=DEBUG` before starting.
+5. **Mic permissions** — Ensure the candidate has allowed microphone access.

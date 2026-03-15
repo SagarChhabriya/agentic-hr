@@ -5,20 +5,25 @@ uses the same LIVEKIT_* credentials as the backend so it joins rooms
 created by the API (e.g. interview-{application_id}-{timestamp}).
 """
 
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-from livekit import agents, rtc
-from livekit.agents import Agent, AgentSession, AgentServer, room_io
-from livekit.plugins import deepgram, groq, noise_cancellation, silero
+# Load .env from agent directory so LIVEKIT_URL, etc. are set for both main and worker
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+from livekit import agents
+from livekit.agents import Agent, AgentSession, AgentServer
+from livekit.plugins import deepgram, groq, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-load_dotenv()
-
 # Default model names; override via env if needed
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# Use 8b-instant for faster responses; 70b-versatile for higher quality (can be slower)
+GROQ_MODEL = "llama-3.1-8b-instant"
 DEEPGRAM_STT_MODEL = "nova-3"
 DEEPGRAM_STT_LANGUAGE = "en"
-DEEPGRAM_TTS_MODEL = "aura-2-asteria-en"
+# Athena: professional, calm; Asteria: energetic. Both are valid aura-2 voices.
+DEEPGRAM_TTS_MODEL = "aura-2-athena-en"
 
 
 class InterviewAgent(Agent):
@@ -54,15 +59,7 @@ async def interview_agent(ctx: agents.JobContext) -> None:
     await session.start(
         room=ctx.room,
         agent=InterviewAgent(),
-        room_options=room_io.RoomOptions(
-            audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: (
-                    noise_cancellation.BVCTelephony()
-                    if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
-                    else noise_cancellation.BVC()
-                ),
-            ),
-        ),
+        # No custom room_options - use defaults; add noise_cancellation back if needed
     )
 
     await session.generate_reply(
