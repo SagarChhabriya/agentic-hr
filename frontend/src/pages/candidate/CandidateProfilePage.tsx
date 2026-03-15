@@ -220,6 +220,29 @@ export default function CandidateProfilePage() {
     uploadMutation.mutate(file);
   };
 
+  const clearAutoFilledFields = () => {
+    if (!form) return;
+    setForm({
+      ...form,
+      phone: null,
+      address: null,
+      city: null,
+      country: null,
+      bio: '',
+      skills: [],
+      experience_years: null,
+      education: [{ ...emptyEducation }],
+      work_experience: [{ ...emptyWork }],
+      linkedin_url: '',
+      portfolio_url: '',
+      github_url: '',
+      expected_salary_min: null,
+      expected_salary_max: null,
+    });
+    setToast('Cleared fields auto-filled from resume. You can enter fresh details now.');
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const cardCls = isDark
     ? 'border-slate-700 bg-slate-800'
     : 'border-gray-200 bg-white shadow-sm';
@@ -317,6 +340,13 @@ export default function CandidateProfilePage() {
                 className="hidden"
               />
             </label>
+            <button
+              type="button"
+              onClick={clearAutoFilledFields}
+              className="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-900/40"
+            >
+              Clear auto-filled fields
+            </button>
           </div>
           <p className="text-xs opacity-60 mt-2">
             PDF only, max 5 MB. Uploading a resume will auto-fill your profile fields below.

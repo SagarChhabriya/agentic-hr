@@ -1,6 +1,8 @@
 """API for AI interview scheduling and LiveKit token generation."""
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,6 +17,9 @@ from app.models.interview import Interview, InterviewSession, InterviewStatus
 from app.models.job import Job
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
+
+# Use Asia/Karachi as the canonical local timezone for recruiter & candidate flows.
+KARACHI_TZ = ZoneInfo("Asia/Karachi")
 
 
 class ScheduleInterviewRequest(BaseModel):
@@ -68,27 +73,29 @@ async def schedule_interview(
     app, job, candidate_user = row
 
     try:
-        # Accept either a raw 'YYYY-MM-DDTHH:MM' (datetime-local) or a full ISO string with timezone/Z.
+        # Accept either a raw 'YYYY-MM-DDTHH:MM' (datetime-local, assumed Asia/Karachi)
+        # or a full ISO string with timezone/Z.
         parsed = datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
 
     # Normalize for comparison and storage:
-    # - If a timezone is present, convert to UTC and store as naive UTC.
-    # - If no timezone, treat as naive server-local/UTC and store as-is.
+    # - If a timezone is present, convert to Asia/Karachi and store naive (Karachi local time).
+    # - If no timezone, interpret as Asia/Karachi local time and store as-is.
     if parsed.tzinfo is not None:
-        scheduled_at_aware = parsed.astimezone(timezone.utc)
-        scheduled_at = scheduled_at_aware.replace(tzinfo=None)
-        now = datetime.utcnow()
+        local_aware = parsed.astimezone(KARACHI_TZ)
     else:
-        scheduled_at = parsed
-        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
-        now = datetime.utcnow()
+        local_aware = parsed.replace(tzinfo=KARACHI_TZ)
 
-    if scheduled_at < now:
+    # For DB we store naive Karachi time
+    scheduled_at = local_aware.replace(tzinfo=None)
+
+    # Compare using Karachi local time
+    now_local = datetime.now(KARACHI_TZ)
+    if local_aware <= now_local:
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
 
-    room_name = f"interview-{app.id}-{int(scheduled_at_aware.timestamp())}"
+    room_name = f"interview-{app.id}-{int(local_aware.timestamp())}"
     interview = Interview(
         application_id=body.application_id,
         scheduled_at=scheduled_at,
@@ -106,8 +113,10 @@ async def schedule_interview(
     # Notify candidate by email (fire-and-forget; do not block response)
     try:
         from app.core.email import notify_candidate_interview_scheduled
-        candidate_name = " ".join(p for p in [candidate_user.first_name, candidate_user.last_name] if p).strip() or candidate_user.email or "Candidate"
-        scheduled_at_display = scheduled_at_aware.strftime("%A, %B %d, %Y at %I:%M %p UTC")
+        candidate_name = " ".join(
+            p for p in [candidate_user.first_name, candidate_user.last_name] if p
+        ).strip() or candidate_user.email or "Candidate"
+        scheduled_at_display = local_aware.strftime("%A, %B %d, %Y at %I:%M %p %Z")
         notify_candidate_interview_scheduled(
             candidate_email=candidate_user.email,
             candidate_name=candidate_name,
@@ -152,20 +161,16 @@ async def get_interview_token(
     if interview.status == InterviewStatus.CANCELLED.value:
         raise HTTPException(status_code=400, detail="Interview was cancelled")
 
-    # Check if within allowed window (e.g. 15 min before to 30 min after scheduled)
-    now_utc = datetime.now(timezone.utc)
-    scheduled_at = interview.scheduled_at
-    if scheduled_at.tzinfo is None:
-        scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
-    window_start = scheduled_at - timedelta(minutes=15)
-    window_end = scheduled_at + timedelta(minutes=interview.duration_minutes + 30)
-    if now_utc < window_start:
+    # Check join time using Karachi local time:
+    # - No early join: must be at or after scheduled time
+    # - No hard upper cap; late joins are allowed
+    now_local = datetime.now(KARACHI_TZ)
+    scheduled_local = interview.scheduled_at.replace(tzinfo=KARACHI_TZ)
+    if now_local < scheduled_local:
         raise HTTPException(
             status_code=400,
-            detail=f"Interview opens 15 minutes before scheduled time. Your interview is at {scheduled_at.isoformat()}",
+            detail=f"Interview will be available at {scheduled_local.isoformat()} (Asia/Karachi).",
         )
-    if now_utc > window_end:
-        raise HTTPException(status_code=400, detail="Interview window has ended")
 
     # Generate LiveKit token
     from app.core.config import get_settings
@@ -265,16 +270,16 @@ async def reschedule_interview(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601.")
 
+    # Normalize via Asia/Karachi local time and store naive Karachi time
     if parsed.tzinfo is not None:
-        scheduled_at_aware = parsed.astimezone(timezone.utc)
-        scheduled_at = scheduled_at_aware.replace(tzinfo=None)
-        now = datetime.utcnow()
+        local_aware = parsed.astimezone(KARACHI_TZ)
     else:
-        scheduled_at = parsed
-        scheduled_at_aware = parsed.replace(tzinfo=timezone.utc)
-        now = datetime.utcnow()
+        local_aware = parsed.replace(tzinfo=KARACHI_TZ)
 
-    if scheduled_at < now:
+    scheduled_at = local_aware.replace(tzinfo=None)
+
+    now_local = datetime.now(KARACHI_TZ)
+    if local_aware <= now_local:
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
 
     interview.scheduled_at = scheduled_at
@@ -289,8 +294,8 @@ async def reschedule_interview(
         candidate_name = " ".join(
             p for p in [candidate_user.first_name, candidate_user.last_name] if p
         ).strip() or candidate_user.email or "Candidate"
-        scheduled_at_display = scheduled_at_aware.strftime(
-            "%A, %B %d, %Y at %I:%M %p UTC"
+        scheduled_at_display = local_aware.strftime(
+            "%A, %B %d, %Y at %I:%M %p %Z"
         )
         notify_candidate_interview_scheduled(
             candidate_email=candidate_user.email,
