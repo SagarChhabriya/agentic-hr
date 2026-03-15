@@ -200,11 +200,7 @@ async def get_interview_token(
         can_subscribe=True,
         can_publish_data=True,
     ))
-    # Dispatch the interview-agent to the room when the candidate joins
-    token.with_room_config(api.RoomConfiguration(
-        agents=[api.RoomAgentDispatch(agent_name="interview-agent")],
-    ))
-
+    # No RoomAgentDispatch: agent uses automatic dispatch (joins every new room)
     jwt_token = token.to_jwt()
     livekit_url = settings.livekit_url or "wss://your-livekit-server.livekit.cloud"
 
