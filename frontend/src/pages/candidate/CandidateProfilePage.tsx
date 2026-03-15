@@ -179,6 +179,13 @@ export default function CandidateProfilePage() {
       setToast('Resume uploaded and profile auto-filled!');
       setTimeout(() => setToast(null), 3000);
     },
+    onError: (err: { response?: { data?: { detail?: string }; status?: number } }) => {
+      const msg = err.response?.data?.detail || err.response?.status === 413
+        ? 'File too large (max 5 MB)'
+        : 'Resume upload failed. Please try again.';
+      setToast(msg);
+      setTimeout(() => setToast(null), 4000);
+    },
   });
 
   const deleteResumeMutation = useMutation({

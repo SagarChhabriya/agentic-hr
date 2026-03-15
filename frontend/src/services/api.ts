@@ -28,6 +28,10 @@ apiClient.interceptors.request.use(
       const token = localStorage.getItem('accessToken');
       if (token) config.headers.Authorization = `Bearer ${token}`;
     }
+    // Let browser set Content-Type with boundary for FormData (manual multipart/form-data breaks parsing)
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (err) => Promise.reject(err)
@@ -116,9 +120,7 @@ export const profileApi = {
   uploadResume: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return apiClient.post('/profile/resume', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data);
+    return apiClient.post('/profile/resume', form).then((r) => r.data);
   },
   deleteResume: () => apiClient.delete('/profile/resume').then((r) => r.data),
 };
