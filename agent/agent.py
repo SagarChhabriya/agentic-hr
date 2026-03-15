@@ -39,12 +39,11 @@ if "download-files" not in sys.argv:
     )
 
 from livekit import agents
-from livekit.agents import Agent, AgentSession, AgentServer
+from livekit.agents import Agent, AgentSession, WorkerOptions
 from livekit.plugins import deepgram, groq, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Default model names; override via env if needed
-# Use 8b-instant for faster responses; 70b-versatile for higher quality (can be slower)
 GROQ_MODEL = "llama-3.1-8b-instant"
 DEEPGRAM_STT_MODEL = "nova-3"
 DEEPGRAM_STT_LANGUAGE = "en"
@@ -65,16 +64,13 @@ If the candidate seems stuck, you may rephrase or offer a brief hint. Wrap up by
         )
 
 
-server = AgentServer()
+async def entrypoint(ctx: agents.JobContext) -> None:
+    """Standard livekit-agents v1.x entrypoint: connect → start session → greet."""
+    _log.info("entrypoint: job received for room %s", ctx.room.name)
 
-
-# No agent_name = automatic dispatch: joins every new room in the project.
-@server.rtc_session()
-async def interview_agent(ctx: agents.JobContext) -> None:
-    """Entrypoint: join the room and run the voice pipeline (Deepgram STT -> Groq LLM -> Deepgram TTS)."""
-    import logging
-    log = logging.getLogger("livekit.agents")
-    log.info("interview_agent: starting session for room %s", ctx.room.name)
+    # Must connect to the room before starting the session pipeline
+    await ctx.connect()
+    _log.info("entrypoint: connected to room %s", ctx.room.name)
 
     session = AgentSession(
         stt=deepgram.STT(
@@ -91,21 +87,16 @@ async def interview_agent(ctx: agents.JobContext) -> None:
     await session.start(
         room=ctx.room,
         agent=InterviewAgent(),
-        # No custom room_options - use defaults; add noise_cancellation back if needed
     )
+    _log.info("entrypoint: session started, speaking greeting")
 
-    log.info("interview_agent: session started, speaking greeting")
-    try:
-        # Use say() for reliable initial TTS (fixed phrase; then LLM handles conversation)
-        await session.say(
-            "Hello! I'm your AI interviewer. Please tell me your name, and we'll begin with the first question.",
-            allow_interruptions=True,
-        )
-        log.info("interview_agent: greeting spoken")
-    except Exception as e:
-        log.error("interview_agent: say failed: %s", e, exc_info=True)
-        raise
+    # Use say() for a reliable fixed greeting; LLM takes over after this
+    await session.say(
+        "Hello! I'm your AI interviewer. Please tell me your name, and we'll begin with the first question.",
+        allow_interruptions=True,
+    )
+    _log.info("entrypoint: greeting spoken successfully")
 
 
 if __name__ == "__main__":
-    agents.cli.run_app(server)
+    agents.cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
