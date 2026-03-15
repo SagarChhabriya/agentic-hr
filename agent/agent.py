@@ -56,7 +56,8 @@ async def interview_agent(ctx: agents.JobContext) -> None:
             language=DEEPGRAM_STT_LANGUAGE,
         ),
         llm=groq.LLM(model=GROQ_MODEL),
-        tts=deepgram.TTS(model=DEEPGRAM_TTS_MODEL),
+        # LiveKit Inference TTS (no DEEPGRAM_API_KEY needed; works when connected to LiveKit Cloud)
+        tts="deepgram/aura-2:athena",
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
     )
