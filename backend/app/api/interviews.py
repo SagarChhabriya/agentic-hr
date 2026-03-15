@@ -183,6 +183,8 @@ async def get_interview_token(
 
     try:
         from livekit import api
+        from livekit.protocol.room import RoomConfiguration
+        from livekit.protocol.agent_dispatch import RoomAgentDispatch
     except ImportError:
         raise HTTPException(
             status_code=503,
@@ -200,7 +202,10 @@ async def get_interview_token(
         can_subscribe=True,
         can_publish_data=True,
     ))
-    # No RoomAgentDispatch: agent uses automatic dispatch (joins every new room)
+    # Explicit dispatch: when candidate joins, request interview-agent (self-hosted on Azure)
+    token.with_room_config(RoomConfiguration(
+        agents=[RoomAgentDispatch(agent_name="interview-agent")],
+    ))
     jwt_token = token.to_jwt()
     livekit_url = settings.livekit_url or "wss://your-livekit-server.livekit.cloud"
 

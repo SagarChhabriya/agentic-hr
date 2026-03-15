@@ -5,12 +5,27 @@ uses the same LIVEKIT_* credentials as the backend so it joins rooms
 created by the API (e.g. interview-{application_id}-{timestamp}).
 """
 
+import logging
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 # Load .env from agent directory so LIVEKIT_URL, etc. are set for both main and worker
 load_dotenv(Path(__file__).resolve().parent / ".env")
+
+# Validate required env vars at import (fail fast if missing)
+_REQUIRED = ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "GROQ_API_KEY", "DEEPGRAM_API_KEY")
+for k in _REQUIRED:
+    if not os.getenv(k):
+        raise RuntimeError(f"{k} must be set (check .env or Azure Application settings)")
+
+_log = logging.getLogger("livekit.agents")
+_log.info(
+    "Agent starting: LIVEKIT_URL=%s (keys set: %s)",
+    os.getenv("LIVEKIT_URL", ""),
+    "yes" if all(os.getenv(k) for k in _REQUIRED) else "no",
+)
 
 from livekit import agents
 from livekit.agents import Agent, AgentSession, AgentServer
@@ -42,8 +57,8 @@ If the candidate seems stuck, you may rephrase or offer a brief hint. Wrap up by
 server = AgentServer()
 
 
-# No agent_name = automatic dispatch (joins every new room). Use agent_name for explicit dispatch.
-@server.rtc_session()
+# agent_name= explicit dispatch: token must include RoomAgentDispatch for agent to be requested.
+@server.rtc_session(agent_name="interview-agent")
 async def interview_agent(ctx: agents.JobContext) -> None:
     """Entrypoint: join the room and run the voice pipeline (Deepgram STT -> Groq LLM -> Deepgram TTS)."""
     import logging
@@ -68,14 +83,16 @@ async def interview_agent(ctx: agents.JobContext) -> None:
         # No custom room_options - use defaults; add noise_cancellation back if needed
     )
 
-    log.info("interview_agent: session started, generating greeting")
+    log.info("interview_agent: session started, speaking greeting")
     try:
-        await session.generate_reply(
-            instructions="Greet the candidate and introduce yourself as the AI interviewer. Ask them to tell you their name and then proceed with the first interview question."
+        # Use say() for reliable initial TTS (fixed phrase; then LLM handles conversation)
+        await session.say(
+            "Hello! I'm your AI interviewer. Please tell me your name, and we'll begin with the first question.",
+            allow_interruptions=True,
         )
-        log.info("interview_agent: greeting sent")
+        log.info("interview_agent: greeting spoken")
     except Exception as e:
-        log.error("interview_agent: generate_reply failed: %s", e, exc_info=True)
+        log.error("interview_agent: say failed: %s", e, exc_info=True)
         raise
 
 

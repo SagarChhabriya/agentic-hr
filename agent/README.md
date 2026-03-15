@@ -58,7 +58,7 @@ The backend creates rooms named `interview-{application_id}-{timestamp}` and iss
 
 ## Room dispatch
 
-By default, the agent is dispatched to **every new room** in your LiveKit project. The app only creates rooms for interviews (`interview-*`), so in practice only interview rooms get the agent. If you use the same project for other rooms, configure [agent dispatch rules](https://docs.livekit.io/agents/ops/deployment/) in LiveKit Cloud so this agent runs only for rooms whose name starts with `interview-`.
+The agent uses **explicit dispatch**: `agent_name="interview-agent"` with `RoomAgentDispatch` in the candidate's token. When a candidate joins an interview room, the token requests this agent, and the LiveKit server dispatches the job to this worker.
 
 ## What’s required
 
