@@ -6,6 +6,8 @@ WORKDIR /app
 # Install uv for fast, reproducible installs
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_SYSTEM_PYTHON=1
+# Disable Python output buffering so all logs appear immediately in Azure log stream
+ENV PYTHONUNBUFFERED=1
 
 # Dependencies and agent code
 COPY pyproject.toml agent.py ./

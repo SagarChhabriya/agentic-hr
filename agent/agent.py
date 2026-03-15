@@ -10,6 +10,17 @@ import os
 import sys
 from pathlib import Path
 
+# Configure logging to stdout immediately — before any other imports — so Azure
+# log stream captures output even if the process crashes during startup.
+logging.basicConfig(
+    level=logging.DEBUG,
+    stream=sys.stdout,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    force=True,
+)
+_log = logging.getLogger("agent")
+_log.info("agent.py loaded — argv: %s", sys.argv)
+
 from dotenv import load_dotenv
 
 # Load .env from agent directory so LIVEKIT_URL, etc. are set for both main and worker
@@ -18,16 +29,13 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 # Validate required env vars only when starting the agent (skip for download-files during Docker build)
 _REQUIRED = ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "GROQ_API_KEY", "DEEPGRAM_API_KEY")
 if "download-files" not in sys.argv:
-    for k in _REQUIRED:
-        if not os.getenv(k):
-            raise RuntimeError(f"{k} must be set (check .env or Azure Application settings)")
-
-_log = logging.getLogger("livekit.agents")
-if "download-files" not in sys.argv:
+    missing = [k for k in _REQUIRED if not os.getenv(k)]
+    if missing:
+        _log.error("Missing required environment variables: %s", missing)
+        raise RuntimeError(f"Missing env vars: {missing}. Check .env or Azure Application settings.")
     _log.info(
-        "Agent starting: LIVEKIT_URL=%s (keys set: %s)",
+        "All required env vars present. LIVEKIT_URL=%s",
         os.getenv("LIVEKIT_URL", ""),
-        "yes" if all(os.getenv(k) for k in _REQUIRED) else "no",
     )
 
 from livekit import agents
