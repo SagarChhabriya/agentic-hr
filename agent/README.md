@@ -88,12 +88,13 @@ No extra services are needed: the backend already has LiveKit and Groq; you only
 
 If the agent joins the room (visible as "agent-xxx") but does not respond when the candidate speaks:
 
-1. **Test API keys** — Run `uv run python test_voice.py` to verify Deepgram and Groq work. Fix any failures in `agent/.env`.
-2. **Windows IPC issues** — The terminal may show `DuplexClosed` or `ConnectionResetError` between the worker and inference subprocess. This is a known issue on Windows. **Solution: run the agent via Docker** (Linux container avoids it):
+1. **LiveKit Inference vs self-hosted** — On Azure (self-hosted), you must use the **Deepgram plugin** for TTS, not LiveKit Inference (`tts="deepgram/aura-2:athena"`). See [docs/agent-no-speech-solution.md](../docs/agent-no-speech-solution.md) for the full root cause and fix.
+2. **Test API keys** — Run `uv run python test_voice.py` to verify Deepgram and Groq work. Fix any failures in `agent/.env`.
+3. **Windows IPC issues** — The terminal may show `DuplexClosed` or `ConnectionResetError` between the worker and inference subprocess. This is a known issue on Windows. **Solution: run the agent via Docker** (Linux container avoids it):
    ```bash
    docker build -t interview-agent .
    docker run --env-file .env interview-agent
    ```
-3. **Check env vars on Azure** — If deployed to Azure, add `DEEPGRAM_API_KEY` and `GROQ_API_KEY` in Web App → Configuration → Application settings.
-4. **Enable debug logging** — Set `LIVEKIT_AGENTS_LOG_LEVEL=DEBUG` before starting.
-5. **Mic permissions** — Ensure the candidate has allowed microphone access.
+4. **Check env vars on Azure** — If deployed to Azure, add `DEEPGRAM_API_KEY` and `GROQ_API_KEY` in Web App → Configuration → Application settings.
+5. **Enable debug logging** — Set `LIVEKIT_AGENTS_LOG_LEVEL=DEBUG` before starting.
+6. **Mic permissions** — Ensure the candidate has allowed microphone access.

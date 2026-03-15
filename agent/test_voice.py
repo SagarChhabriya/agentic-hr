@@ -82,8 +82,8 @@ async def main() -> None:
 
     if dg_ok and groq_ok:
         print("\nAll API tests passed. Keys are valid.")
-        print("\nIf the agent still doesn't speak, the issue is likely Windows IPC.")
-        print("Run the agent via Docker (Linux) to avoid it:")
+        print("\nIf the agent still doesn't speak, see docs/agent-no-speech-solution.md .")
+        print("On Windows: run via Docker (Linux) to avoid IPC issues:")
         print("  docker build -t interview-agent .")
         print("  docker run --env-file .env interview-agent")
     else:
