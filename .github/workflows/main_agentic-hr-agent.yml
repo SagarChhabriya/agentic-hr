@@ -1,15 +1,21 @@
-# Deploy LiveKit interview agent (Docker) to Azure Web App for Containers
+# Deploy LiveKit interview agent to Azure Container Instances (ACI)
+# ACI is designed for long-running background containers (no HTTP server required).
+#
+# One-time setup: run this in Azure CLI to create the resource group if needed:
+#   az group create --name agentic-hr-rg --location centralindia
 #
 # Required GitHub secrets:
-#   AZURE_WEBAPP_PUBLISH_PROFILE_AGENT — publish profile from Azure Portal
+#   AZURE_CREDENTIALS                 — service principal JSON (see below)
+#   GHCR_PAT                          — GitHub PAT with read:packages scope
 #
-# Required Azure app settings (one-time setup):
-#   DOCKER_REGISTRY_SERVER_URL      = https://ghcr.io
-#   DOCKER_REGISTRY_SERVER_USERNAME = sagarchhabriya
-#   DOCKER_REGISTRY_SERVER_PASSWORD = <GitHub PAT with read:packages, no expiry>
-#   WEBSITES_PORT                   = 8080
+# To create AZURE_CREDENTIALS:
+#   az ad sp create-for-rbac --name "github-aci-deploy" \
+#     --role contributor \
+#     --scopes /subscriptions/<sub-id>/resourceGroups/agentic-hr-rg \
+#     --sdk-auth
+# Copy the JSON output as the AZURE_CREDENTIALS secret.
 
-name: Build and deploy agent to Azure Web App - agentic-hr-agent
+name: Build and deploy agent to Azure Container Instances
 
 on:
   push:
@@ -21,8 +27,10 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: agentic-hr-agent
   GHCR_IMAGE: ghcr.io/sagarchhabriya/agentic-hr-agent
+  ACI_NAME: agentic-hr-agent
+  RESOURCE_GROUP: agenti-hr
+  LOCATION: centralindia
 
 jobs:
   build:
@@ -69,9 +77,31 @@ jobs:
       name: production
 
     steps:
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+      - name: Azure login
+        uses: azure/login@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_AGENT }}
-          images: ${{ env.GHCR_IMAGE }}:${{ needs.build.outputs.sha }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Instances
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az container create \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --name ${{ env.ACI_NAME }} \
+              --image ${{ env.GHCR_IMAGE }}:${{ needs.build.outputs.sha }} \
+              --registry-login-server ghcr.io \
+              --registry-username sagarchhabriya \
+              --registry-password "${{ secrets.GHCR_PAT }}" \
+              --cpu 1 \
+              --memory 2 \
+              --restart-policy Always \
+              --os-type Linux \
+              --location ${{ env.LOCATION }} \
+              --environment-variables \
+                LIVEKIT_URL="${{ secrets.LIVEKIT_URL }}" \
+                LIVEKIT_API_KEY="${{ secrets.LIVEKIT_API_KEY }}" \
+                LIVEKIT_API_SECRET="${{ secrets.LIVEKIT_API_SECRET }}" \
+                GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+                DEEPGRAM_API_KEY="${{ secrets.DEEPGRAM_API_KEY }}" \
+                PYTHONUNBUFFERED=1
