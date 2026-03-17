@@ -8,10 +8,45 @@ created by the API (e.g. interview-{application_id}-{timestamp}).
 import logging
 import os
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 # print() + flush before any import so Azure log stream sees output even on import crash
 print("[agent] startup — argv:", sys.argv, flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Minimal HTTP health server — required by Azure Web App for Containers.
+# Listens on $PORT (default 8080) so Azure doesn't mark the instance unhealthy.
+# ---------------------------------------------------------------------------
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ("/", "/health"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ok")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, *args):
+        pass  # suppress per-request access logs
+
+
+def _start_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    try:
+        server = HTTPServer(("0.0.0.0", port), _HealthHandler)
+        print(f"[agent] health server listening on port {port}", flush=True)
+        server.serve_forever()
+    except Exception as exc:
+        print(f"[agent] health server error: {exc}", flush=True)
+
+
+# Start in a background daemon thread — dies automatically when the main process exits
+threading.Thread(target=_start_health_server, daemon=True, name="health-server").start()
 
 logging.basicConfig(
     level=logging.DEBUG,
