@@ -4,6 +4,201 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
 
+// ---------------------------------------------------------------------------
+// Interview Result Panel — transcript + AI summary for a completed session
+// ---------------------------------------------------------------------------
+function InterviewResultPanel({ interviews, application, isDark }) {
+  const [showTranscript, setShowTranscript] = useState(false);
+  const completedInterview = interviews?.find(
+    (i) => (i.status === 'completed' || i.status === 'no_show') && i.session
+  );
+  if (!completedInterview) return null;
+
+  const session = completedInterview.session;
+  const isNoShow = completedInterview.status === 'no_show';
+  const transcript = session.chat_transcript || [];
+  const summary = session.llm_summary || '';
+  const score = application?.interview_score;
+
+  const cardCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
+  const innerCls = isDark ? 'border-slate-600 bg-slate-900/50' : 'border-gray-200 bg-gray-50';
+
+  const scoreColor =
+    score == null ? 'text-gray-500'
+    : score >= 75 ? 'text-emerald-600 dark:text-emerald-400'
+    : score >= 50 ? 'text-amber-600 dark:text-amber-400'
+    : 'text-red-600 dark:text-red-400';
+
+  const scoreBg =
+    score == null ? ''
+    : score >= 75 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+    : score >= 50 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+
+  return (
+    <div className={`rounded-lg border p-6 mb-6 ${cardCls}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">AI Interview Results</h2>
+        {isNoShow && (
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300">
+            No Show
+          </span>
+        )}
+      </div>
+
+      {isNoShow ? (
+        <p className="text-sm opacity-75">The candidate did not complete the interview (fewer than 3 responses recorded).</p>
+      ) : (
+        <>
+          {/* Score + Recommendation */}
+          {score != null && (
+            <div className={`flex items-center gap-4 p-4 rounded-lg border mb-4 ${scoreBg}`}>
+              <div className="text-center">
+                <p className="text-xs opacity-75 mb-1">Interview Score</p>
+                <p className={`text-3xl font-bold ${scoreColor}`}>{score}</p>
+                <p className="text-xs opacity-60">/ 100</p>
+              </div>
+              <div className="flex-1 text-sm opacity-90 leading-relaxed whitespace-pre-wrap">
+                {summary}
+              </div>
+            </div>
+          )}
+          {score == null && summary && (
+            <div className={`p-4 rounded-lg border mb-4 ${innerCls}`}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{summary}</p>
+            </div>
+          )}
+
+          {/* Transcript toggle */}
+          {transcript.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowTranscript((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline mb-3"
+              >
+                <span>{showTranscript ? '▲ Hide' : '▼ Show'} transcript</span>
+                <span className="opacity-60">({transcript.length} messages)</span>
+              </button>
+              {showTranscript && (
+                <div className={`rounded-lg border p-4 space-y-3 max-h-96 overflow-y-auto ${innerCls}`}>
+                  {transcript.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex gap-3 ${msg.role === 'agent' ? 'flex-row' : 'flex-row-reverse'}`}
+                    >
+                      <div
+                        className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white ${
+                          msg.role === 'agent' ? 'bg-purple-600' : 'bg-blue-600'
+                        }`}
+                      >
+                        {msg.role === 'agent' ? 'AI' : 'C'}
+                      </div>
+                      <div
+                        className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
+                          msg.role === 'agent'
+                            ? isDark ? 'bg-slate-700' : 'bg-white border border-gray-200'
+                            : isDark ? 'bg-blue-900/40' : 'bg-blue-50 border border-blue-100'
+                        }`}
+                      >
+                        <p>{msg.text}</p>
+                        <p className="text-xs opacity-50 mt-1">
+                          {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Candidate Rating Panel — combined score + hire recommendation
+// ---------------------------------------------------------------------------
+function CandidateRatingPanel({ application, assessmentResult, isDark }) {
+  const assessScore = application?.assessment_score ?? assessmentResult?.score_percent ?? null;
+  const interviewScore = application?.interview_score ?? null;
+
+  if (assessScore == null && interviewScore == null) return null;
+
+  const scores = [assessScore, interviewScore].filter((s) => s != null);
+  const combined = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
+  const recommendation =
+    combined == null ? null
+    : combined >= 75 ? { label: 'Recommended — Hire', color: 'emerald' }
+    : combined >= 55 ? { label: 'Borderline — Review', color: 'amber' }
+    : { label: 'Not Recommended', color: 'red' };
+
+  const colorMap = {
+    emerald: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
+    amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+    red: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700',
+  };
+  const barColor = {
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+    red: 'bg-red-500',
+  };
+
+  const cardCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
+
+  return (
+    <div className={`rounded-lg border p-6 mb-6 ${cardCls}`}>
+      <h2 className="text-xl font-semibold mb-4">Candidate Rating</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        {assessScore != null && (
+          <ScoreCard label="Assessment" score={Math.round(assessScore)} isDark={isDark} />
+        )}
+        {interviewScore != null && (
+          <ScoreCard label="AI Interview" score={interviewScore} isDark={isDark} />
+        )}
+        {combined != null && (
+          <ScoreCard label="Combined" score={combined} isDark={isDark} highlight />
+        )}
+      </div>
+      {combined != null && (
+        <div className="mb-4">
+          <div className={`w-full h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+            <div
+              className={`h-2 rounded-full transition-all ${barColor[recommendation.color]}`}
+              style={{ width: `${combined}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {recommendation && (
+        <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-semibold border ${colorMap[recommendation.color]}`}>
+          {recommendation.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ScoreCard({ label, score, isDark, highlight }) {
+  const bg = highlight
+    ? isDark ? 'bg-slate-700' : 'bg-gray-100'
+    : isDark ? 'bg-slate-900/50' : 'bg-gray-50';
+  const scoreColor =
+    score >= 75 ? 'text-emerald-600 dark:text-emerald-400'
+    : score >= 55 ? 'text-amber-600 dark:text-amber-400'
+    : 'text-red-600 dark:text-red-400';
+  return (
+    <div className={`rounded-lg p-4 text-center border ${bg} ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+      <p className="text-xs opacity-60 mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${scoreColor}`}>{score}</p>
+      <p className="text-xs opacity-50">/ 100</p>
+    </div>
+  );
+}
+
 const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://hire-base.vercel.app';
 
 /** Placeholder readiness for in-person (assessment + interview); backend can replace with real score later. */
@@ -766,7 +961,7 @@ export default function RecruiterCandidateDetailPage() {
         </div>
       )}
 
-      {/* AI Interviews */}
+      {/* AI Interviews — schedule */}
       <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
         <h2 className="text-xl font-semibold mb-4">AI Interviews</h2>
         <p className="text-sm opacity-75 mb-4">
@@ -774,6 +969,20 @@ export default function RecruiterCandidateDetailPage() {
         </p>
         <ScheduleInterviewSection applicationId={id} isDark={isDark} />
       </div>
+
+      {/* Interview Results — transcript + AI summary (shown after completion) */}
+      <InterviewResultPanel
+        interviews={interviewsData?.interviews}
+        application={application}
+        isDark={isDark}
+      />
+
+      {/* Candidate Rating — combined score + hire recommendation */}
+      <CandidateRatingPanel
+        application={application}
+        assessmentResult={assessmentResult}
+        isDark={isDark}
+      />
 
       {/* Hiring next steps: rate for in-person, schedule in-person, offer letter */}
       <HiringNextStepsSection application={application} applicationId={id} assessmentResult={assessmentResult} isDark={isDark} queryClient={queryClient} />
