@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     livekit_api_key: str = Field("", validation_alias="LIVEKIT_API_KEY")
     livekit_api_secret: str = Field("", validation_alias="LIVEKIT_API_SECRET")
 
+    # Shared secret between the LiveKit agent and this backend.
+    # The agent passes it via X-Agent-Secret header when posting session results.
+    agent_secret: str = Field("", validation_alias="AGENT_SECRET")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

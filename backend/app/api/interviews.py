@@ -1,20 +1,24 @@
 """API for AI interview scheduling and LiveKit token generation."""
+import json
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.application import Application
 from app.models.interview import Interview, InterviewSession, InterviewStatus
 from app.models.job import Job
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
@@ -45,6 +49,168 @@ class LiveKitTokenResponse(BaseModel):
 class RescheduleInterviewRequest(BaseModel):
     scheduled_at: str  # ISO or datetime-local
     duration_minutes: int = 30
+
+
+class TranscriptMessage(BaseModel):
+    role: str        # "candidate" | "agent"
+    text: str
+    timestamp: str   # ISO datetime
+
+
+class CompleteSessionRequest(BaseModel):
+    room_name: str
+    transcript: list[TranscriptMessage]
+    started_at: str  # ISO datetime
+    ended_at: str    # ISO datetime
+
+
+# ---------------------------------------------------------------------------
+# Internal helper: generate LLM summary from transcript using Groq
+# ---------------------------------------------------------------------------
+async def _generate_summary(transcript: list[TranscriptMessage], job_title: str) -> dict:
+    """Returns {"summary": str, "score": int (0-100), "strengths": str, "weaknesses": str}."""
+    settings = get_settings()
+    if not settings.groq_api_key or not transcript:
+        return {"summary": "No summary available.", "score": 0, "strengths": "", "weaknesses": ""}
+
+    conversation = "\n".join(
+        f"{'Candidate' if m.role == 'candidate' else 'Interviewer'}: {m.text}"
+        for m in transcript
+        if m.text.strip()
+    )
+
+    prompt = f"""You are an expert HR analyst. Below is the transcript of an AI interview for the position of "{job_title}".
+
+TRANSCRIPT:
+{conversation}
+
+Evaluate the candidate and respond ONLY with valid JSON in this exact format:
+{{
+  "score": <integer 0-100>,
+  "summary": "<2-3 sentence overall assessment>",
+  "strengths": "<key strengths observed>",
+  "weaknesses": "<areas for improvement or concerns>",
+  "recommendation": "<Hire / Maybe / No Hire>"
+}}"""
+
+    try:
+        from groq import AsyncGroq
+        client = AsyncGroq(api_key=settings.groq_api_key)
+        response = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500,
+        )
+        raw = response.choices[0].message.content.strip()
+        # Extract JSON even if the model adds extra text
+        start, end = raw.find("{"), raw.rfind("}") + 1
+        result = json.loads(raw[start:end]) if start != -1 else {}
+        return {
+            "summary": result.get("summary", ""),
+            "score": int(result.get("score", 0)),
+            "strengths": result.get("strengths", ""),
+            "weaknesses": result.get("weaknesses", ""),
+            "recommendation": result.get("recommendation", ""),
+        }
+    except Exception:
+        _log.exception("LLM summary generation failed")
+        return {"summary": "Summary generation failed.", "score": 0, "strengths": "", "weaknesses": ""}
+
+
+# --- Agent: Save session transcript + generate summary ---
+@router.post("/sessions/complete")
+async def complete_interview_session(
+    body: CompleteSessionRequest,
+    db: AsyncSession = Depends(get_db),
+    x_agent_secret: str = Header(default=""),
+):
+    """Called by the LiveKit agent when an interview session ends.
+    Saves transcript, generates LLM summary, updates interview status."""
+    settings = get_settings()
+    if not settings.agent_secret or x_agent_secret != settings.agent_secret:
+        raise HTTPException(status_code=403, detail="Invalid agent secret")
+
+    result = await db.execute(
+        select(Interview)
+        .options(selectinload(Interview.application))
+        .where(Interview.livekit_room_name == body.room_name)
+    )
+    interview = result.scalar_one_or_none()
+    if not interview:
+        raise HTTPException(status_code=404, detail=f"Interview not found for room: {body.room_name}")
+
+    # Fetch job title for the summary prompt
+    job_result = await db.execute(
+        select(Job).where(Job.id == interview.application.job_id)
+    )
+    job = job_result.scalar_one_or_none()
+    job_title = job.title if job else "the position"
+
+    # No-show detection: fewer than 3 candidate messages = candidate never really engaged
+    candidate_messages = [m for m in body.transcript if m.role == "candidate"]
+    if len(candidate_messages) < 3:
+        interview.status = InterviewStatus.NO_SHOW.value
+        await db.commit()
+        _log.info("No-show detected for room=%s (%d candidate messages)", body.room_name, len(candidate_messages))
+        return {
+            "status": "no_show",
+            "message_count": len(body.transcript),
+            "score": 0,
+            "recommendation": "No Show",
+        }
+
+    # Generate LLM summary
+    summary_data = await _generate_summary(body.transcript, job_title)
+    full_summary = (
+        f"{summary_data['summary']}\n\n"
+        f"Strengths: {summary_data['strengths']}\n"
+        f"Areas to improve: {summary_data['weaknesses']}\n"
+        f"Recommendation: {summary_data['recommendation']}"
+    ).strip()
+
+    # Parse timestamps
+    try:
+        started_at = datetime.fromisoformat(body.started_at.replace("Z", "+00:00")).replace(tzinfo=None)
+        ended_at = datetime.fromisoformat(body.ended_at.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        started_at = ended_at = datetime.utcnow()
+
+    # Create or update InterviewSession
+    if interview.session:
+        interview.session.started_at = started_at
+        interview.session.ended_at = ended_at
+        interview.session.chat_transcript = [m.model_dump() for m in body.transcript]
+        interview.session.llm_summary = full_summary
+    else:
+        session_obj = InterviewSession(
+            interview_id=interview.id,
+            started_at=started_at,
+            ended_at=ended_at,
+            chat_transcript=[m.model_dump() for m in body.transcript],
+            llm_summary=full_summary,
+        )
+        db.add(session_obj)
+
+    # Mark interview as completed
+    interview.status = InterviewStatus.COMPLETED.value
+
+    # Store interview score on the application
+    if summary_data["score"] > 0:
+        interview.application.interview_score = summary_data["score"]
+
+    await db.commit()
+
+    _log.info(
+        "Session saved: room=%s, messages=%d, score=%d",
+        body.room_name, len(body.transcript), summary_data["score"],
+    )
+    return {
+        "status": "saved",
+        "message_count": len(body.transcript),
+        "score": summary_data["score"],
+        "recommendation": summary_data["recommendation"],
+    }
 
 
 # --- Recruiter: Schedule interview ---

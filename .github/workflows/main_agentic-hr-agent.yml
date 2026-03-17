@@ -104,4 +104,6 @@ jobs:
                 LIVEKIT_API_SECRET="${{ secrets.LIVEKIT_API_SECRET }}" \
                 GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
                 DEEPGRAM_API_KEY="${{ secrets.DEEPGRAM_API_KEY }}" \
+                BACKEND_URL="${{ secrets.BACKEND_URL }}" \
+                AGENT_SECRET="${{ secrets.AGENT_SECRET }}" \
                 PYTHONUNBUFFERED=1
