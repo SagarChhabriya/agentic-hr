@@ -1,5 +1,13 @@
 # Deploy LiveKit interview agent (Docker) to Azure Web App for Containers
-# Requires: Azure Web App "agentic-hr-agent" (Linux, Docker), publish profile secret, GHCR pull credentials on the Web App
+# Uses Docker Hub (public image) — avoids GHCR auth issues with Azure Web App.
+#
+# Required GitHub secrets:
+#   DOCKERHUB_USERNAME                — Docker Hub username
+#   DOCKERHUB_TOKEN                   — Docker Hub access token (Read & Write)
+#   AZURE_WEBAPP_PUBLISH_PROFILE_AGENT — Azure publish profile for agentic-hr-agent
+#
+# Required Azure app settings (one-time):
+#   WEBSITES_PORT = 8080
 
 name: Build and deploy agent to Azure Web App - agentic-hr-agent
 
@@ -14,14 +22,14 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: agentic-hr-agent
-  REGISTRY_IMAGE: ghcr.io
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/agentic-hr-agent
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
 
     steps:
       - name: Checkout
@@ -30,46 +38,36 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY_IMAGE }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Image meta
         id: meta
-        run: |
-          # echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-          echo "repo=sagarchhabriya/agentic-hr-agent" >> "$GITHUB_OUTPUT"
-          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push agent image
+      - name: Build and push to Docker Hub
         uses: docker/build-push-action@v6
         with:
           context: ./agent
           file: ./agent/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY_IMAGE }}/${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.sha }}
-            ${{ env.REGISTRY_IMAGE }}/${{ steps.meta.outputs.repo }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/agentic-hr-agent:${{ steps.meta.outputs.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/agentic-hr-agent:latest
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     environment:
       name: production
-    steps:
-      - name: Image meta
-        id: meta
-        run: |
-          # echo "repo=$(echo '${{ github.repository_owner }}/agentic-hr-agent' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-          echo "repo=sagarchhabriya/agentic-hr-agent" >> "$GITHUB_OUTPUT"
-          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy to Azure Web App (container)
+    steps:
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_AGENT }}
-          images: ${{ env.REGISTRY_IMAGE }}/${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.sha }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/agentic-hr-agent:${{ needs.build.outputs.sha }}
