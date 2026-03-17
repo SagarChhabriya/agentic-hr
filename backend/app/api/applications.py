@@ -13,11 +13,16 @@ from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.assessment import Assessment
 from app.models.assessment_attempt import AssessmentAttempt
+from pydantic import BaseModel as PydanticBaseModel
 from app.schemas.application import (
     ApplicationCreate, ApplicationStatusUpdate, InPersonScheduleBody,
     ApplicationResponse, ApplicationDetailResponse,
     CandidateProfileForRecruiter, CandidateApplicationResponse,
 )
+
+
+class OfferResponseBody(PydanticBaseModel):
+    response: str  # "accept" | "decline"
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -138,9 +143,58 @@ async def my_applications(
             job_location=job.location,
             status=app.status,
             applied_at=app.applied_at,
+            interview_score=app.interview_score,
+            offer_sent_at=app.offer_sent_at,
         )
         for app, job in result.all()
     ]
+
+
+@router.post("/{application_id}/respond-offer")
+async def respond_to_offer(
+    application_id: str,
+    body: OfferResponseBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Candidate accepts or declines an offer letter."""
+    if body.response not in ("accept", "decline"):
+        raise HTTPException(status_code=400, detail="Response must be 'accept' or 'decline'")
+
+    result = await db.execute(
+        select(Application, Job)
+        .join(Job, Application.job_id == Job.id)
+        .where(Application.id == application_id, Application.user_id == current_user.id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app, job = row
+
+    if not app.offer_sent_at:
+        raise HTTPException(status_code=400, detail="No offer has been sent for this application")
+
+    if app.status in ("hired", "withdrawn"):
+        raise HTTPException(status_code=400, detail="You have already responded to this offer")
+
+    if body.response == "accept":
+        app.status = "hired"
+        try:
+            import asyncio
+            from app.core.email import notify_candidate_offer_accepted
+            asyncio.create_task(asyncio.to_thread(
+                notify_candidate_offer_accepted,
+                current_user.email,
+                _full_name(current_user),
+                job.title,
+            ))
+        except Exception:
+            pass
+    else:
+        app.status = "withdrawn"
+
+    await db.commit()
+    return {"status": app.status}
 
 
 # --- Recruiter endpoints ---

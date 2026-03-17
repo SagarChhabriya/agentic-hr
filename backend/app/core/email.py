@@ -233,6 +233,39 @@ def notify_candidate_offer_letter(
     )
 
 
+def notify_candidate_offer_accepted(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+):
+    """Confirmation email when candidate accepts the offer."""
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    _send(
+        to=candidate_email,
+        subject=f"Offer accepted: {job_title}",
+        html=f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1f2937;">
+          <h2 style="color:#059669;margin-bottom:8px;">Welcome aboard!</h2>
+          <p>Hi {candidate_name},</p>
+          <p>Thank you for accepting the offer for <strong>{job_title}</strong>. We are thrilled to have you join the team!</p>
+          <p>Our HR team will be in touch shortly with onboarding details and next steps.</p>
+          <p style="margin-top:24px;">
+            <a href="{base}/candidate/applications"
+               style="display:inline-block;background:#059669;color:white;padding:12px 24px;
+                      border-radius:8px;text-decoration:none;font-weight:600;">
+              View my applications
+            </a>
+          </p>
+          <p style="margin-top:24px;color:#6b7280;font-size:14px;">
+            We look forward to working with you.<br/>
+            — The Hiring Team
+          </p>
+        </div>
+        """,
+    )
+
+
 def notify_candidate_assessment(
     candidate_email: str,
     candidate_name: str,

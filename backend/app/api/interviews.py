@@ -541,15 +541,67 @@ async def list_interviews_for_application(
     }
 
 
-# --- Candidate: List my upcoming interviews ---
+# --- Agent: Get job-specific context for an interview room ---
+@router.get("/context/{room_name}")
+async def get_interview_context(
+    room_name: str,
+    db: AsyncSession = Depends(get_db),
+    x_agent_secret: str = Header(default=""),
+):
+    """Called by the LiveKit agent at session start to fetch job-specific context."""
+    settings = get_settings()
+    if not settings.agent_secret or x_agent_secret != settings.agent_secret:
+        raise HTTPException(status_code=403, detail="Invalid agent secret")
+
+    result = await db.execute(
+        select(Interview, Application, Job)
+        .join(Application, Interview.application_id == Application.id)
+        .join(Job, Application.job_id == Job.id)
+        .where(Interview.livekit_room_name == room_name)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Interview not found for room: {room_name}")
+    interview, app, job = row
+
+    # Fetch assessment questions for this job (as topic hints for the agent)
+    assessment_questions: list[str] = []
+    try:
+        from app.models.assessment import Assessment, AssessmentQuestion
+        assessment_result = await db.execute(
+            select(Assessment).where(Assessment.job_id == job.id)
+        )
+        assessment = assessment_result.scalar_one_or_none()
+        if assessment:
+            q_result = await db.execute(
+                select(AssessmentQuestion)
+                .where(AssessmentQuestion.assessment_id == assessment.id)
+                .order_by(AssessmentQuestion.order_index)
+            )
+            assessment_questions = [q.question_text for q in q_result.scalars().all()]
+    except Exception:
+        _log.warning("Could not load assessment questions for room=%s", room_name)
+
+    return {
+        "job_title": job.title,
+        "job_description": job.description or "",
+        "required_skills": job.required_skills or [],
+        "experience_required": job.experience_required,
+        "assessment_score": app.assessment_score,
+        "assessment_questions": assessment_questions,
+    }
+
+
+# --- Candidate: List my interviews with session summaries ---
 @router.get("/mine")
 async def my_interviews(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Candidate lists their scheduled interviews."""
+    """Candidate lists their interviews (includes session summary for completed ones)."""
     result = await db.execute(
         select(Interview, Application, Job)
+        .options(selectinload(Interview.session))
         .join(Application, Interview.application_id == Application.id)
         .join(Job, Application.job_id == Job.id)
         .where(Application.user_id == current_user.id)
@@ -566,6 +618,7 @@ async def my_interviews(
                 "scheduled_at": i.scheduled_at.isoformat(),
                 "duration_minutes": i.duration_minutes,
                 "status": i.status,
+                "session_summary": i.session.llm_summary if i.session else None,
             }
             for i, app, job in rows
         ],

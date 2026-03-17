@@ -77,6 +77,8 @@ class CandidateApplicationResponse(BaseModel):
     job_location: str = ""
     status: str
     applied_at: datetime
+    interview_score: Optional[int] = None
+    offer_sent_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

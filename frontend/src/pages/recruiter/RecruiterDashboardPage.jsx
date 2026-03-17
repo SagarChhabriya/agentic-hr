@@ -5,6 +5,22 @@ import { useUser } from '@clerk/clerk-react';
 import { dashboardApi } from '../../services/api';
 import { JobsIcon, CandidatesIcon, AssessmentIcon, InterviewIcon, CheckIcon, RocketIcon } from '../../components/icons/IconComponents';
 
+const PIPELINE_STAGES = [
+  { key: 'applied', label: 'Applied', color: 'bg-blue-500' },
+  { key: 'assessment', label: 'Assessment', color: 'bg-amber-500' },
+  { key: 'interview', label: 'Interview', color: 'bg-purple-500' },
+  { key: 'selected', label: 'Offer Sent', color: 'bg-emerald-500' },
+  { key: 'hired', label: 'Hired', color: 'bg-green-600' },
+];
+
+function formatTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+
 export default function RecruiterDashboardPage() {
   const { theme } = useTheme();
   const { user } = useUser();
@@ -24,8 +40,12 @@ export default function RecruiterDashboardPage() {
     scheduledInterviews: 0,
     completedReviews: 0,
   };
+  const pipeline = data?.pipeline || {};
+  const todaysInterviews = data?.todaysInterviews || [];
   const recentJobs = data?.recentJobs || [];
   const recentCandidates = data?.recentCandidates || [];
+
+  const maxPipelineCount = Math.max(1, ...PIPELINE_STAGES.map((s) => pipeline[s.key] || 0));
 
   return (
     <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
@@ -141,6 +161,85 @@ export default function RecruiterDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Hiring Pipeline */}
+      <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+        <h2 className="text-xl font-semibold mb-5">Hiring Pipeline</h2>
+        <div className="grid grid-cols-5 gap-2">
+          {PIPELINE_STAGES.map((stage, idx) => {
+            const count = pipeline[stage.key] || 0;
+            const barHeight = maxPipelineCount > 0 ? Math.max(8, Math.round((count / maxPipelineCount) * 80)) : 8;
+            return (
+              <div key={stage.key} className="flex flex-col items-center gap-2">
+                <span className="text-lg font-bold">{count}</span>
+                <div className="w-full flex flex-col items-center gap-1">
+                  <div
+                    className={`w-full rounded-t-md transition-all ${stage.color} opacity-90`}
+                    style={{ height: `${barHeight}px` }}
+                  />
+                  {idx < PIPELINE_STAGES.length - 1 && (
+                    <svg className="w-3 h-3 text-gray-400 dark:text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10.293 15.707a1 1 0 010-1.414L14.586 10l-4.293-4.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-xs text-center opacity-75 font-medium">{stage.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-slate-400">
+          {pipeline['rejected'] != null && (
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
+              Rejected: {pipeline['rejected']}
+            </span>
+          )}
+          {pipeline['withdrawn'] != null && (
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-gray-400 mr-1" />
+              Withdrawn: {pipeline['withdrawn']}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Today's Interviews */}
+      {todaysInterviews.length > 0 && (
+        <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.868V15.13a1 1 0 01-1.447.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Today&apos;s Interviews
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                {todaysInterviews.length}
+              </span>
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {todaysInterviews.map((iv) => (
+              <Link
+                key={iv.id}
+                to={`/recruiter/candidates/${iv.application_id}`}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-colors hover:border-purple-300 dark:hover:border-purple-700 ${
+                  isDark ? 'border-slate-700 bg-slate-900 hover:bg-slate-800' : 'border-gray-200 bg-gray-50 hover:bg-white'
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-sm">{iv.candidate_name}</p>
+                  <p className="text-xs opacity-75 mt-0.5">{iv.job_title}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">{formatTime(iv.scheduled_at)}</p>
+                  <p className="text-xs opacity-60 capitalize">{iv.status}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Recent Jobs */}

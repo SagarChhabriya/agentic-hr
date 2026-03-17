@@ -98,6 +98,8 @@ export const applicationsApi = {
     apiClient.post(`/applications/${id}/in-person-schedule`, body).then((r) => r.data),
   sendOfferLetter: (id: string) =>
     apiClient.post(`/applications/${id}/send-offer`).then((r) => r.data),
+  respondOffer: (id: string, response: 'accept' | 'decline') =>
+    apiClient.post(`/applications/${id}/respond-offer`, { response }).then((r) => r.data),
 };
 
 export const interviewsApi = {
