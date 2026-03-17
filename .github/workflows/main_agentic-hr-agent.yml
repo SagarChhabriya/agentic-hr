@@ -29,7 +29,7 @@ on:
 env:
   GHCR_IMAGE: ghcr.io/sagarchhabriya/agentic-hr-agent
   ACI_NAME: agentic-hr-agent
-  RESOURCE_GROUP: agenti-hr
+  RESOURCE_GROUP: agentic-hr
   LOCATION: centralindia
 
 jobs:
