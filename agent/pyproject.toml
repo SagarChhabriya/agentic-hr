@@ -5,7 +5,7 @@ description = "LiveKit voice agent for AI interviews (Groq LLM + Deepgram STT/TT
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "livekit-agents[deepgram,groq,silero,turn-detector]~=1.4",
+    "livekit-agents[deepgram,groq,silero]~=1.4",
     "python-dotenv>=1.0.0",
 ]
 

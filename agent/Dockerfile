@@ -13,8 +13,8 @@ ENV PYTHONUNBUFFERED=1
 COPY pyproject.toml agent.py ./
 RUN uv sync --no-dev
 
-# Download Silero VAD and turn-detector models at build time
-RUN uv run agent.py download-files
+# Pre-download Silero VAD model at build time (silero only; turn-detector removed)
+RUN uv run python -u -c "from livekit.plugins import silero; silero.VAD.load(); print('VAD model downloaded', flush=True)"
 
-# Production: connect to LiveKit and join rooms (DEBUG logs for troubleshooting)
-CMD ["uv", "run", "agent.py", "start", "--log-level=DEBUG"]
+# Production: connect to LiveKit and join rooms (-u = force unbuffered stdout/stderr)
+CMD ["uv", "run", "python", "-u", "agent.py", "start", "--log-level=DEBUG"]
