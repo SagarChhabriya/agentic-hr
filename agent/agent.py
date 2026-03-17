@@ -119,52 +119,52 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     print(f"[agent] entrypoint: room={ctx.room.name}", flush=True)
     _log.info("entrypoint: room=%s", ctx.room.name)
 
-    await ctx.connect()
-    print(f"[agent] connected to room={ctx.room.name}", flush=True)
-    _log.info("connected to room=%s", ctx.room.name)
+    try:
+        await ctx.connect()
+        print(f"[agent] connected to room={ctx.room.name}", flush=True)
+        _log.info("connected to room=%s", ctx.room.name)
 
-    # VAD-only pipeline — no MultilingualModel turn detector (requires downloaded model file).
-    # silero.VAD provides reliable turn detection without any extra download dependency.
-    print("[agent] loading VAD...", flush=True)
-    vad = silero.VAD.load()
-    print("[agent] VAD loaded", flush=True)
+        print("[agent] loading VAD...", flush=True)
+        vad = silero.VAD.load()
+        print("[agent] VAD loaded", flush=True)
 
-    session = AgentSession(
-        stt=deepgram.STT(model=DEEPGRAM_STT_MODEL, language=DEEPGRAM_STT_LANGUAGE),
-        llm=groq.LLM(model=GROQ_MODEL),
-        tts=deepgram.TTS(model=DEEPGRAM_TTS_MODEL),
-        vad=vad,
-        # turn_detection removed — MultilingualModel requires a downloaded model file
-        # that may not be present; VAD alone is sufficient for reliable turn detection.
-    )
+        session = AgentSession(
+            stt=deepgram.STT(model=DEEPGRAM_STT_MODEL, language=DEEPGRAM_STT_LANGUAGE),
+            llm=groq.LLM(model=GROQ_MODEL),
+            tts=deepgram.TTS(model=DEEPGRAM_TTS_MODEL),
+            vad=vad,
+        )
 
-    # Log pipeline events so we can trace exactly where the audio pipeline stalls
-    @session.on("user_speech_started")
-    def _on_speech_started(_evt=None):
-        print("[agent] >>> user speech started", flush=True)
-        _log.info("pipeline: user speech started")
+        @session.on("user_speech_started")
+        def _on_speech_started(_evt=None):
+            print("[agent] >>> user speech started", flush=True)
+            _log.info("pipeline: user speech started")
 
-    @session.on("user_speech_committed")
-    def _on_speech_committed(evt=None):
-        text = getattr(evt, "user_transcript", "") if evt else ""
-        print(f"[agent] >>> transcript committed: {text!r}", flush=True)
-        _log.info("pipeline: transcript committed: %r", text)
+        @session.on("user_speech_committed")
+        def _on_speech_committed(evt=None):
+            text = getattr(evt, "user_transcript", "") if evt else ""
+            print(f"[agent] >>> transcript committed: {text!r}", flush=True)
+            _log.info("pipeline: transcript committed: %r", text)
 
-    @session.on("agent_speech_started")
-    def _on_agent_speech_started(_evt=None):
-        print("[agent] <<< agent speech started (TTS playing)", flush=True)
-        _log.info("pipeline: agent speech started")
+        @session.on("agent_speech_started")
+        def _on_agent_speech_started(_evt=None):
+            print("[agent] <<< agent speech started (TTS playing)", flush=True)
+            _log.info("pipeline: agent speech started")
 
-    @session.on("agent_speech_committed")
-    def _on_agent_speech_committed(_evt=None):
-        print("[agent] <<< agent speech committed", flush=True)
-        _log.info("pipeline: agent speech committed")
+        @session.on("agent_speech_committed")
+        def _on_agent_speech_committed(_evt=None):
+            print("[agent] <<< agent speech committed", flush=True)
+            _log.info("pipeline: agent speech committed")
 
-    print("[agent] starting session...", flush=True)
-    _log.info("calling session.start()")
-    await session.start(room=ctx.room, agent=InterviewAgent())
-    print("[agent] session.start() returned — on_enter() will fire next", flush=True)
-    _log.info("session.start() complete")
+        print("[agent] starting session...", flush=True)
+        _log.info("calling session.start()")
+        await session.start(room=ctx.room, agent=InterviewAgent())
+        print("[agent] session ended cleanly — worker returning to idle", flush=True)
+        _log.info("session ended cleanly for room=%s", ctx.room.name)
+
+    except Exception:
+        _log.exception("entrypoint crashed for room=%s — worker continues", ctx.room.name)
+        print(f"[agent] ERROR in entrypoint for room={ctx.room.name} — see logs above", flush=True)
 
 
 if __name__ == "__main__":
