@@ -649,6 +649,8 @@ export default function RecruiterCandidateDetailPage() {
   const queryClient = useQueryClient();
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState('');
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [rejectMessage, setRejectMessage] = useState(null);
 
   const { data: interviewsData } = useQuery({
     queryKey: ['interviews', id],
@@ -660,6 +662,20 @@ export default function RecruiterCandidateDetailPage() {
     mutationFn: () => applicationsApi.resendAssessment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['application', id] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => applicationsApi.updateStatus(id, 'rejected'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      setShowRejectConfirm(false);
+      setRejectMessage({ type: 'success', text: 'Candidate rejected and notified by email.' });
+      setTimeout(() => setRejectMessage(null), 5000);
+    },
+    onError: (err) => {
+      setShowRejectConfirm(false);
+      setRejectMessage({ type: 'error', text: err?.response?.data?.detail ?? 'Failed to reject candidate.' });
     },
   });
 
@@ -677,7 +693,6 @@ export default function RecruiterCandidateDetailPage() {
     if (!scheduleDateTime) return;
     scheduleMutation.mutate({
       application_id: id,
-      // Send raw datetime-local string; backend normalizes safely
       scheduled_at: scheduleDateTime,
       duration_minutes: 30,
     });
@@ -714,7 +729,30 @@ export default function RecruiterCandidateDetailPage() {
       </Link>
 
       <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-        <h1 className="text-2xl font-bold mb-4">Candidate Details</h1>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h1 className="text-2xl font-bold">Candidate Details</h1>
+          {application.status !== 'rejected' && (
+            <button
+              type="button"
+              onClick={() => setShowRejectConfirm(true)}
+              disabled={rejectMutation.isPending}
+              className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 transition-colors"
+            >
+              Reject candidate
+            </button>
+          )}
+        </div>
+
+        {rejectMessage && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${
+            rejectMessage.type === 'success'
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+          }`}>
+            {rejectMessage.text}
+          </div>
+        )}
+
         <div className="grid gap-4">
           <div>
             <span className="text-sm opacity-75">Name</span>
@@ -986,6 +1024,40 @@ export default function RecruiterCandidateDetailPage() {
 
       {/* Hiring next steps: rate for in-person, schedule in-person, offer letter */}
       <HiringNextStepsSection application={application} applicationId={id} assessmentResult={assessmentResult} isDark={isDark} queryClient={queryClient} />
+
+      {/* Reject confirmation modal */}
+      {showRejectConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowRejectConfirm(false)} aria-hidden="true" />
+          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-lg w-full max-w-md shadow-xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'}`}>
+            <h3 className="font-semibold text-lg mb-2">Reject this candidate?</h3>
+            <p className="text-sm opacity-75 mb-1">
+              <span className="font-medium">{application.name}</span> — {application.job_title}
+            </p>
+            <p className="text-sm opacity-75 mb-6">
+              The candidate will be notified by email. This can be undone by changing their status manually.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => rejectMutation.mutate()}
+                disabled={rejectMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50"
+              >
+                {rejectMutation.isPending ? 'Rejecting…' : 'Yes, reject'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRejectConfirm(false)}
+                disabled={rejectMutation.isPending}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -530,7 +530,11 @@ async def update_application_status(
     if old_status != body.status:
         try:
             import asyncio
-            from app.core.email import notify_candidate_status_change, notify_candidate_assessment
+            from app.core.email import (
+                notify_candidate_status_change,
+                notify_candidate_assessment,
+                notify_candidate_rejected,
+            )
             if body.status == "assessment":
                 assessment_result = await db.execute(
                     select(Assessment).where(Assessment.job_id == job.id)
@@ -548,9 +552,20 @@ async def update_application_status(
                         app.id,
                     ))
                 else:
-                    asyncio.create_task(asyncio.to_thread(notify_candidate_status_change, user.email, job.title, body.status))
+                    asyncio.create_task(asyncio.to_thread(
+                        notify_candidate_status_change, user.email, job.title, body.status
+                    ))
+            elif body.status == "rejected":
+                asyncio.create_task(asyncio.to_thread(
+                    notify_candidate_rejected,
+                    user.email,
+                    _full_name(user),
+                    job.title,
+                ))
             else:
-                asyncio.create_task(asyncio.to_thread(notify_candidate_status_change, user.email, job.title, body.status))
+                asyncio.create_task(asyncio.to_thread(
+                    notify_candidate_status_change, user.email, job.title, body.status
+                ))
         except Exception:
             pass
 

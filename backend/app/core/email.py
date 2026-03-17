@@ -99,6 +99,44 @@ def notify_candidate_status_change(
     )
 
 
+def notify_candidate_rejected(
+    candidate_email: str,
+    candidate_name: str,
+    job_title: str,
+):
+    """Send a professional rejection email to the candidate."""
+    from app.core.config import get_settings
+    base = get_settings().frontend_url.rstrip("/")
+    jobs_link = f"{base}/jobs"
+    _send(
+        to=candidate_email,
+        subject=f"Your application for {job_title}",
+        html=f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1f2937;">
+          <h2 style="margin-bottom:8px;">Application Update</h2>
+          <p>Hi {candidate_name},</p>
+          <p>Thank you for taking the time to apply for the <strong>{job_title}</strong> position and for
+          completing our interview process. We genuinely appreciate your interest and the effort you put in.</p>
+          <p>After careful consideration, we have decided to move forward with other candidates whose experience
+          more closely matches the requirements for this role at this time.</p>
+          <p>This decision does not reflect on your abilities or potential — the competition for this role was
+          strong. We encourage you to apply for future openings that align with your skills.</p>
+          <p style="margin-top:24px;">
+            <a href="{jobs_link}"
+               style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;
+                      border-radius:8px;text-decoration:none;font-weight:600;">
+              Browse Open Positions
+            </a>
+          </p>
+          <p style="margin-top:24px;color:#6b7280;font-size:14px;">
+            We wish you all the best in your job search.<br/>
+            — The Hiring Team
+          </p>
+        </div>
+        """,
+    )
+
+
 def notify_candidate_application_received(candidate_email: str, job_title: str):
     _send(
         to=candidate_email,
