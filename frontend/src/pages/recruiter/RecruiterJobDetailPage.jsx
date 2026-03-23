@@ -45,23 +45,33 @@ export default function RecruiterJobDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const META_ITEMS = job ? [
+    job.location && { icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>, label: job.location },
+    job.job_type && { icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>, label: job.job_type.replace(/_/g, ' ') },
+    job.salary && { icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, label: job.salary },
+    job.application_deadline && { icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>, label: `Deadline: ${new Date(job.application_deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` },
+    { icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>, label: `${job.candidates_count ?? 0} candidates` },
+  ].filter(Boolean) : [];
+
+  const STATUS_STYLES = {
+    active: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800',
+    draft:  'bg-amber-50  text-amber-700  border-amber-200  dark:bg-amber-900/20  dark:text-amber-400  dark:border-amber-800',
+    closed: 'bg-red-50    text-red-700    border-red-200    dark:bg-red-900/20    dark:text-red-400    dark:border-red-800',
+  };
+
   if (isLoading) {
     return (
-      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-        <div className="flex justify-center py-12">Loading job details...</div>
+      <div className="flex justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error || !job) {
     return (
-      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-        <div className="text-center py-12">
-          <p className="text-red-500 mb-4">Job not found or failed to load.</p>
-          <Link to="/recruiter/jobs" className="text-blue-600 dark:text-blue-400 hover:underline">
-            ← Back to jobs
-          </Link>
-        </div>
+      <div className="text-center py-20">
+        <p className="text-red-500 mb-3 text-sm">Job not found or failed to load.</p>
+        <Link to="/recruiter/jobs" className="text-sm text-indigo-500 hover:underline">← Back to jobs</Link>
       </div>
     );
   }
@@ -70,76 +80,86 @@ export default function RecruiterJobDetailPage() {
   const shareText = encodeURIComponent(`We're hiring: ${job.title}! Apply now:`);
 
   return (
-    <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-      <Link
-        to="/recruiter/jobs"
-        className="inline-flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 mb-6"
-      >
-        ← Back to jobs
+    <div className={`max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+      <Link to="/recruiter/jobs"
+        className={`inline-flex items-center gap-1 text-xs mb-5 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'}`}>
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Jobs
       </Link>
 
-      {/* Header */}
-      <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">{job.title}</h1>
-            <div className="flex flex-wrap gap-3 text-sm opacity-75">
-              <span>📍 {job.location}</span>
-              <span>💼 {job.job_type?.replace('_', ' ')}</span>
-              {job.salary && <span>💰 {job.salary}</span>}
-              {job.application_deadline && <span>⏰ Deadline: {job.application_deadline}</span>}
-              <span>👥 {job.candidates_count ?? 0} candidates</span>
+      {/* Header card */}
+      <div className={`rounded-xl border mb-5 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+        {/* Accent bar */}
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />
+
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className={`text-2xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{job.title}</h1>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${STATUS_STYLES[job.status] || STATUS_STYLES.draft}`}>
+                  {job.status}
+                </span>
+              </div>
+              {/* Metadata chips */}
+              <div className="flex flex-wrap gap-2">
+                {META_ITEMS.map((item, i) => (
+                  <span key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                    isDark ? 'bg-slate-700/60 text-slate-300' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {item.icon}
+                    {item.label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
-          <span className={`px-3 py-1 rounded text-sm font-medium ${
-            job.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-            : job.status === 'draft' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-          }`}>
-            {job.status}
-          </span>
-        </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to={`/recruiter/jobs/${id}/edit`}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Edit Job
-          </Link>
-          {job.status === 'draft' && (
-            <button
-              onClick={() => statusMutation.mutate('active')}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white"
-            >
-              Publish
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/recruiter/jobs/${id}/edit`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </Link>
+            {job.status === 'draft' && (
+              <button onClick={() => statusMutation.mutate('active')} disabled={statusMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Publish
+              </button>
+            )}
+            {job.status === 'active' && (
+              <button onClick={() => statusMutation.mutate('closed')} disabled={statusMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50">
+                Close Job
+              </button>
+            )}
+            <Link to={`/recruiter/candidates?job=${id}`}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              View Candidates
+            </Link>
+            <button onClick={() => { if (window.confirm('Delete this job?')) deleteMutation.mutate(); }}
+              disabled={deleteMutation.isPending}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${isDark ? 'border-red-800 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'}`}>
+              Delete
             </button>
-          )}
-          {job.status === 'active' && (
-            <button
-              onClick={() => statusMutation.mutate('closed')}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-yellow-600 hover:bg-yellow-700 text-white"
-            >
-              Close Job
-            </button>
-          )}
-          <button
-            onClick={() => {
-              if (window.confirm('Are you sure you want to delete this job?')) {
-                deleteMutation.mutate();
-              }
-            }}
-            className="px-4 py-2 rounded-lg text-sm font-medium border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            Delete
-          </button>
+          </div>
         </div>
       </div>
 
       {/* Share */}
-      <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-        <h2 className="text-lg font-semibold mb-3">Share This Job</h2>
+      <div className={`rounded-xl border p-5 mb-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+        <h2 className={`text-sm font-semibold mb-3 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Share This Job</h2>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => {
               const descSnippet = (job.description || '').slice(0, 700).replace(/\n+/g, ' ').trim();
@@ -208,35 +228,42 @@ export default function RecruiterJobDetailPage() {
         </div>
       </div>
 
-      {/* Description */}
-      <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-        <h2 className="text-lg font-semibold mb-3">Job Description</h2>
-        <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">
-          {job.description}
-        </div>
+      {/* Body — two-column layout on wide screens */}
+      <div className="space-y-5">
+        {/* Description */}
+        {job.description && (
+          <section className={`rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Job Description</h2>
+            <div className={`text-sm leading-7 whitespace-pre-wrap ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+              {job.description}
+            </div>
+          </section>
+        )}
+
+        {/* Requirements */}
+        {job.requirements && (
+          <section className={`rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Requirements</h2>
+            <div className={`text-sm leading-7 whitespace-pre-wrap ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{job.requirements}</div>
+          </section>
+        )}
+
+        {/* Skills */}
+        {job.required_skills?.length > 0 && (
+          <section className={`rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Required Skills</h2>
+            <div className="flex flex-wrap gap-2">
+              {job.required_skills.map((skill) => (
+                <span key={skill} className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                  isDark ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                }`}>
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Skills */}
-      {job.required_skills?.length > 0 && (
-        <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-lg font-semibold mb-3">Required Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {job.required_skills.map((skill) => (
-              <span key={skill} className="px-3 py-1 rounded-full text-sm bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Requirements */}
-      {job.requirements && (
-        <div className={`rounded-lg border p-6 mb-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-lg font-semibold mb-3">Requirements</h2>
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">{job.requirements}</div>
-        </div>
-      )}
     </div>
   );
 }

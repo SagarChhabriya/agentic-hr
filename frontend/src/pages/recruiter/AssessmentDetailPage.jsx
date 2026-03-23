@@ -209,6 +209,22 @@ export default function AssessmentDetailPage() {
       {/* === TAB: existing questions === */}
       {tab === 'questions' && (
         <div>
+          {/* Warn when stored questions look like placeholder/stale data */}
+          {assessment.questions?.length > 0 &&
+            assessment.questions.some((q) => !q.question_text || q.question_text.toLowerCase() === 'question') && (
+            <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 mb-4 text-sm ${
+              isDark ? 'border-amber-700/50 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-800'
+            }`}>
+              <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <span>
+                Some questions have placeholder text — they were saved before full question generation was available.
+                Use <strong>"Clear all questions"</strong> then regenerate with the <strong>AI Generate</strong> tab.
+              </span>
+            </div>
+          )}
           {!assessment.questions?.length ? (
             <div className={`rounded-xl border p-12 text-center ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-gray-200 bg-white'}`}>
               <svg className="mx-auto w-10 h-10 mb-3 text-gray-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,7 +260,12 @@ export default function AssessmentDetailPage() {
                   {assessment.questions.map((q, i) => (
                     <tr key={q.id} className={isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}>
                       <td className={`px-4 py-3 tabular-nums text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>{i + 1}</td>
-                      <td className={`px-4 py-3 font-medium max-w-sm ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{q.question_text}</td>
+                      <td className={`px-4 py-3 font-medium max-w-sm ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+                        {q.question_text && q.question_text.toLowerCase() !== 'question'
+                          ? q.question_text
+                          : <span className="italic text-amber-500 dark:text-amber-400 font-normal text-xs">⚠ Placeholder — clear &amp; regenerate</span>
+                        }
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {(q.options || []).map((opt, oi) => (

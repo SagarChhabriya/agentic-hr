@@ -4,6 +4,7 @@ Flexible LLM service. Uses Groq by default, designed to swap providers easily.
 
 import json
 import logging
+import random
 from typing import Optional
 from app.core.config import get_settings
 
@@ -87,26 +88,52 @@ def generate_assessment_questions_from_prompt(
     question_type: str = "mcq",
 ) -> list[dict]:
     """Generate assessment questions from a custom prompt. question_type: mcq, mixed, or custom."""
-    system = (
-        "You are an expert technical recruiter. The user will provide instructions or a draft for assessment questions. "
-        "Generate questions that align with the job description and requirements. "
-        "Return valid JSON: an array of objects with keys: question (str), options (array of 4 strings), "
-        "correct_index (int 0-3), difficulty (str: easy/medium/hard)."
-    )
     ctx = f"Job: {job_title}\n" if job_title else ""
     if job_description:
         ctx += f"Description: {job_description[:600]}\n"
     if skills:
         ctx += f"Skills: {', '.join(skills)}\n"
-    ctx += f"\nUser instructions/prompt:\n{prompt}\n\nGenerate exactly {min(count, 15)} multiple-choice questions."
-    raw = _chat(system, ctx, temperature=0.6, max_tokens=4096)
+    ctx += (
+        f"\nUser instructions/prompt:\n{prompt}\n\n"
+        f"Generate exactly {min(count, 15)} multiple-choice questions. "
+        "Distribute the correct answers across all four positions (A, B, C, D) — do not put them all at index 0."
+    )
+    raw = _chat(_QUESTIONS_SYSTEM, ctx, temperature=0.7, max_tokens=4096)
     try:
         start = raw.find("[")
         end = raw.rfind("]") + 1
         questions = json.loads(raw[start:end])
-        return questions[:count]
+        return [_shuffle_question_options(q) for q in questions[:count]]
     except (json.JSONDecodeError, ValueError):
         return []
+
+
+def _shuffle_question_options(q: dict) -> dict:
+    """Shuffle option order and update correct_index to prevent answer-position pattern leakage."""
+    opts = list(q.get("options", []))
+    ci = int(q.get("correct_index", 0))
+    if not opts or ci >= len(opts):
+        return q
+    correct_answer = opts[ci]
+    random.shuffle(opts)
+    try:
+        new_ci = opts.index(correct_answer)
+    except ValueError:
+        new_ci = ci
+    return {**q, "options": opts, "correct_index": new_ci}
+
+
+_QUESTIONS_SYSTEM = (
+    "You are an expert technical recruiter creating multiple-choice assessment questions. "
+    "Rules you MUST follow:\n"
+    "1. Each question must directly test a specific skill or concept relevant to the job.\n"
+    "2. All 4 options must be plausible — avoid obviously wrong distractors.\n"
+    "3. VARY the position of the correct answer across questions: do NOT always put it first. "
+    "Spread correct answers across positions A (index 0), B (index 1), C (index 2), and D (index 3).\n"
+    "4. Return ONLY valid JSON — an array of objects with keys: "
+    "question (str), options (array of exactly 4 strings), correct_index (int 0-3), "
+    "difficulty (str: easy/medium/hard). No markdown, no extra text."
+)
 
 
 def generate_assessment_questions(
@@ -115,27 +142,24 @@ def generate_assessment_questions(
     skills: Optional[list[str]] = None,
     count: int = 10,
 ) -> list[dict]:
-    system = (
-        "You are an expert technical recruiter. Generate assessment questions SPECIFICALLY related to the job role, "
-        "its required skills, and responsibilities described below. Each question must test knowledge or ability "
-        "directly relevant to this specific job — NOT generic interview questions. "
-        "Cover the key skills and technical areas mentioned in the job description. "
-        "Return valid JSON: an array of objects with keys: question (str), options (array of 4 strings), "
-        "correct_index (int 0-3), difficulty (str: easy/medium/hard)."
-    )
     prompt = f"Job Title: {job_title}\n"
     if job_description:
         prompt += f"Job Description: {job_description[:800]}\n"
     if skills:
         prompt += f"Required Skills to test: {', '.join(skills)}\n"
-    prompt += f"\nGenerate exactly {min(count, 10)} multiple-choice questions that specifically test a candidate's knowledge of the skills and responsibilities for this '{job_title}' role."
+    prompt += (
+        f"\nGenerate exactly {min(count, 10)} multiple-choice questions that specifically test "
+        f"a candidate's knowledge of the skills and responsibilities for this '{job_title}' role. "
+        "Remember: distribute correct answers across all four option positions (A, B, C, D)."
+    )
 
-    raw = _chat(system, prompt, temperature=0.6, max_tokens=4096)
+    raw = _chat(_QUESTIONS_SYSTEM, prompt, temperature=0.7, max_tokens=4096)
     try:
         start = raw.find("[")
         end = raw.rfind("]") + 1
         questions = json.loads(raw[start:end])
-        return questions[:count]
+        # Shuffle options as a safety net regardless of what the model does
+        return [_shuffle_question_options(q) for q in questions[:count]]
     except (json.JSONDecodeError, ValueError):
         return []
 

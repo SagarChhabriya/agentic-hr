@@ -22,11 +22,27 @@ function formatTime(iso) {
   }
 }
 
+function useGreeting() {
+  const [greeting, setGreeting] = useState('');
+  useEffect(() => {
+    function compute() {
+      const h = new Date().getHours();
+      setGreeting(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+    }
+    compute();
+    // Update if the tab is left open across hours
+    const id = setInterval(compute, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return greeting;
+}
+
 export default function RecruiterDashboardPage() {
   const { theme } = useTheme();
   const { user } = useUser();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
+  const greeting = useGreeting();
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [relativeTime, setRelativeTime] = useState('just now');
 
@@ -78,7 +94,7 @@ export default function RecruiterDashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">
-              Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.firstName || user?.fullName || 'Recruiter'}
+              {greeting}, {user?.firstName || user?.fullName || 'Recruiter'}
             </h1>
             <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Here's an overview of your hiring pipeline</p>
           </div>
@@ -252,79 +268,96 @@ export default function RecruiterDashboardPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent Jobs */}
-        <div className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Recent Jobs</h2>
-            <Link to="/recruiter/jobs" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              View all
+        <div className={`rounded-xl border ${isDark ? 'border-slate-700 bg-slate-800/80' : 'border-gray-200 bg-white shadow-sm'}`}>
+          <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+            <h2 className="text-sm font-semibold">Recent Jobs</h2>
+            <Link to="/recruiter/jobs"
+              className={`text-xs font-medium ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
+              View all →
             </Link>
           </div>
-          <div className="space-y-4">
+          <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-100'}`}>
             {recentJobs.length === 0 ? (
-              <p className="text-sm opacity-60 py-4 text-center">No jobs yet. Create your first job posting!</p>
+              <div className="py-10 text-center">
+                <p className="text-sm opacity-50 mb-2">No jobs yet</p>
+                <Link to="/recruiter/jobs/new" className={`text-xs font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:underline`}>
+                  Post your first job →
+                </Link>
+              </div>
             ) : (
               recentJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={`p-4 rounded-lg border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium mb-1">{job.title}</h3>
-                      <p className="text-sm opacity-75">{job.candidates} candidates</p>
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        job.status === 'active'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {job.status}
-                    </span>
+                <Link key={job.id} to={`/recruiter/jobs/${job.id}`}
+                  className={`flex items-center justify-between px-5 py-3.5 transition-colors ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium truncate ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{job.title}</p>
+                    <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                      {job.candidates ?? 0} candidate{job.candidates !== 1 ? 's' : ''}
+                    </p>
                   </div>
-                </div>
+                  <span className={`ml-3 shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    job.status === 'active'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                      : job.status === 'draft'
+                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
+                  }`}>
+                    {job.status}
+                  </span>
+                </Link>
               ))
             )}
           </div>
         </div>
 
         {/* Recent Candidates */}
-        <div className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Recent Candidates</h2>
-            <Link to="/recruiter/candidates" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              View all
+        <div className={`rounded-xl border ${isDark ? 'border-slate-700 bg-slate-800/80' : 'border-gray-200 bg-white shadow-sm'}`}>
+          <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+            <h2 className="text-sm font-semibold">Recent Candidates</h2>
+            <Link to="/recruiter/candidates"
+              className={`text-xs font-medium ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
+              View all →
             </Link>
           </div>
-          <div className="space-y-4">
+          <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-100'}`}>
             {recentCandidates.length === 0 ? (
-              <p className="text-sm opacity-60 py-4 text-center">No applications yet.</p>
+              <div className="py-10 text-center">
+                <p className="text-sm opacity-50">No applications yet</p>
+              </div>
             ) : (
-              recentCandidates.map((candidate) => (
-                <div
-                  key={candidate.id}
-                  className={`p-4 rounded-lg border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium mb-1">{candidate.name}</h3>
-                      <p className="text-sm opacity-75">{candidate.job}</p>
-                      <p className="text-xs opacity-60 mt-1">Status: {candidate.status}</p>
+              recentCandidates.map((candidate) => {
+                const score = candidate.score;
+                const scoreColor = score == null ? '' : score >= 75 ? 'text-emerald-600 dark:text-emerald-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500 dark:text-red-400';
+                const STATUS_COLORS = {
+                  applied: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+                  assessment: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                  interview: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+                  selected: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                  rejected: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
+                };
+                const initials = (candidate.name || '?').split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+                return (
+                  <Link key={candidate.id} to={`/recruiter/candidates/${candidate.id}`}
+                    className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-300/20 flex items-center justify-center shrink-0">
+                      <span className={`text-xs font-semibold ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>{initials}</span>
                     </div>
-                    {candidate.score !== null && candidate.score !== undefined && (
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {candidate.score}%
-                        </div>
-                        <div className="text-xs opacity-75">Score</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{candidate.name}</p>
+                      <p className={`text-xs truncate mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>{candidate.job}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      {score != null && (
+                        <span className={`text-sm font-bold tabular-nums ${scoreColor}`}>{score}%</span>
+                      )}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[candidate.status] || 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-400'}`}>
+                        {candidate.status}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>
