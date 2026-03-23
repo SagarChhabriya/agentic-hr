@@ -169,10 +169,10 @@ export default function RecruiterShell() {
   );
 
   return (
-    <div className={`flex h-screen overflow-hidden ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`flex min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
 
-      {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col w-60 shrink-0 border-r ${sidebarBg}`}>
+      {/* Desktop sidebar — sticky so it stays while page scrolls */}
+      <aside className={`hidden md:flex flex-col w-60 shrink-0 border-r sticky top-0 h-screen ${sidebarBg}`}>
         <SidebarContent />
       </aside>
 
@@ -190,9 +190,9 @@ export default function RecruiterShell() {
       )}
 
       {/* Main area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Top bar */}
-        <header className={`shrink-0 flex items-center justify-between h-16 px-4 sm:px-6 border-b ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar — sticky */}
+        <header className={`sticky top-0 z-30 flex items-center justify-between h-14 px-4 sm:px-6 border-b ${isDark ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-gray-200 backdrop-blur-md'}`}>
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileOpen(true)}
@@ -226,8 +226,8 @@ export default function RecruiterShell() {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className={`flex-1 overflow-y-auto ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+        {/* Page content — scrolls with the browser, no nested scrollbar */}
+        <main className={`flex-1 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <Outlet />
           </div>
