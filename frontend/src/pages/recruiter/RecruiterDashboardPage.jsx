@@ -211,6 +211,7 @@ export default function RecruiterDashboardPage() {
             </Link>
           </div>
         ) : (
+        <>
         <div className="grid grid-cols-5 gap-2">
           {PIPELINE_STAGES.map((stage, idx) => {
             const count = pipeline[stage.key] || 0;
@@ -248,6 +249,7 @@ export default function RecruiterDashboardPage() {
             </span>
           )}
         </div>
+        </>
         )}
       </div>
 
