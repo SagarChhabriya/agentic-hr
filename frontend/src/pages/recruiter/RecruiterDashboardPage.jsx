@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '@clerk/clerk-react';
 import { dashboardApi } from '../../services/api';
@@ -25,12 +26,35 @@ export default function RecruiterDashboardPage() {
   const { theme } = useTheme();
   const { user } = useUser();
   const isDark = theme === 'dark';
+  const queryClient = useQueryClient();
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [relativeTime, setRelativeTime] = useState('just now');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['recruiter-dashboard'],
     queryFn: dashboardApi.recruiter,
     refetchInterval: 30000,
   });
+
+  // Update lastUpdated whenever data changes
+  useEffect(() => { if (data) setLastUpdated(new Date()); }, [data]);
+
+  // Tick relative time every 15 seconds
+  useEffect(() => {
+    function update() {
+      const sec = Math.round((Date.now() - lastUpdated.getTime()) / 1000);
+      if (sec < 10) setRelativeTime('just now');
+      else if (sec < 60) setRelativeTime(`${sec}s ago`);
+      else setRelativeTime(`${Math.round(sec / 60)}m ago`);
+    }
+    update();
+    const id = setInterval(update, 15000);
+    return () => clearInterval(id);
+  }, [lastUpdated]);
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ['recruiter-dashboard'] });
+  }
 
   const stats = data?.stats || {
     totalJobs: 0,
@@ -45,6 +69,7 @@ export default function RecruiterDashboardPage() {
   const recentJobs = data?.recentJobs || [];
   const recentCandidates = data?.recentCandidates || [];
 
+  const totalPipelineCount = PIPELINE_STAGES.reduce((sum, s) => sum + (pipeline[s.key] || 0), 0);
   const maxPipelineCount = Math.max(1, ...PIPELINE_STAGES.map((s) => pipeline[s.key] || 0));
 
   return (
@@ -57,11 +82,24 @@ export default function RecruiterDashboardPage() {
             </h1>
             <p className="text-sm opacity-75">Here's an overview of your hiring pipeline</p>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-sm opacity-75">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Last updated: {new Date().toLocaleDateString()}</span>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="opacity-60 hidden md:inline">Updated {relativeTime}</span>
+            <button
+              onClick={handleRefresh}
+              disabled={isFetching}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 ${
+                isDark ? 'border-slate-600 hover:bg-slate-700' : 'border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <svg
+                className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isFetching ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
         </div>
       </div>
@@ -165,6 +203,14 @@ export default function RecruiterDashboardPage() {
       {/* Hiring Pipeline */}
       <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
         <h2 className="text-xl font-semibold mb-5">Hiring Pipeline</h2>
+        {totalPipelineCount === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm opacity-60 mb-2">No candidates in the pipeline yet.</p>
+            <Link to="/recruiter/jobs/new" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Post a job to get started →
+            </Link>
+          </div>
+        ) : (
         <div className="grid grid-cols-5 gap-2">
           {PIPELINE_STAGES.map((stage, idx) => {
             const count = pipeline[stage.key] || 0;
@@ -189,19 +235,20 @@ export default function RecruiterDashboardPage() {
           })}
         </div>
         <div className="mt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-slate-400">
-          {pipeline['rejected'] != null && (
+          {pipeline['rejected'] != null && pipeline['rejected'] > 0 && (
             <span>
               <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
               Rejected: {pipeline['rejected']}
             </span>
           )}
-          {pipeline['withdrawn'] != null && (
+          {pipeline['withdrawn'] != null && pipeline['withdrawn'] > 0 && (
             <span>
               <span className="inline-block w-2 h-2 rounded-full bg-gray-400 mr-1" />
               Withdrawn: {pipeline['withdrawn']}
             </span>
           )}
         </div>
+        )}
       </div>
 
       {/* Today's Interviews */}

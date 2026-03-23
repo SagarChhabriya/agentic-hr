@@ -37,7 +37,7 @@ export default function LandingPage() {
       icon: InterviewIcon,
       title: 'Live AI Interviews',
       description:
-        'LiveKit-powered interviews with real-time emotion and behavior analysis for better hiring decisions.',
+        'LiveKit voice interviews conducted by a Groq LLM agent — job-specific questions, legal guardrails, and an AI-generated summary with score.',
       color: 'blue',
     },
     {
@@ -139,8 +139,8 @@ export default function LandingPage() {
                 <span className="text-blue-600 dark:text-blue-400">from start to finish</span>
               </h1>
               <p className="text-lg sm:text-xl opacity-80 mb-8 leading-relaxed">
-                From job posting to AI-powered assessments and LiveKit interviews—streamline hiring
-                with real-time analytics, emotion detection, and clear candidate insights.
+                From job posting to AI voice interviews — automatically score resumes, run MCQ assessments,
+                conduct structured voice interviews, and send offers all in one platform.
               </p>
               <div className="flex flex-wrap gap-4 mb-12">
                 <Link
@@ -164,63 +164,82 @@ export default function LandingPage() {
                 <div>
                   <div className="flex items-center gap-2 font-semibold mb-1">
                     <CheckIcon className="w-5 h-5 text-green-500 shrink-0" />
-                    Smart assessments
+                    AI Assessments
                   </div>
-                  <p className="opacity-70 pl-7">Timed MCQs, anti-cheating, auto-scoring</p>
+                  <p className="opacity-70 pl-7">Timed MCQs auto-scored with per-question analytics</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 font-semibold mb-1">
                     <CheckIcon className="w-5 h-5 text-green-500 shrink-0" />
-                    AI interviews
+                    Voice AI Interviews
                   </div>
-                  <p className="opacity-70 pl-7">LiveKit + emotion & behavior analysis</p>
+                  <p className="opacity-70 pl-7">LiveKit-powered agent with Groq LLM + Deepgram</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 font-semibold mb-1">
                     <CheckIcon className="w-5 h-5 text-green-500 shrink-0" />
-                    Actionable insights
+                    Full hiring pipeline
                   </div>
-                  <p className="opacity-70 pl-7">Unified dashboards for recruiters & candidates</p>
+                  <p className="opacity-70 pl-7">Apply → assess → interview → offer in one platform</p>
                 </div>
               </div>
             </div>
 
-            {/* Hero dashboard mockup */}
+            {/* Hero — live pipeline mockup */}
             <div className="relative order-first lg:order-last">
-              <div
-                className={`rounded-2xl border-2 shadow-2xl overflow-hidden ${
-                  isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-gray-200/50'
-                }`}
-              >
-                <div className={`px-6 py-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-                  <div className="flex justify-between items-center">
+              <div className={`rounded-2xl border-2 shadow-2xl overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+                {/* Card header */}
+                <div className={`px-6 py-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-wide opacity-60">Active pipeline</p>
-                      <p className="text-lg font-semibold">Senior Frontend Engineer</p>
+                      <p className="text-xs uppercase tracking-wider opacity-50 mb-0.5">Hiring pipeline</p>
+                      <p className="font-semibold">Senior Frontend Engineer</p>
                     </div>
-                    <span className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-400 text-xs font-semibold px-3 py-1">
-                      Open
-                    </span>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">Active</span>
                   </div>
                 </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-3 gap-6 mb-6">
-                    <div>
-                      <p className="text-xs opacity-60 mb-1">Candidates</p>
-                      <p className="text-2xl font-bold">128</p>
-                    </div>
-                    <div>
-                      <p className="text-xs opacity-60 mb-1">In assessment</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">42</p>
-                    </div>
-                    <div>
-                      <p className="text-xs opacity-60 mb-1">Interviews</p>
-                      <p className="text-2xl font-bold">16</p>
-                    </div>
+                {/* Pipeline stages */}
+                <div className="px-6 pt-5 pb-3">
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Applied', count: 128, pct: 100, color: 'bg-blue-500' },
+                      { label: 'Assessment', count: 74, pct: 58, color: 'bg-amber-500' },
+                      { label: 'AI Interview', count: 31, pct: 24, color: 'bg-purple-500' },
+                      { label: 'Offer Sent', count: 9, pct: 7, color: 'bg-emerald-500' },
+                      { label: 'Hired', count: 4, pct: 3, color: 'bg-green-600' },
+                    ].map(({ label, count, pct, color }) => (
+                      <div key={label} className="flex items-center gap-3">
+                        <p className="text-xs w-24 opacity-70 flex-shrink-0">{label}</p>
+                        <div className={`flex-1 h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-xs font-semibold w-6 text-right">{count}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="h-24 rounded-lg bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center">
-                    <p className="text-xs opacity-60">Live AI interviews & assessments running</p>
-                  </div>
+                </div>
+                {/* Live interview indicator */}
+                <div className={`mx-6 mb-5 mt-3 rounded-lg p-3 flex items-center gap-3 ${isDark ? 'bg-purple-950/30 border border-purple-800' : 'bg-purple-50 border border-purple-100'}`}>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+                  </span>
+                  <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">
+                    3 AI interviews in progress right now
+                  </p>
+                </div>
+                {/* Score row */}
+                <div className={`grid grid-cols-3 gap-px border-t ${isDark ? 'border-slate-700 bg-slate-700' : 'border-gray-100 bg-gray-100'}`}>
+                  {[
+                    { label: 'Avg. assessment', value: '72%' },
+                    { label: 'Avg. interview', value: '68%' },
+                    { label: 'Time to hire', value: '8 days' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className={`px-4 py-3 text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                      <p className="text-base font-bold">{value}</p>
+                      <p className="text-xs opacity-55 mt-0.5">{label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -266,6 +285,58 @@ export default function LandingPage() {
                 <p className="text-sm opacity-75 leading-relaxed">{description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className={`py-16 sm:py-24 ${isDark ? 'bg-slate-800/30' : 'bg-gray-50'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">How it works</h2>
+            <p className="text-lg opacity-80">From first click to hired — the full workflow, automated.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-16 items-start">
+            {/* Recruiter flow */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-500 mb-6">Recruiter</p>
+              <ol className="space-y-6">
+                {[
+                  { n: '1', title: 'Post a job', body: 'Create a job posting with description, required skills, and attach an AI-generated assessment.' },
+                  { n: '2', title: 'Review scored applicants', body: 'Candidates are ranked by resume relevance, format score, and assessment results automatically.' },
+                  { n: '3', title: 'Schedule an AI interview', body: 'One click schedules a LiveKit voice interview; the AI agent conducts it and emails results.' },
+                  { n: '4', title: 'Send offer or reject', body: 'Review the AI summary, combined score, and hire, schedule in-person, or reject with one action.' },
+                ].map(({ n, title, body }) => (
+                  <li key={n} className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">{n}</div>
+                    <div>
+                      <p className="font-semibold mb-1">{title}</p>
+                      <p className="text-sm opacity-70 leading-relaxed">{body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            {/* Candidate flow */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-purple-500 mb-6">Candidate</p>
+              <ol className="space-y-6">
+                {[
+                  { n: '1', title: 'Apply with your profile', body: 'Upload your CV, fill in your profile — the system parses and scores your resume against the job.' },
+                  { n: '2', title: 'Complete the assessment', body: 'Receive a timed MCQ assessment via email. Results are stored and factored into your ranking.' },
+                  { n: '3', title: 'Join the AI interview', body: 'Click a link to join a LiveKit room. A voice AI agent interviews you on the job description and your assessment performance.' },
+                  { n: '4', title: 'Track your application', body: 'See your interview summary, in-person schedule, and offer letter — all in one dashboard.' },
+                ].map(({ n, title, body }) => (
+                  <li key={n} className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">{n}</div>
+                    <div>
+                      <p className="font-semibold mb-1">{title}</p>
+                      <p className="text-sm opacity-70 leading-relaxed">{body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         </div>
       </section>

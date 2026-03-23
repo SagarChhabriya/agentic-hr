@@ -145,6 +145,8 @@ async def my_applications(
             applied_at=app.applied_at,
             interview_score=app.interview_score,
             offer_sent_at=app.offer_sent_at,
+            in_person_scheduled_at=app.in_person_scheduled_at,
+            in_person_notes=app.in_person_notes,
         )
         for app, job in result.all()
     ]

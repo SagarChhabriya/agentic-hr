@@ -56,7 +56,7 @@ async def recruiter_dashboard(
     completed_reviews = (await db.execute(
         select(func.count(Application.id)).where(
             Application.job_id.in_(select(Job.id).where(Job.created_by_id == uid)),
-            Application.status.in_(["selected", "rejected"]),
+            Application.status.in_(["selected", "hired", "withdrawn", "rejected"]),
         )
     )).scalar() or 0
 

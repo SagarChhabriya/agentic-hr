@@ -79,6 +79,8 @@ class CandidateApplicationResponse(BaseModel):
     applied_at: datetime
     interview_score: Optional[int] = None
     offer_sent_at: Optional[datetime] = None
+    in_person_scheduled_at: Optional[datetime] = None
+    in_person_notes: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AxiosError } from 'axios';
 import '@livekit/components-styles';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { LiveKitRoom, VideoConference, RoomAudioRenderer } from '@livekit/components-react';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,15 +18,60 @@ export default function InterviewRoomPage() {
     room_name: string;
     livekit_url: string;
   } | null>(null);
+  const [completed, setCompleted] = useState(false);
+  const [countdown, setCountdown] = useState(10);
 
   const tokenMutation = useMutation({
     mutationFn: () => interviewsApi.getToken(interviewId!),
     onSuccess: (data) => setTokenData(data),
   });
 
+  // Auto-navigate after completion countdown
+  useEffect(() => {
+    if (!completed) return;
+    if (countdown <= 0) { navigate('/candidate/applications'); return; }
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [completed, countdown, navigate]);
+
   const handleFetchToken = () => {
     tokenMutation.mutate();
   };
+
+  // Completion screen — shown after the LiveKit room disconnects
+  if (completed) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-8 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
+        <div className={`max-w-md w-full rounded-2xl border-2 p-10 text-center ${isDark ? 'border-emerald-700 bg-emerald-950/20' : 'border-emerald-200 bg-emerald-50'}`}>
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold mb-3 text-emerald-800 dark:text-emerald-300">
+            Interview Complete
+          </h1>
+          <p className="text-gray-600 dark:text-slate-300 mb-2">
+            Thank you for completing your AI interview. Your responses have been recorded and are being analysed.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mb-8">
+            You will be notified by email once the recruiter reviews your results. In the meantime, you can track your application status below.
+          </p>
+          <Link
+            to="/candidate/applications"
+            className="inline-flex items-center justify-center w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-3 font-semibold transition-colors mb-3"
+          >
+            View My Applications
+          </Link>
+          <p className="text-xs text-gray-400 dark:text-slate-500">
+            Redirecting automatically in {countdown}s…
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!interviewId) {
     return (
@@ -92,7 +137,7 @@ export default function InterviewRoomPage() {
         connect={true}
         onDisconnected={() => {
           setTokenData(null);
-          navigate('/candidate/applications');
+          setCompleted(true);
         }}
         data-lk-theme="default"
         style={{ height: '100%' }}

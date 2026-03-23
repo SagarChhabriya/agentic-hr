@@ -12,8 +12,13 @@ url = settings.database_url or ""
 
 
 def _normalize_database_url(raw: str) -> str:
-    """Fix malformed URLs: postgresql:\\user:password@host\\db (backslashes, unencoded password)."""
-    if not raw or not raw.startswith("postgresql:"):
+    """Fix malformed URLs from various Azure Portal / .env copy-paste issues."""
+    if not raw:
+        return raw
+    # Strip accidental 'KEY=value' format (e.g. Azure Portal copy-paste of full .env line)
+    if raw.startswith("DATABASE_URL="):
+        raw = raw[len("DATABASE_URL="):]
+    if not raw.startswith("postgresql:"):
         return raw
     # Already correct format
     if raw.startswith("postgresql://"):

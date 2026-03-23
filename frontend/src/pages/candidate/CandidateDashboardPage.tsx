@@ -22,9 +22,9 @@ export default function CandidateDashboardPage() {
   });
 
   const total = applications.length;
-  const pending = applications.filter((a) => a.status === 'applied' || a.status === 'assessment').length;
-  const interviews = applications.filter((a) => a.status === 'interview').length;
-  const selected = applications.filter((a) => a.status === 'selected').length;
+  const pending = applications.filter((a: any) => a.status === 'applied' || a.status === 'assessment').length;
+  const interviewCount = applications.filter((a: any) => a.status === 'interview').length;
+  const hired = applications.filter((a: any) => a.status === 'hired').length;
 
   const upcomingInterviews: Array<{
     id: string;
@@ -33,7 +33,16 @@ export default function CandidateDashboardPage() {
     scheduled_at: string;
     duration_minutes: number;
     status: string;
+    session_summary?: string | null;
   }> = (myInterviewsData as any)?.interviews ?? [];
+
+  // Applications with pending offers (selected + offer sent but not yet responded)
+  const pendingOffers = (applications as any[]).filter(
+    (a) => (a.status === 'selected' && a.offer_sent_at) || a.status === 'hired' || a.status === 'withdrawn',
+  );
+
+  // Applications with in-person scheduled
+  const inPersonScheduled = (applications as any[]).filter((a) => a.in_person_scheduled_at);
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -94,25 +103,26 @@ export default function CandidateDashboardPage() {
           isDark={isDark}
         />
         <StatCard
-          title="Pending"
+          title="In Progress"
           value={pending}
-          subtitle="Awaiting review"
+          subtitle="Applied or assessment"
           icon={<AssessmentIcon className="w-8 h-8" />}
           isDark={isDark}
         />
         <StatCard
           title="Interviews"
-          value={interviews}
-          subtitle="Scheduled"
+          value={interviewCount}
+          subtitle="AI interview scheduled"
           icon={<InterviewIcon className="w-8 h-8" />}
           isDark={isDark}
         />
         <StatCard
-          title="Selected"
-          value={selected}
-          subtitle="Offers received"
+          title="Hired"
+          value={hired}
+          subtitle="Offers accepted"
           icon={<CheckIcon className="w-8 h-8" />}
           isDark={isDark}
+          highlight={hired > 0}
         />
       </div>
 
@@ -151,6 +161,77 @@ export default function CandidateDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Pending Offers */}
+      {pendingOffers.length > 0 && (
+        <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-emerald-700 bg-emerald-950/20' : 'border-emerald-200 bg-emerald-50'}`}>
+          <h2 className="text-xl font-semibold mb-4 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+            <CheckIcon className="w-5 h-5" />
+            Offer Letters
+          </h2>
+          <div className="space-y-3">
+            {pendingOffers.map((app: any) => (
+              <div key={app.id} className={`flex items-center justify-between p-3 rounded-lg border ${isDark ? 'border-emerald-800 bg-emerald-900/20' : 'border-emerald-200 bg-white'}`}>
+                <div>
+                  <p className="font-medium">{app.job_title}</p>
+                  <p className="text-sm opacity-75">{app.job_location || '—'}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {app.status === 'hired' && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Accepted</span>
+                  )}
+                  {app.status === 'withdrawn' && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400">Declined</span>
+                  )}
+                  {app.status === 'selected' && app.offer_sent_at && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Awaiting response</span>
+                  )}
+                  <a href="/candidate/applications" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">View</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* In-Person Interviews */}
+      {inPersonScheduled.length > 0 && (
+        <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-blue-800 bg-blue-950/20' : 'border-blue-200 bg-blue-50'}`}>
+          <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-blue-300 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            In-Person Interviews
+          </h2>
+          <div className="space-y-3">
+            {inPersonScheduled.map((app: any) => {
+              const dt = new Date(app.in_person_scheduled_at);
+              const isPast = dt < new Date();
+              return (
+                <div key={app.id} className={`p-3 rounded-lg border ${isDark ? 'border-blue-800 bg-blue-900/20' : 'border-blue-200 bg-white'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{app.job_title}</p>
+                      <p className={`text-sm mt-0.5 ${isPast ? 'opacity-60' : 'text-blue-700 dark:text-blue-300 font-medium'}`}>
+                        {isPast ? 'Was scheduled for ' : 'Scheduled for '}
+                        {dt.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {app.in_person_notes && (
+                        <p className="text-sm opacity-75 mt-1">{app.in_person_notes}</p>
+                      )}
+                    </div>
+                    {!isPast && (
+                      <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                        Upcoming
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming AI Interviews */}
       <div
@@ -257,16 +338,20 @@ export default function CandidateDashboardPage() {
                   </div>
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${
-                      app.status === 'selected'
+                      app.status === 'hired'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : app.status === 'selected'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
                         : app.status === 'interview'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                        : app.status === 'rejected'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                        : app.status === 'rejected' || app.status === 'withdrawn'
                         ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                     }`}
                   >
-                    {app.status}
+                    {({'applied':'Applied','assessment':'Assessment','interview':'Interview',
+                      'selected':'Offer Sent','hired':'Hired','rejected':'Not Selected',
+                      'withdrawn':'Withdrawn'} as Record<string,string>)[app.status] ?? app.status}
                   </span>
                 </div>
               </div>
@@ -284,29 +369,39 @@ function StatCard({
   subtitle,
   icon,
   isDark,
+  highlight = false,
 }: {
   title: string;
   value: number;
   subtitle: string;
   icon: React.ReactNode;
   isDark: boolean;
+  highlight?: boolean;
 }) {
   return (
     <div
       className={`rounded-lg border p-6 transition-all hover:shadow-lg ${
-        isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'
+        highlight
+          ? isDark ? 'border-green-700 bg-green-950/20' : 'border-green-200 bg-green-50'
+          : isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'
       }`}
     >
       <div className="flex items-center justify-between mb-4">
         <div
           className={`p-3 rounded-lg ${
-            isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+            highlight
+              ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'
+              : isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
           }`}
         >
           {icon}
         </div>
         <div className="text-right">
-          <div className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+          <div className={`text-3xl font-bold ${
+            highlight
+              ? isDark ? 'text-green-400' : 'text-green-700'
+              : isDark ? 'text-slate-100' : 'text-gray-900'
+          }`}>
             {value}
           </div>
         </div>

@@ -12,6 +12,8 @@ type Application = {
   applied_at: string;
   interview_score?: number | null;
   offer_sent_at?: string | null;
+  in_person_scheduled_at?: string | null;
+  in_person_notes?: string | null;
 };
 
 type Interview = {
@@ -181,6 +183,31 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function InPersonCard({ scheduledAt, notes }: { scheduledAt: string; notes?: string | null }) {
+  const dt = new Date(scheduledAt);
+  const isPast = dt < new Date();
+  return (
+    <div className={`mt-3 rounded-lg border p-3 ${
+      isPast
+        ? 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/30'
+        : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20'
+    }`}>
+      <div className="flex items-start gap-2">
+        <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isPast ? 'text-gray-400' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <div className="text-sm">
+          <p className={`font-medium ${isPast ? 'text-gray-600 dark:text-slate-400' : 'text-blue-800 dark:text-blue-300'}`}>
+            {isPast ? 'In-person interview was' : 'In-person interview scheduled for'}{' '}
+            <span className="font-semibold">{formatDateTime(scheduledAt)}</span>
+          </p>
+          {notes && <p className="mt-1 text-gray-600 dark:text-slate-400">{notes}</p>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -406,6 +433,11 @@ export default function MyApplicationsPage() {
 
                 {/* Interview details / summary */}
                 {interview && <InterviewSummaryCard interview={interview} />}
+
+                {/* In-person interview date */}
+                {app.in_person_scheduled_at && (
+                  <InPersonCard scheduledAt={app.in_person_scheduled_at} notes={app.in_person_notes} />
+                )}
 
                 {/* Offer actions */}
                 {msg && (
