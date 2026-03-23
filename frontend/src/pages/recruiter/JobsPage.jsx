@@ -46,11 +46,26 @@ function ShareMenu({ job, isDark }) {
         </svg>
       ),
       action: () => {
-        const descSnippet = (job.description || '').slice(0, 300).replace(/\n+/g, ' ').trim();
-        const details = [`🚀 We're Hiring: ${job.title}`, ``, `📍 ${job.location || 'Remote'}  💼 ${(job.job_type || '').replace('_', ' ')}  💰 ${job.salary || 'Competitive'}`, ``, descSnippet ? `${descSnippet}...` : '', ``, `🔗 ${jobUrl}`, ``, `#hiring #jobs`].filter(Boolean).join('\n');
-        navigator.clipboard.writeText(details).then(() => {
-          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(jobUrl)}`, '_blank');
-        });
+        const descSnippet = (job.description || '').slice(0, 700).replace(/\n+/g, ' ').trim();
+        const reqLines = (job.requirements || '')
+          .split('\n')
+          .map((l) => l.replace(/^[\s•\-*]+/, '').trim())
+          .filter(Boolean)
+          .slice(0, 8)
+          .map((l) => `• ${l}`)
+          .join('\n');
+        const summary = [
+          descSnippet,
+          reqLines ? `Requirements:\n${reqLines}` : '',
+          `\nLocation: ${job.location || 'Remote'} | Type: ${(job.job_type || '').replace('_', ' ')} | Salary: ${job.salary || 'Competitive'}`,
+          (job.required_skills || []).length > 0 ? `Skills: ${job.required_skills.join(', ')}` : '',
+          `\nApply: ${jobUrl}`,
+          `#hiring #jobs #${(job.title || '').replace(/\s+/g, '')}`,
+        ].filter(Boolean).join('\n\n');
+        const liUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(jobUrl)}&title=${encodeURIComponent(`We're Hiring: ${job.title}`)}&summary=${encodeURIComponent(summary)}&source=${encodeURIComponent('Hirebase')}`;
+        navigator.clipboard.writeText(summary).catch(() => {});
+        showToast('Post text copied to clipboard — paste it into the LinkedIn post body!', 'info', 6000);
+        window.location.href = liUrl;
       },
     },
     {
