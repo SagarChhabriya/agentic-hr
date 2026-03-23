@@ -163,13 +163,20 @@ export default function RecruiterJobDetailPage() {
         <div className="flex flex-wrap gap-3">
           <button onClick={() => {
               const descSnippet = (job.description || '').slice(0, 700).replace(/\n+/g, ' ').trim();
-              const reqSnippet  = (job.requirements || '').split('\n').filter(Boolean).slice(0, 6).join(' • ').trim();
+              // Strip existing leading bullet chars so we don't double-up (e.g. "• • line")
+              const reqLines = (job.requirements || '')
+                .split('\n')
+                .map((l) => l.replace(/^[\s•\-*]+/, '').trim())
+                .filter(Boolean)
+                .slice(0, 8)
+                .map((l) => `• ${l}`)
+                .join('\n');
               const summary = [
                 descSnippet,
-                reqSnippet ? `Requirements: ${reqSnippet}` : '',
-                `Location: ${job.location || 'Remote'} | Type: ${(job.job_type || '').replace('_', ' ')} | Salary: ${job.salary || 'Competitive'}`,
-                `Skills: ${(job.required_skills || []).join(', ')}`,
-                `Apply: ${jobUrl}`,
+                reqLines ? `Requirements:\n${reqLines}` : '',
+                `\nLocation: ${job.location || 'Remote'} | Type: ${(job.job_type || '').replace('_', ' ')} | Salary: ${job.salary || 'Competitive'}`,
+                (job.required_skills || []).length > 0 ? `Skills: ${job.required_skills.join(', ')}` : '',
+                `\nApply: ${jobUrl}`,
                 `#hiring #jobs #${(job.title || '').replace(/\s+/g, '')}`,
               ].filter(Boolean).join('\n\n');
               const liUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(jobUrl)}&title=${encodeURIComponent(`We're Hiring: ${job.title}`)}&summary=${encodeURIComponent(summary)}&source=${encodeURIComponent('Hirebase')}`;

@@ -82,8 +82,12 @@ export const jobsApi = {
 };
 
 export const applicationsApi = {
-  list: (status?: string) =>
-    apiClient.get('/applications', { params: status && status !== 'all' ? { status } : {} }).then((r) => r.data),
+  list: (status?: string, jobId?: string) => {
+    const params: Record<string, string> = {};
+    if (status && status !== 'all') params.status = status;
+    if (jobId) params.job_id = jobId;
+    return apiClient.get('/applications', { params }).then((r) => r.data);
+  },
   get: (id: string) => apiClient.get(`/applications/${id}`).then((r) => r.data),
   getAssessmentResult: (applicationId: string) =>
     apiClient.get(`/applications/${applicationId}/assessment-result`).then((r) => r.data),

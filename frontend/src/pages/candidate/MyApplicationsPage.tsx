@@ -3,6 +3,63 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationsApi, interviewsApi } from '../../services/api';
 
+const PIPELINE_STEPS = [
+  { key: 'applied',    label: 'Applied' },
+  { key: 'assessment', label: 'Assessment' },
+  { key: 'interview',  label: 'Interview' },
+  { key: 'selected',   label: 'Offer' },
+  { key: 'hired',      label: 'Hired' },
+];
+
+function PipelineTracker({ status }: { status: string }) {
+  const keys = PIPELINE_STEPS.map(s => s.key);
+  const currentIdx = keys.indexOf(status);
+  const isTerminal = status === 'rejected' || status === 'withdrawn';
+
+  return (
+    <div className="flex items-start mt-4 pt-3.5 border-t border-gray-100 dark:border-slate-700/60">
+      {PIPELINE_STEPS.map((step, idx) => {
+        const completed = !isTerminal && currentIdx > idx;
+        const active = !isTerminal && currentIdx === idx;
+        const future = isTerminal || currentIdx < idx;
+        return (
+          <div key={step.key} className="flex items-center flex-1">
+            <div className="flex flex-col items-center min-w-0">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                completed
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : active
+                  ? 'bg-white dark:bg-slate-800 border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-300 dark:text-slate-600'
+              }`}>
+                {completed ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+                  </svg>
+                ) : (
+                  <span>{idx + 1}</span>
+                )}
+              </div>
+              <span className={`text-xs mt-1 whitespace-nowrap leading-none ${
+                active
+                  ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                  : completed
+                  ? 'text-gray-600 dark:text-slate-400'
+                  : 'text-gray-300 dark:text-slate-600'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            {idx < PIPELINE_STEPS.length - 1 && (
+              <div className={`h-0.5 flex-1 mx-1 mb-4 ${completed ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-slate-700'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 type Application = {
   id: string;
   job_id: string;
@@ -347,51 +404,55 @@ export default function MyApplicationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[40vh]">
-        <div className="text-gray-600 dark:text-slate-400">Loading applications...</div>
+      <div className="flex justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-6 text-red-700 dark:text-red-300">
-          Failed to load applications.
-        </div>
-        <Link to="/jobs" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
-          Browse Jobs
-        </Link>
+      <div className="max-w-3xl mx-auto px-4 py-8 text-center">
+        <p className="text-red-500 text-sm mb-3">Failed to load applications.</p>
+        <Link to="/jobs" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Browse Jobs</Link>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">My Applications</h1>
-        <Link
-          to="/jobs"
-          className="inline-flex items-center px-4 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors w-fit"
-        >
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">My Applications</h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
+            {list.length} application{list.length !== 1 ? 's' : ''} total
+          </p>
+        </div>
+        <Link to="/jobs"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity w-fit shadow-sm">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"/>
+          </svg>
           Browse Jobs
         </Link>
       </div>
 
       {successMessage && (
-        <div className="mb-6 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-emerald-800 dark:text-emerald-200">
+        <div className="mb-5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
           {successMessage}
         </div>
       )}
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-12 text-center">
-          <p className="text-gray-600 dark:text-slate-400 mb-6">You haven&apos;t applied to any jobs yet.</p>
-          <Link
-            to="/jobs"
-            className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-          >
-            Browse Jobs
+        <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 py-20 text-center">
+          <svg className="mx-auto w-10 h-10 text-gray-300 dark:text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mb-4">You haven&apos;t applied to any jobs yet.</p>
+          <Link to="/jobs"
+            className="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+            Browse Open Positions
           </Link>
         </div>
       ) : (
@@ -399,62 +460,90 @@ export default function MyApplicationsPage() {
           {list.map((app) => {
             const interview = interviewByApp[app.id];
             const msg = offerMessage?.id === app.id ? offerMessage : null;
+            const initials = (app.job_title || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
 
             return (
-              <div
-                key={app.id}
-                className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-5 transition-colors"
-              >
-                {/* Header row */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold text-gray-900 dark:text-slate-100 truncate">
-                      {app.job_title}
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
-                      {app.job_location || '—'}
-                    </p>
+              <div key={app.id}
+                className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 overflow-hidden">
+                {/* Accent bar */}
+                <div className={`h-0.5 w-full ${
+                  app.status === 'hired'      ? 'bg-green-500'
+                  : app.status === 'selected' ? 'bg-emerald-500'
+                  : app.status === 'interview'? 'bg-violet-500'
+                  : app.status === 'rejected' ? 'bg-red-400'
+                  : app.status === 'withdrawn'? 'bg-gray-400'
+                  : 'bg-gradient-to-r from-indigo-500 to-violet-500'
+                }`} />
+
+                <div className="p-5">
+                  {/* Header row */}
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-400/20 to-violet-400/20 border border-indigo-200/30 dark:border-indigo-700/30 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{initials}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-semibold text-gray-900 dark:text-slate-100 truncate">{app.job_title}</h2>
+                        <StatusBadge status={app.status} />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                        {app.job_location && `${app.job_location} · `}Applied {formatDate(app.applied_at)}
+                      </p>
+                    </div>
+                    {/* Interview score badge */}
+                    {app.interview_score != null && (
+                      <div className="shrink-0 text-right">
+                        <span className={`text-lg font-bold tabular-nums ${app.interview_score >= 70 ? 'text-emerald-500' : app.interview_score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                          {app.interview_score}%
+                        </span>
+                        <p className="text-xs text-gray-400 dark:text-slate-500">Interview</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <StatusBadge status={app.status} />
-                    <span className="text-sm text-gray-500 dark:text-slate-400">
-                      Applied {formatDate(app.applied_at)}
-                    </span>
-                  </div>
+
+                  {/* Pipeline tracker */}
+                  {!['rejected', 'withdrawn'].includes(app.status) && (
+                    <PipelineTracker status={app.status} />
+                  )}
+
+                  {/* Rejected / Withdrawn banner */}
+                  {(app.status === 'rejected' || app.status === 'withdrawn') && (
+                    <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-medium ${
+                      app.status === 'rejected'
+                        ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800/50'
+                        : 'bg-gray-50 dark:bg-slate-700/30 text-gray-500 dark:text-slate-400 border border-gray-100 dark:border-slate-700'
+                    }`}>
+                      {app.status === 'rejected' ? 'Application was not selected for this position.' : 'You withdrew from this application.'}
+                    </div>
+                  )}
+
+                  {/* Interview details */}
+                  {interview && <InterviewSummaryCard interview={interview} />}
+
+                  {/* In-person date */}
+                  {app.in_person_scheduled_at && (
+                    <InPersonCard scheduledAt={app.in_person_scheduled_at} notes={app.in_person_notes} />
+                  )}
+
+                  {/* Offer message feedback */}
+                  {msg && (
+                    <div className={`mt-3 px-3 py-2 rounded-lg text-sm border ${
+                      msg.type === 'success'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+                    }`}>
+                      {msg.text}
+                    </div>
+                  )}
+
+                  <OfferActions
+                    app={app}
+                    onAccept={() => offerMutation.mutate({ id: app.id, response: 'accept' })}
+                    onDecline={() => offerMutation.mutate({ id: app.id, response: 'decline' })}
+                    isPending={offerMutation.isPending && offerMutation.variables?.id === app.id}
+                  />
                 </div>
-
-                {/* Interview score (if available) */}
-                {app.interview_score != null && (
-                  <div className="mt-3 max-w-xs">
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Interview score</p>
-                    <ScoreBar score={app.interview_score} />
-                  </div>
-                )}
-
-                {/* Interview details / summary */}
-                {interview && <InterviewSummaryCard interview={interview} />}
-
-                {/* In-person interview date */}
-                {app.in_person_scheduled_at && (
-                  <InPersonCard scheduledAt={app.in_person_scheduled_at} notes={app.in_person_notes} />
-                )}
-
-                {/* Offer actions */}
-                {msg && (
-                  <div className={`mt-3 p-3 rounded-lg text-sm ${
-                    msg.type === 'success'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                      : 'bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
-                  }`}>
-                    {msg.text}
-                  </div>
-                )}
-                <OfferActions
-                  app={app}
-                  onAccept={() => offerMutation.mutate({ id: app.id, response: 'accept' })}
-                  onDecline={() => offerMutation.mutate({ id: app.id, response: 'decline' })}
-                  isPending={offerMutation.isPending && offerMutation.variables?.id === app.id}
-                />
               </div>
             );
           })}

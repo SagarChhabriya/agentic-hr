@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
-import { applicationsApi } from '../../services/api';
+import { applicationsApi, jobsApi } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
 import TabFilter from '../../components/TabFilter';
 
@@ -20,12 +20,23 @@ function SortIcon({ dir }) {
 export default function CandidatesPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get('job') || undefined;
+
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState({ col: 'applied_at', dir: 'desc' });
 
   const { data: candidates = [], isLoading, error } = useQuery({
-    queryKey: ['applications', filter],
-    queryFn: () => applicationsApi.list(filter),
+    queryKey: ['applications', filter, jobId],
+    queryFn: () => applicationsApi.list(filter, jobId),
+  });
+
+  // Fetch job name for the filter banner (only when jobId is present)
+  const { data: jobData } = useQuery({
+    queryKey: ['job', jobId],
+    queryFn: () => jobsApi.get(jobId),
+    enabled: !!jobId,
   });
 
   function toggleSort(col) {
@@ -84,9 +95,33 @@ export default function CandidatesPage() {
     <div>
       <PageHeader
         title="Candidates"
-        subtitle="View and manage all applicants"
+        subtitle={jobId && jobData?.title ? `Filtered by job: ${jobData.title}` : 'View and manage all applicants'}
         badge={candidates.length}
       />
+
+      {/* Job filter banner */}
+      {jobId && (
+        <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl mb-4 text-sm border ${
+          isDark ? 'bg-indigo-900/20 border-indigo-800/50 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+        }`}>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            <span>
+              Showing candidates for <span className="font-semibold">{jobData?.title || 'this job'}</span>
+            </span>
+          </div>
+          <button
+            onClick={() => navigate('/recruiter/candidates')}
+            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${
+              isDark ? 'border-indigo-700 hover:bg-indigo-900/40' : 'border-indigo-300 hover:bg-indigo-100'
+            }`}
+          >
+            Clear filter ✕
+          </button>
+        </div>
+      )}
 
       <TabFilter tabs={tabs} active={filter} onChange={setFilter} />
 
