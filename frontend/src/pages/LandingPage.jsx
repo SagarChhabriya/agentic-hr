@@ -479,62 +479,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Legal / About sections (for footer anchor links) */}
-      <section id="about" className="py-12 border-t border-gray-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-xl font-semibold mb-3">About</h3>
-          <p className="text-sm opacity-80 max-w-2xl">
-            Hirebase is a modern SaaS platform for automating the hiring lifecycle with
-            AI-powered assessments, LiveKit interviews, and real-time analytics. Built for distributed
-            teams who want to hire faster and smarter.
-          </p>
-        </div>
-      </section>
-      <section id="privacy" className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-xl font-semibold mb-3">Privacy</h3>
-          <p className="text-sm opacity-80 max-w-2xl">
-            We respect your privacy. Your data is encrypted, stored securely, and never shared with
-            third parties for marketing. See our full privacy policy for details on data retention
-            and your rights.
-          </p>
-        </div>
-      </section>
-      <section id="terms" className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-xl font-semibold mb-3">Terms</h3>
-          <p className="text-sm opacity-80 max-w-2xl">
-            By using Hirebase, you agree to our terms of service. Usage is subject to fair use
-            policies. Contact us for enterprise SLAs and custom agreements.
-          </p>
-        </div>
-      </section>
-
-      {/* Contact Section */}
+      {/* Contact / Get in touch */}
       <section id="contact" className="py-16 sm:py-24 border-t border-gray-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl">
+          <div className="max-w-xl">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
               Get in touch
             </h2>
-            <p className="text-lg opacity-80 mb-8">
-              Have questions about demos, onboarding, or enterprise plans? Reach out and we&apos;ll get
-              back to you within 24 hours.
+            <p className="text-base opacity-75 mb-6">
+              Have questions about Hirebase, demos, or enterprise plans? Contact details are coming soon — in the meantime, create a free account and explore the platform.
             </p>
-            <div className="space-y-4">
-              <p className="text-sm opacity-75">
-                <strong>Email:</strong> support@agentichr.com
-              </p>
-              <p className="text-sm opacity-75">
-                <strong>For enterprise:</strong> enterprise@agentichr.com
-              </p>
-              <Link
-                to="/register"
-                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors mt-4"
-              >
-                Create an account
-              </Link>
-            </div>
+            <Link
+              to="/register"
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+            >
+              Create an account
+            </Link>
           </div>
         </div>
       </section>

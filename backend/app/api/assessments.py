@@ -91,6 +91,68 @@ async def create_assessment(
     )
 
 
+@router.get("/{assessment_id}")
+async def get_assessment(
+    assessment_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter fetches a single assessment with its questions."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = await db.execute(
+        select(Assessment)
+        .options(selectinload(Assessment.questions), selectinload(Assessment.job))
+        .where(Assessment.id == assessment_id, Assessment.created_by_id == current_user.id)
+    )
+    a = result.unique().scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    questions = sorted(a.questions, key=lambda q: q.order_index)
+    return {
+        "id": a.id,
+        "name": a.name,
+        "duration_minutes": a.duration_minutes,
+        "job_id": a.job_id,
+        "job_title": a.job.title if a.job else None,
+        "created_at": a.created_at,
+        "questions": [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "options": q.options,
+                "correct_index": q.correct_index,
+                "order_index": q.order_index,
+            }
+            for q in questions
+        ],
+    }
+
+
+@router.delete("/{assessment_id}/questions")
+async def clear_assessment_questions(
+    assessment_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recruiter clears all questions from an assessment (to replace them)."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    a_result = await db.execute(
+        select(Assessment).where(
+            Assessment.id == assessment_id, Assessment.created_by_id == current_user.id
+        )
+    )
+    a = a_result.scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    await db.execute(
+        AssessmentQuestion.__table__.delete().where(AssessmentQuestion.assessment_id == assessment_id)
+    )
+    await db.flush()
+    return {"ok": True}
+
+
 @router.get("/{assessment_id}/for-attempt")
 async def get_assessment_for_attempt(
     assessment_id: str,

@@ -52,19 +52,15 @@ export default function Footer() {
             <h4 className="font-semibold mb-4">Company</h4>
             <ul className="space-y-3 text-sm">
               <li>
-                <a href="#about" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  About
+                <a href="#contact" className="opacity-75 hover:opacity-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                  Contact
                 </a>
               </li>
               <li>
-                <a href="#privacy" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  Privacy
-                </a>
+                <span className="opacity-40 cursor-default text-sm">Privacy Policy — coming soon</span>
               </li>
               <li>
-                <a href="#terms" className="opacity-75 hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  Terms
-                </a>
+                <span className="opacity-40 cursor-default text-sm">Terms of Service — coming soon</span>
               </li>
             </ul>
           </div>
@@ -74,16 +70,9 @@ export default function Footer() {
           <p className="opacity-70">
             © {new Date().getFullYear()} Hirebase. All rights reserved.
           </p>
-          <div className="flex items-center gap-6">
-            <a href="#about" className="opacity-75 hover:opacity-100 transition-opacity">
-              About
-            </a>
-            <a href="#privacy" className="opacity-75 hover:opacity-100 transition-opacity">
-              Privacy
-            </a>
-            <a href="#terms" className="opacity-75 hover:opacity-100 transition-opacity">
-              Terms
-            </a>
+          <div className="flex items-center gap-6 text-sm opacity-50">
+            <span>Privacy Policy — coming soon</span>
+            <span>Terms of Service — coming soon</span>
           </div>
         </div>
       </div>

@@ -64,6 +64,7 @@ export default function RecruiterShell() {
   const location = useLocation();
   const isDark = theme === 'dark';
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isActive = (path) =>
     path === '/recruiter/dashboard'
@@ -171,10 +172,12 @@ export default function RecruiterShell() {
   return (
     <div className={`flex min-h-screen ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
 
-      {/* Desktop sidebar — sticky so it stays while page scrolls */}
-      <aside className={`hidden md:flex flex-col w-60 shrink-0 border-r sticky top-0 h-screen ${sidebarBg}`}>
-        <SidebarContent />
-      </aside>
+      {/* Desktop sidebar — collapsible, sticky */}
+      {!sidebarCollapsed && (
+        <aside className={`hidden md:flex flex-col w-60 shrink-0 border-r sticky top-0 h-screen ${sidebarBg}`}>
+          <SidebarContent />
+        </aside>
+      )}
 
       {/* Mobile sidebar drawer */}
       {mobileOpen && (
@@ -193,19 +196,32 @@ export default function RecruiterShell() {
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar — sticky */}
         <header className={`sticky top-0 z-30 flex items-center justify-between h-14 px-4 sm:px-6 border-b ${isDark ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-gray-200 backdrop-blur-md'}`}>
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileOpen(true)}
-            className={`md:hidden p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-gray-500 hover:bg-gray-100'}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Burger — mobile opens drawer, desktop toggles sidebar */}
+            <button
+              onClick={() => (window.innerWidth >= 768 ? setSidebarCollapsed((v) => !v) : setMobileOpen(true))}
+              className={`p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-100' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+              aria-label="Toggle sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
 
-          {/* Breadcrumb-style page title */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className={`font-medium hidden md:block ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            {/* Logo shown only when sidebar is collapsed on desktop */}
+            {sidebarCollapsed && (
+              <div className="hidden md:flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <span className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Hirebase</span>
+              </div>
+            )}
+
+            {/* Current page label */}
+            <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
               {NAV_ITEMS.find((n) => isActive(n.to))?.label ?? 'Recruiter'}
             </span>
           </div>

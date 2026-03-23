@@ -142,26 +142,20 @@ export default function RecruiterJobDetailPage() {
         <h2 className="text-lg font-semibold mb-3">Share This Job</h2>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => {
-              const descSnippet = (job.description || '').slice(0, 300).replace(/\n+/g, ' ').trim();
-              const reqSnippet  = (job.requirements || '').split('\n').slice(0, 5).join(' | ').trim();
-              const details = [
-                `🚀 We're Hiring: ${job.title}`,
-                ``,
-                `📍 Location: ${job.location || 'Remote'}`,
-                `💼 Type: ${(job.job_type || '').replace('_', ' ')}`,
-                `💰 Salary: ${job.salary || 'Competitive'}`,
-                `📋 Skills: ${(job.required_skills || []).join(', ')}`,
-                ``,
-                descSnippet ? `📝 About the Role:\n${descSnippet}...` : '',
-                reqSnippet  ? `\n✅ Requirements:\n${reqSnippet}` : '',
-                ``,
-                `🔗 Apply now: ${jobUrl}`,
-                ``,
-                `#hiring #jobs #careers #${(job.title || '').replace(/\s+/g, '')}`,
-              ].filter(Boolean).join('\n');
-              navigator.clipboard.writeText(details).then(() => {
-                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(jobUrl)}`, '_blank');
-                showToast('Post copied to clipboard — paste it into your LinkedIn post!', 'info', 5000);
+              const descSnippet = (job.description || '').slice(0, 700).replace(/\n+/g, ' ').trim();
+              const reqSnippet  = (job.requirements || '').split('\n').filter(Boolean).slice(0, 6).join(' • ').trim();
+              const summary = [
+                descSnippet,
+                reqSnippet ? `Requirements: ${reqSnippet}` : '',
+                `Location: ${job.location || 'Remote'} | Type: ${(job.job_type || '').replace('_', ' ')} | Salary: ${job.salary || 'Competitive'}`,
+                `Skills: ${(job.required_skills || []).join(', ')}`,
+                `Apply: ${jobUrl}`,
+                `#hiring #jobs #${(job.title || '').replace(/\s+/g, '')}`,
+              ].filter(Boolean).join('\n\n');
+              const liUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(jobUrl)}&title=${encodeURIComponent(`We're Hiring: ${job.title}`)}&summary=${encodeURIComponent(summary)}&source=${encodeURIComponent('Hirebase')}`;
+              navigator.clipboard.writeText(summary).then(() => {
+                window.open(liUrl, '_blank', 'width=600,height=600');
+                showToast('Job description copied to clipboard too — paste it into the LinkedIn post body!', 'info', 5000);
               });
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#0077B5] text-white hover:opacity-90">

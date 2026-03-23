@@ -24,6 +24,7 @@ import CandidatesPage from './pages/recruiter/CandidatesPage';
 import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
 import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
 import RecruiterCandidateDetailPage from './pages/recruiter/RecruiterCandidateDetailPage';
+import AssessmentDetailPage from './pages/recruiter/AssessmentDetailPage';
 import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
@@ -35,6 +36,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public + candidate routes — use the public Layout with header/footer */}
         <Route path="/" element={<Layout />}>
           <Route index element={<LandingPage />} />
           <Route path="login/*" element={<LoginPage />} />
@@ -48,7 +50,6 @@ function App() {
               </RoleProtectedRoute>
             }
           />
-          {/* Candidate routes (auth required) */}
           <Route
             path="candidate/apply/:job_id"
             element={
@@ -66,7 +67,6 @@ function App() {
             }
           />
           <Route path="register" element={<SignupRoleSelectionPage />} />
-          {/* Clerk handles its own sub-routes for verification, so use wildcard */}
           <Route path="register/candidate/*" element={<SignupCandidatePage />} />
           <Route path="register/recruiter/*" element={<SignupRecruiterPage />} />
           <Route path="register/admin/*" element={<SignupAdminPage />} />
@@ -78,26 +78,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Recruiter Routes — wrapped in sidebar shell */}
-          <Route
-            path="recruiter"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <RecruiterShell />
-              </RoleProtectedRoute>
-            }
-          >
-            <Route path="dashboard" element={<RecruiterDashboardPage />} />
-            <Route path="jobs" element={<JobsPage />} />
-            <Route path="jobs/new" element={<CreateJobPage />} />
-            <Route path="jobs/:id" element={<RecruiterJobDetailPage />} />
-            <Route path="jobs/:id/edit" element={<RecruiterEditJobPage />} />
-            <Route path="questions" element={<CustomQuestionsPage />} />
-            <Route path="assessments" element={<AssessmentsPage />} />
-            <Route path="candidates" element={<CandidatesPage />} />
-            <Route path="candidates/:id" element={<RecruiterCandidateDetailPage />} />
-          </Route>
-          {/* Assessment attempt - candidate must be logged in */}
           <Route
             path="assessment/attempt/:assessmentId"
             element={
@@ -106,7 +86,6 @@ function App() {
               </RoleProtectedRoute>
             }
           />
-          {/* AI Interview room - candidate joins LiveKit */}
           <Route
             path="interview/room/:interviewId"
             element={
@@ -115,7 +94,6 @@ function App() {
               </RoleProtectedRoute>
             }
           />
-          {/* Candidate Routes */}
           <Route
             path="candidate/dashboard"
             element={
@@ -132,6 +110,27 @@ function App() {
               </RoleProtectedRoute>
             }
           />
+        </Route>
+
+        {/* Recruiter routes — RecruiterShell is the full-page layout, no public header */}
+        <Route
+          path="/recruiter"
+          element={
+            <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
+              <RecruiterShell />
+            </RoleProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<RecruiterDashboardPage />} />
+          <Route path="jobs" element={<JobsPage />} />
+          <Route path="jobs/new" element={<CreateJobPage />} />
+          <Route path="jobs/:id" element={<RecruiterJobDetailPage />} />
+          <Route path="jobs/:id/edit" element={<RecruiterEditJobPage />} />
+          <Route path="questions" element={<CustomQuestionsPage />} />
+          <Route path="assessments" element={<AssessmentsPage />} />
+          <Route path="assessments/:id" element={<AssessmentDetailPage />} />
+          <Route path="candidates" element={<CandidatesPage />} />
+          <Route path="candidates/:id" element={<RecruiterCandidateDetailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

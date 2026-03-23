@@ -129,8 +129,11 @@ export const profileApi = {
 
 export const assessmentsApi = {
   list: () => apiClient.get('/assessments').then((r) => r.data),
+  getById: (id: string) => apiClient.get(`/assessments/${id}`).then((r) => r.data),
   create: (body: { name: string; duration_minutes: number; job_id?: string }) =>
     apiClient.post('/assessments', body).then((r) => r.data),
+  clearQuestions: (assessmentId: string) =>
+    apiClient.delete(`/assessments/${assessmentId}/questions`).then((r) => r.data),
   getForAttempt: (assessmentId: string, applicationId: string) =>
     apiClient.get(`/assessments/${assessmentId}/for-attempt`, { params: { application_id: applicationId } }).then((r) => r.data),
   addQuestions: (assessmentId: string, questions: Array<{ question_text: string; options: string[]; correct_index: number }>) =>
