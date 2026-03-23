@@ -123,45 +123,31 @@ async def health_email_test(to: str):
     """
     Send a real test email via Resend and return the result.
     Usage: GET /health/email/test?to=you@example.com
-    This endpoint is for diagnostics only — do not expose publicly in production.
     """
-    import asyncio
-    from app.core.email import _PLACEHOLDER_KEYS
+    from app.core.email import send_async, _PLACEHOLDER_KEYS
     s = get_settings()
     key = s.resend_api_key or ""
+
     if not key or key in _PLACEHOLDER_KEYS:
         return {
             "sent": False,
-            "error": "RESEND_API_KEY is not configured or is a placeholder",
+            "error": "RESEND_API_KEY is not configured — set it in Azure App Service environment variables",
             "from": s.email_from,
             "to": to,
         }
-    try:
-        import resend
-        resend.api_key = key
-        result = await asyncio.to_thread(
-            resend.Emails.send,
-            {
-                "from": s.email_from,
-                "to": [to],
-                "subject": "Agentic HR — email test",
-                "html": "<h2>Email test successful</h2><p>If you see this, Resend email is working correctly.</p>",
-            },
-        )
-        return {
-            "sent": True,
-            "resend_id": getattr(result, "id", None) or str(result),
-            "from": s.email_from,
-            "to": to,
-        }
-    except Exception as exc:
-        return {
-            "sent": False,
-            "error": str(exc),
-            "error_type": type(exc).__name__,
-            "from": s.email_from,
-            "to": to,
-        }
+
+    sent = await send_async(
+        to,
+        "Agentic HR — email test",
+        "<h2>Email test successful</h2><p>Resend is correctly configured for Agentic HR.</p>"
+        f"<p><small>Sent from: {s.email_from}</small></p>",
+    )
+    return {
+        "sent": sent,
+        "from": s.email_from,
+        "to": to,
+        "note": "Check Azure App Service logs if sent=false",
+    }
 
 
 @app.get("/health/db")
