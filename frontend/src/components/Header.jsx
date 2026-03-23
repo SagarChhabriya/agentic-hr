@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { useAuth, UserButton, SignedIn, SignedOut, SignInButton, SignUpButton } from '@clerk/clerk-react';
+import { useAuth, useUser, UserButton, SignedIn, SignedOut, SignInButton, SignUpButton } from '@clerk/clerk-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function Header() {
-  const { isSignedIn, isLoaded, user } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
   const { theme, toggleTheme } = useTheme();
   // Check both publicMetadata and unsafeMetadata for role
   const userRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
