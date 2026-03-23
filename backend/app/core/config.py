@@ -12,9 +12,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = Field(3000, validation_alias="PORT")
 
-    # Database - Azure PostgreSQL or Supabase
-    # Azure format: postgresql://user%40server:password@server.postgres.database.azure.com:5432/db?sslmode=require
-    # URL-encode special chars: @ -> %40, # -> %23
+    # Database - Supabase session pooler (or any PostgreSQL)
+    # URL-encode special chars in password: @ -> %40, # -> %23
     database_url: str = ""
 
     # JWT
