@@ -63,9 +63,11 @@ function ShareMenu({ job, isDark }) {
           `#hiring #jobs #${(job.title || '').replace(/\s+/g, '')}`,
         ].filter(Boolean).join('\n\n');
         const liUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(jobUrl)}&title=${encodeURIComponent(`We're Hiring: ${job.title}`)}&summary=${encodeURIComponent(summary)}&source=${encodeURIComponent('Hirebase')}`;
+        // Open popup synchronously (must be in the direct click handler, not inside async .then)
+        window.open(liUrl, 'linkedin_share', 'width=620,height=620,left=200,top=100,resizable=yes,scrollbars=yes');
+        // Clipboard write is async — fire after popup is already launched
         navigator.clipboard.writeText(summary).catch(() => {});
         showToast('Post text copied to clipboard — paste it into the LinkedIn post body!', 'info', 6000);
-        window.location.href = liUrl;
       },
     },
     {
