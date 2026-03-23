@@ -16,6 +16,7 @@ _PLACEHOLDER_KEYS = {"re_xxxxxxxxxxxx", "re_placeholder", ""}
 
 
 def _send(to: str, subject: str, html: str) -> bool:
+    global _resend_last_send_time
     settings = get_settings()
     api_key = settings.resend_api_key or ""
 
@@ -45,7 +46,6 @@ def _send(to: str, subject: str, html: str) -> bool:
             "html": html,
         })
         with _resend_lock:
-            global _resend_last_send_time
             _resend_last_send_time = time.monotonic()
         logger.info("Email sent successfully to %s: %s", to, subject)
         return True
