@@ -12,26 +12,15 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { interviewsApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
-// Firebase upload helper — silently disabled if Firebase isn't configured
+// Supabase Storage upload helper — silently disabled if env vars are absent
 // ---------------------------------------------------------------------------
-async function uploadRecordingToFirebase(
+async function uploadRecordingToSupabase(
   blob: Blob,
   interviewId: string,
   candidateName?: string,
 ): Promise<string | null> {
-  try {
-    const { firebaseStorage, isFirebaseConfigured } = await import('../../lib/firebase');
-    if (!isFirebaseConfigured || !firebaseStorage) return null;
-
-    const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `interviews/${interviewId}/${candidateName ?? 'candidate'}_${timestamp}.webm`;
-    const storageRef = ref(firebaseStorage, filename);
-    const snapshot = await uploadBytes(storageRef, blob);
-    return await getDownloadURL(snapshot.ref);
-  } catch {
-    return null;
-  }
+  const { uploadRecording } = await import('../../lib/supabaseStorage');
+  return uploadRecording(blob, interviewId, candidateName ?? 'candidate');
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +293,7 @@ export default function InterviewRoomPage() {
       if (chunks.length > 0 && interviewId) {
         setUploadStatus('uploading');
         const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = await uploadRecordingToFirebase(blob, interviewId);
+        const url = await uploadRecordingToSupabase(blob, interviewId);
         setUploadStatus(url ? 'done' : 'failed');
       }
     }
