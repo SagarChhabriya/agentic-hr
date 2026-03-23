@@ -63,11 +63,13 @@ export default function RecruiterEditJobPage() {
         });
         const questions = formData.assessmentQuestions || [];
         if (questions.length > 0) {
-          const mapped = questions.map((q) => ({
-            question_text: q.question_text || q.question,
-            options: q.options || [],
-            correct_index: q.correct_index ?? 0,
-          })).filter((q) => q.question_text && (q.options || []).length >= 2);
+          const mapped = questions
+            .map((q) => ({
+              question_text: q.question_text || q.question,
+              options: q.options || [],
+              correct_index: q.correct_index ?? 0,
+            }))
+            .filter((q) => q.question_text && (q.options || []).length >= 2);
           if (mapped.length > 0) await assessmentsApi.addQuestions(assessment.id, mapped);
         }
       }
@@ -116,80 +118,122 @@ export default function RecruiterEditJobPage() {
     });
   };
 
-  const inputCls = `w-full rounded-md border px-3 py-2 ${isDark ? 'border-slate-600 bg-slate-900 text-slate-100' : 'border-gray-300 bg-white text-gray-900'}`;
+  // Shared styles
+  const inputCls = `w-full rounded-lg border px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+    isDark
+      ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500'
+      : 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400'
+  }`;
+  const sectionCls = `rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`;
+  const labelCls = `block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`;
+  const sectionHeadingCls = `text-xs font-semibold uppercase tracking-wide mb-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`;
 
   if (isLoading) {
-    return <div className={`px-4 py-8 text-center ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Loading...</div>;
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
   if (error || !job) {
     return (
-      <div className={`px-4 py-8 text-center ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-        <p className="text-red-500 mb-4">Job not found.</p>
-        <Link to="/recruiter/jobs" className="text-blue-600 dark:text-blue-400 hover:underline">← Back to jobs</Link>
+      <div className="text-center py-20">
+        <p className="text-red-500 text-sm mb-3">Job not found.</p>
+        <Link to="/recruiter/jobs" className="text-sm text-indigo-500 hover:underline">← Back to jobs</Link>
       </div>
     );
   }
   if (!formData) return null;
 
   return (
-    <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-      <Link to={`/recruiter/jobs/${id}`} className="inline-flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 mb-6">
-        ← Back to job details
+    <div className={`max-w-3xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+      {/* Breadcrumb */}
+      <Link to={`/recruiter/jobs/${id}`}
+        className={`inline-flex items-center gap-1 text-xs mb-5 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'}`}>
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to job
       </Link>
-      <h1 className="text-3xl font-bold mb-6">Edit Job: {job.title}</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+      {/* Page header card */}
+      <div className={`rounded-xl border mb-6 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />
+        <div className="px-6 py-5 flex items-center justify-between">
+          <div>
+            <h1 className={`text-lg font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Edit Job</h1>
+            <p className={`text-sm mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>{job.title}</p>
+          </div>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize ${
+            job.status === 'active'  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800'
+            : job.status === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+            : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600'
+          }`}>
+            {job.status}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+
+        {/* Basic Information */}
+        <section className={sectionCls}>
+          <p className={sectionHeadingCls}>Basic Information</p>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Job Title *</label>
-              <input type="text" name="title" required value={formData.title} onChange={handleChange} className={inputCls} />
+              <label className={labelCls}>Job Title <span className="text-red-400">*</span></label>
+              <input type="text" name="title" required value={formData.title} onChange={handleChange} className={inputCls} placeholder="e.g. Senior Backend Engineer" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Description *</label>
-              <textarea name="description" required rows={8} value={formData.description} onChange={handleChange} className={inputCls} />
+              <label className={labelCls}>Description <span className="text-red-400">*</span></label>
+              <textarea name="description" required rows={7} value={formData.description} onChange={handleChange} className={`${inputCls} resize-none`} placeholder="Describe the role, responsibilities, and team…" />
+            </div>
+            <div>
+              <label className={labelCls}>Requirements</label>
+              <textarea name="requirements" rows={5} value={formData.requirements} onChange={handleChange} className={`${inputCls} resize-none`} placeholder="List qualifications, degrees, certifications…" />
             </div>
           </div>
         </section>
 
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-4">Details</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+        {/* Details */}
+        <section className={sectionCls}>
+          <p className={sectionHeadingCls}>Details</p>
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Salary</label>
-              <input type="text" name="salary" value={formData.salary} onChange={handleChange} className={inputCls} />
+              <label className={labelCls}>Location <span className="text-red-400">*</span></label>
+              <input type="text" name="location" required value={formData.location} onChange={handleChange} className={inputCls} placeholder="Remote / City, Country" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Location *</label>
-              <input type="text" name="location" required value={formData.location} onChange={handleChange} className={inputCls} />
+              <label className={labelCls}>Salary</label>
+              <input type="text" name="salary" value={formData.salary} onChange={handleChange} className={inputCls} placeholder="e.g. $80,000 – $100,000" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Job Type</label>
+              <label className={labelCls}>Job Type</label>
               <select name="jobType" value={formData.jobType} onChange={handleChange} className={inputCls}>
                 <option value="FULL_TIME">Full-time</option>
                 <option value="PART_TIME">Part-time</option>
                 <option value="CONTRACT">Contract</option>
                 <option value="INTERNSHIP">Internship</option>
+                <option value="REMOTE">Remote</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Employment Type</label>
+              <label className={labelCls}>Employment Type</label>
               <select name="employmentType" value={formData.employmentType} onChange={handleChange} className={inputCls}>
                 <option value="PERMANENT">Permanent</option>
                 <option value="TEMPORARY">Temporary</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Experience</label>
-              <input type="text" name="experienceRequired" value={formData.experienceRequired} onChange={handleChange} className={inputCls} />
+              <label className={labelCls}>Experience Required</label>
+              <input type="text" name="experienceRequired" value={formData.experienceRequired} onChange={handleChange} className={inputCls} placeholder="e.g. 3+ years" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Deadline</label>
+              <label className={labelCls}>Application Deadline</label>
               <input type="date" name="applicationDeadline" value={formData.applicationDeadline} onChange={handleChange} className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
+              <label className={labelCls}>Status</label>
               <select name="status" value={formData.status} onChange={handleChange} className={inputCls}>
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
@@ -197,96 +241,134 @@ export default function RecruiterEditJobPage() {
               </select>
             </div>
           </div>
+
+          {/* Cover letter checkbox */}
+          <div className={`mt-4 flex items-center gap-3 p-3 rounded-lg border ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-gray-100 bg-gray-50'}`}>
+            <input
+              type="checkbox"
+              id="coverLetterRequired"
+              name="coverLetterRequired"
+              checked={formData.coverLetterRequired}
+              onChange={handleChange}
+              className="w-4 h-4 accent-indigo-600 rounded"
+            />
+            <label htmlFor="coverLetterRequired" className={`text-sm cursor-pointer ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+              Require cover letter from applicants
+            </label>
+          </div>
         </section>
 
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-4">Skills</h2>
-          <div className="flex gap-2 mb-4">
-            <input type="text" value={newSkill} onChange={(e) => setNewSkill(e.target.value)}
+        {/* Skills */}
+        <section className={sectionCls}>
+          <p className={sectionHeadingCls}>Required Skills</p>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-              className={`flex-1 ${inputCls}`} placeholder="Add skill" />
-            <button type="button" onClick={handleAddSkill} className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium">Add</button>
+              className={inputCls}
+              placeholder="Type a skill and press Enter or Add"
+            />
+            <button type="button" onClick={handleAddSkill}
+              className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">
+              Add
+            </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {formData.requiredSkills.map((s) => (
-              <span key={s} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-gray-100 text-gray-800'}`}>
-                {s}
-                <button type="button" onClick={() => handleRemoveSkill(s)} className="hover:text-red-500">×</button>
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-4">Requirements</h2>
-          <textarea name="requirements" rows={6} value={formData.requirements} onChange={handleChange} className={inputCls} placeholder="Requirements..." />
-        </section>
-
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="coverLetterRequired" checked={formData.coverLetterRequired} onChange={handleChange} className="w-4 h-4" />
-            <span>Require cover letter</span>
-          </label>
+          {formData.requiredSkills.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {formData.requiredSkills.map((s) => (
+                <span key={s} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                  isDark ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                }`}>
+                  {s}
+                  <button type="button" onClick={() => handleRemoveSkill(s)}
+                    className="hover:text-red-500 font-bold leading-none transition-colors">×</button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>No skills added yet.</p>
+          )}
         </section>
 
         {/* Assessment (optional) */}
-        <section className={`rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-4">Add / Update Assessment (Optional)</h2>
-          <p className="text-sm opacity-75 mb-4">
-            Attach a new MCQ assessment to this job. Existing assessments are not removed.
+        <section className={sectionCls}>
+          <p className={sectionHeadingCls}>Assessment (Optional)</p>
+          <p className={`text-xs mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+            Attach a new MCQ assessment to this job. Existing assessments are not modified.
           </p>
-          <label className="flex items-center gap-2 mb-4">
-            <input type="checkbox" name="includeAssessment" checked={formData.includeAssessment} onChange={handleChange} className="w-4 h-4" />
-            <span>Add a new assessment for this job</span>
-          </label>
+
+          <div className={`flex items-center gap-3 p-3 rounded-lg border mb-4 cursor-pointer ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-gray-100 bg-gray-50'}`}>
+            <input
+              type="checkbox"
+              id="includeAssessment"
+              name="includeAssessment"
+              checked={formData.includeAssessment}
+              onChange={handleChange}
+              className="w-4 h-4 accent-indigo-600"
+            />
+            <label htmlFor="includeAssessment" className={`text-sm cursor-pointer ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+              Add a new assessment for this job
+            </label>
+          </div>
+
           {formData.includeAssessment && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Assessment Name <span className="text-red-500">*</span></label>
-                <input type="text" name="assessmentName" value={formData.assessmentName} onChange={handleChange}
-                  className={inputCls} placeholder="e.g., Technical Skills Assessment" />
+            <div className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Assessment Name <span className="text-red-400">*</span></label>
+                  <input type="text" name="assessmentName" value={formData.assessmentName} onChange={handleChange}
+                    className={inputCls} placeholder="e.g. Technical Skills Test" />
+                </div>
+                <div>
+                  <label className={labelCls}>Duration (minutes)</label>
+                  <input type="number" name="assessmentDuration" min={5} max={180}
+                    value={formData.assessmentDuration}
+                    onChange={(e) => setFormData((p) => ({ ...p, assessmentDuration: Math.min(180, Math.max(5, parseInt(e.target.value, 10) || 30)) }))}
+                    className={inputCls} />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
-                <input type="number" name="assessmentDuration" min={5} max={180}
-                  value={formData.assessmentDuration}
-                  onChange={(e) => setFormData((p) => ({ ...p, assessmentDuration: Math.min(180, Math.max(5, parseInt(e.target.value, 10) || 30)) }))}
-                  className={`${inputCls} max-w-[120px]`} />
-              </div>
-              <div className="pt-4 border-t border-slate-600 dark:border-slate-600">
+
+              <div className={`rounded-lg border p-4 ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-gray-100 bg-gray-50'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium">Design Questions</h3>
+                  <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>
+                    Questions
+                    {(formData.assessmentQuestions || []).length > 0 && (
+                      <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                        {(formData.assessmentQuestions || []).length} added
+                      </span>
+                    )}
+                  </p>
                   <button type="button" onClick={() => setShowAssessmentQuestions(!showAssessmentQuestions)}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    className={`text-xs font-medium ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
                     {showAssessmentQuestions ? 'Hide' : 'Create / Design Questions'}
                   </button>
                 </div>
-                {(formData.assessmentQuestions || []).length > 0 && (
-                  <p className="text-sm mb-2 text-green-600 dark:text-green-400">
-                    {(formData.assessmentQuestions || []).length} question{(formData.assessmentQuestions || []).length !== 1 ? 's' : ''} added
-                  </p>
-                )}
+
                 {showAssessmentQuestions && (
-                  <div className="mt-3 space-y-4">
-                    {/* AI generate */}
-                    <div className={`p-4 rounded border ${isDark ? 'border-purple-600/50 bg-slate-900' : 'border-purple-200 bg-purple-50'}`}>
-                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <div className="space-y-4 mt-2">
+                    {/* AI Generate */}
+                    <div className={`p-4 rounded-lg border ${isDark ? 'border-violet-700/50 bg-violet-900/10' : 'border-violet-200 bg-violet-50'}`}>
+                      <h4 className={`text-xs font-semibold uppercase tracking-wide mb-3 flex items-center gap-2 ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
-                        AI generate questions
+                        AI Generate
                       </h4>
                       {!showAssessmentAiCountPrompt ? (
                         <button type="button" onClick={() => setShowAssessmentAiCountPrompt(true)}
-                          className="px-3 py-1.5 text-sm rounded bg-purple-600 text-white hover:bg-purple-700">
+                          className="px-4 py-2 text-sm rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors">
                           Generate with AI
                         </button>
                       ) : (
-                        <div className="space-y-2">
-                          <label className="block text-sm">Number of questions (1–10)</label>
-                          <input type="number" min={1} max={10} value={assessmentQuestionCount}
-                            onChange={(e) => setAssessmentQuestionCount(Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 5)))}
-                            className={`w-24 rounded border px-2 py-1.5 text-sm ${isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'}`} />
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <label className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Questions (1–10):</label>
+                            <input type="number" min={1} max={10} value={assessmentQuestionCount}
+                              onChange={(e) => setAssessmentQuestionCount(Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 5)))}
+                              className={`w-20 ${inputCls}`} />
+                          </div>
                           <div className="flex gap-2">
                             <button type="button" disabled={assessmentAiLoading}
                               onClick={async () => {
@@ -305,11 +387,11 @@ export default function RecruiterEditJobPage() {
                                   setAssessmentAiLoading(false);
                                 }
                               }}
-                              className="px-3 py-1.5 text-sm rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
-                              {assessmentAiLoading ? 'Generating...' : 'Generate'}
+                              className="px-4 py-2 text-sm rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium disabled:opacity-50 transition-colors">
+                              {assessmentAiLoading ? 'Generating…' : 'Generate'}
                             </button>
                             <button type="button" onClick={() => setShowAssessmentAiCountPrompt(false)}
-                              className="px-3 py-1.5 text-sm rounded border border-gray-400 dark:border-slate-500">
+                              className={`px-4 py-2 text-sm rounded-lg border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                               Cancel
                             </button>
                           </div>
@@ -318,14 +400,22 @@ export default function RecruiterEditJobPage() {
                       {aiGeneratedQuestions.length > 0 && (
                         <div className="mt-3 space-y-2">
                           {aiGeneratedQuestions.map((q, i) => (
-                            <div key={i} className={`p-2 rounded text-sm flex justify-between items-start gap-2 ${q.accepted ? (isDark ? 'bg-green-900/30' : 'bg-green-50') : (isDark ? 'bg-slate-800' : 'bg-gray-100')}`}>
+                            <div key={i} className={`p-3 rounded-lg text-xs flex justify-between items-start gap-2 border ${
+                              q.accepted
+                                ? isDark ? 'border-emerald-700/50 bg-emerald-900/10' : 'border-emerald-200 bg-emerald-50'
+                                : isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'
+                            }`}>
                               <div>
-                                <p className="font-medium">{q.question || q.question_text}</p>
-                                <p className="text-xs opacity-75 mt-1">Correct: {(q.options || [])[q.correct_index ?? 0]}</p>
+                                <p className={`font-medium mb-1 ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{q.question || q.question_text}</p>
+                                <p className={`${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Answer: {(q.options || [])[q.correct_index ?? 0]}</p>
                               </div>
                               <button type="button"
                                 onClick={() => setAiGeneratedQuestions((p) => { const n = [...p]; n[i] = { ...n[i], accepted: !n[i].accepted }; return n; })}
-                                className="text-xs px-2 py-0.5 rounded border">
+                                className={`shrink-0 px-2 py-1 rounded-md text-xs border transition-colors ${
+                                  q.accepted
+                                    ? 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400'
+                                    : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400'
+                                }`}>
                                 {q.accepted ? 'Remove' : 'Add'}
                               </button>
                             </div>
@@ -338,27 +428,29 @@ export default function RecruiterEditJobPage() {
                               setFormData((p) => ({ ...p, assessmentQuestions: [...(p.assessmentQuestions || []), ...toAdd] }));
                               setAiGeneratedQuestions([]);
                             }}
-                            className="mt-2 px-3 py-1.5 text-sm rounded bg-green-600 text-white hover:bg-green-700">
+                            className="px-4 py-2 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors">
                             Add selected to assessment
                           </button>
                         </div>
                       )}
                     </div>
+
                     {/* Manual add */}
-                    <div className={`p-4 rounded border ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
-                      <h4 className="text-sm font-medium mb-3">Add question manually</h4>
+                    <div className={`p-4 rounded-lg border ${isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+                      <h4 className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Add Manually</h4>
                       <input type="text" value={manualQuestion.question_text}
                         onChange={(e) => setManualQuestion((p) => ({ ...p, question_text: e.target.value }))}
                         placeholder="Question text"
-                        className={`w-full rounded border px-3 py-2 mb-3 text-sm ${isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'}`} />
+                        className={`${inputCls} mb-3`} />
                       {manualQuestion.options.map((opt, i) => (
                         <label key={i} className="flex items-center gap-2 mb-2">
                           <input type="radio" name="editCorrectOption" checked={manualQuestion.correct_index === i}
-                            onChange={() => setManualQuestion((p) => ({ ...p, correct_index: i }))} className="w-4 h-4" />
+                            onChange={() => setManualQuestion((p) => ({ ...p, correct_index: i }))}
+                            className="w-4 h-4 accent-indigo-600" />
                           <input type="text" value={opt}
                             onChange={(e) => { const next = [...manualQuestion.options]; next[i] = e.target.value; setManualQuestion((p) => ({ ...p, options: next })); }}
-                            placeholder={`Option ${i + 1}`}
-                            className={`flex-1 rounded border px-2 py-1.5 text-sm ${isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'}`} />
+                            placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                            className={inputCls} />
                         </label>
                       ))}
                       <button type="button"
@@ -369,22 +461,29 @@ export default function RecruiterEditJobPage() {
                             setManualQuestion({ question_text: '', options: ['', '', '', ''], correct_index: 0 });
                           }
                         }}
-                        className="mt-2 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700">
+                        className="mt-2 px-4 py-2 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
                         Add to assessment
                       </button>
                     </div>
+
                     {/* Added questions list */}
                     {(formData.assessmentQuestions || []).length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="text-sm font-medium mb-2">Added questions</h4>
-                        {(formData.assessmentQuestions || []).map((q, i) => (
-                          <div key={i} className={`p-2 rounded text-sm mb-2 flex justify-between ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
-                            <span>{q.question_text || q.question}</span>
-                            <button type="button"
-                              onClick={() => setFormData((p) => ({ ...p, assessmentQuestions: (p.assessmentQuestions || []).filter((_, j) => j !== i) }))}
-                              className="text-red-500 hover:underline text-xs">Remove</button>
-                          </div>
-                        ))}
+                      <div>
+                        <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                          Added Questions ({(formData.assessmentQuestions || []).length})
+                        </p>
+                        <div className="space-y-2">
+                          {(formData.assessmentQuestions || []).map((q, i) => (
+                            <div key={i} className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-xs ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-gray-200 bg-gray-50'}`}>
+                              <span className={`truncate ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{q.question_text || q.question}</span>
+                              <button type="button"
+                                onClick={() => setFormData((p) => ({ ...p, assessmentQuestions: (p.assessmentQuestions || []).filter((_, j) => j !== i) }))}
+                                className="shrink-0 text-red-500 hover:text-red-600 font-medium transition-colors">
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -394,15 +493,33 @@ export default function RecruiterEditJobPage() {
           )}
         </section>
 
-        <div className="flex gap-4">
-          <button type="submit" disabled={updateMutation.isPending}
-            className="flex-1 px-6 py-3 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">
-            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button type="button" onClick={() => navigate(`/recruiter/jobs/${id}`)}
-            className={`px-6 py-3 rounded-lg font-medium border ${isDark ? 'border-slate-600 bg-slate-800 hover:bg-slate-700' : 'border-gray-300 bg-white hover:bg-gray-50'}`}>
-            Cancel
-          </button>
+        {/* Sticky save bar */}
+        <div className={`sticky bottom-0 z-10 -mx-4 px-4 py-3 border-t ${isDark ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-gray-200'} backdrop-blur`}>
+          <div className="max-w-3xl mx-auto flex items-center gap-3">
+            <button type="submit" disabled={updateMutation.isPending}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white disabled:opacity-50 transition-all shadow-sm">
+              {updateMutation.isPending ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                  </svg>
+                  Save Changes
+                </>
+              )}
+            </button>
+            <button type="button" onClick={() => navigate(`/recruiter/jobs/${id}`)}
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              Cancel
+            </button>
+          </div>
         </div>
       </form>
     </div>
