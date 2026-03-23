@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi, customQuestionsApi, assessmentsApi, aiApi } from '../../services/api';
+import { showToast } from '../../components/Toast';
 
 export default function CreateJobPage() {
   const { theme } = useTheme();
@@ -200,9 +201,11 @@ export default function CreateJobPage() {
       }
       sessionStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY + '_questions');
-      navigate('/recruiter/jobs', { state: { showPublishReminder: true } });
+      showToast('Job created! Publish it to make it visible to candidates.', 'success', 6000);
+      navigate(`/recruiter/jobs/${job.id}`);
     } catch (err) {
       console.error(err);
+      showToast(err?.response?.data?.detail || 'Failed to create job. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -210,9 +213,9 @@ export default function CreateJobPage() {
   return (
     <div className={`px-4 py-8 max-w-4xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Create New Job Posting</h1>
+            <h1 className="text-3xl font-bold mb-2">Create Job</h1>
             <p className="text-sm opacity-75">Fill in the details to post a new job</p>
           </div>
           <button
@@ -231,6 +234,26 @@ export default function CreateJobPage() {
             {aiLoading ? 'Generating...' : 'AI Generate Description'}
           </button>
         </div>
+
+        {/* AI hint banner */}
+        <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+          isDark
+            ? 'border-purple-500/40 bg-purple-900/20 text-purple-200'
+            : 'border-purple-200 bg-purple-50 text-purple-800'
+        }`}>
+          <svg className="w-5 h-5 mt-0.5 shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <div>
+            <span className="font-semibold">Tip: Use AI to save time.</span>{' '}
+            Enter the <strong>Job Title</strong> first, then click{' '}
+            <span className="font-medium italic">AI Generate Description</span> to auto-fill the description,
+            requirements, skills, and salary. You can also use{' '}
+            <span className="font-medium italic">Generate with AI</span> in the Assessment section
+            to auto-create MCQ questions based on the job.
+          </div>
+        </div>
+
         {aiError && <p className="mt-2 text-sm text-red-500">{aiError}</p>}
       </div>
 
@@ -666,60 +689,14 @@ export default function CreateJobPage() {
                 )}
                 {showAssessmentQuestions && (
                   <div className="mt-3 space-y-4">
-                    {/* Manual add */}
-                    <div className={`p-4 rounded border ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
-                      <h4 className="text-sm font-medium mb-3">Add question manually</h4>
-                      <input
-                        type="text"
-                        value={manualQuestion.question_text}
-                        onChange={(e) => setManualQuestion((p) => ({ ...p, question_text: e.target.value }))}
-                        placeholder="Question text"
-                        className={`w-full rounded border px-3 py-2 mb-3 text-sm ${
-                          isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'
-                        }`}
-                      />
-                      {manualQuestion.options.map((opt, i) => (
-                        <label key={i} className="flex items-center gap-2 mb-2">
-                          <input
-                            type="radio"
-                            name="correctOption"
-                            checked={manualQuestion.correct_index === i}
-                            onChange={() => setManualQuestion((p) => ({ ...p, correct_index: i }))}
-                            className="w-4 h-4"
-                          />
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={(e) => {
-                              const next = [...manualQuestion.options];
-                              next[i] = e.target.value;
-                              setManualQuestion((p) => ({ ...p, options: next }));
-                            }}
-                            placeholder={`Option ${i + 1}`}
-                            className={`flex-1 rounded border px-2 py-1.5 text-sm ${
-                              isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'
-                            }`}
-                          />
-                        </label>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const q = { question_text: manualQuestion.question_text, options: manualQuestion.options.filter(Boolean), correct_index: manualQuestion.correct_index };
-                          if (q.question_text && q.options.length >= 2) {
-                            setFormData((p) => ({ ...p, assessmentQuestions: [...(p.assessmentQuestions || []), q] }));
-                            setManualQuestion({ question_text: '', options: ['', '', '', ''], correct_index: 0 });
-                          }
-                        }}
-                        className="mt-2 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-                      >
-                        Add to assessment
-                      </button>
-                    </div>
-
-                    {/* AI generate */}
-                    <div className={`p-4 rounded border ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
-                      <h4 className="text-sm font-medium mb-3">AI generate questions</h4>
+                    {/* AI generate — shown first */}
+                    <div className={`p-4 rounded border ${isDark ? 'border-purple-600/50 bg-slate-900' : 'border-purple-200 bg-purple-50'}`}>
+                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        AI generate questions
+                      </h4>
                       {!showAssessmentAiCountPrompt ? (
                         <button
                           type="button"
@@ -821,6 +798,57 @@ export default function CreateJobPage() {
                       )}
                     </div>
 
+                    {/* Manual add — shown after AI */}
+                    <div className={`p-4 rounded border ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
+                      <h4 className="text-sm font-medium mb-3">Add question manually</h4>
+                      <input
+                        type="text"
+                        value={manualQuestion.question_text}
+                        onChange={(e) => setManualQuestion((p) => ({ ...p, question_text: e.target.value }))}
+                        placeholder="Question text"
+                        className={`w-full rounded border px-3 py-2 mb-3 text-sm ${
+                          isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'
+                        }`}
+                      />
+                      {manualQuestion.options.map((opt, i) => (
+                        <label key={i} className="flex items-center gap-2 mb-2">
+                          <input
+                            type="radio"
+                            name="correctOption"
+                            checked={manualQuestion.correct_index === i}
+                            onChange={() => setManualQuestion((p) => ({ ...p, correct_index: i }))}
+                            className="w-4 h-4"
+                          />
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const next = [...manualQuestion.options];
+                              next[i] = e.target.value;
+                              setManualQuestion((p) => ({ ...p, options: next }));
+                            }}
+                            placeholder={`Option ${i + 1}`}
+                            className={`flex-1 rounded border px-2 py-1.5 text-sm ${
+                              isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-white'
+                            }`}
+                          />
+                        </label>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const q = { question_text: manualQuestion.question_text, options: manualQuestion.options.filter(Boolean), correct_index: manualQuestion.correct_index };
+                          if (q.question_text && q.options.length >= 2) {
+                            setFormData((p) => ({ ...p, assessmentQuestions: [...(p.assessmentQuestions || []), q] }));
+                            setManualQuestion({ question_text: '', options: ['', '', '', ''], correct_index: 0 });
+                          }
+                        }}
+                        className="mt-2 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Add to assessment
+                      </button>
+                    </div>
+
                     {/* List of added questions */}
                     {(formData.assessmentQuestions || []).length > 0 && (
                       <div className="mt-2">
@@ -862,7 +890,7 @@ export default function CreateJobPage() {
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             } disabled:opacity-50`}
           >
-            {isSubmitting ? 'Creating...' : 'Create Job Posting'}
+            {isSubmitting ? 'Creating...' : 'Create Job'}
           </button>
           <button
             type="button"

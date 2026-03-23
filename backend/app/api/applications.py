@@ -528,7 +528,7 @@ async def send_offer_letter(
             user.email,
             _full_name(user),
             job.title,
-            "Agentic HR",
+            "Hirebase",
         ))
     except Exception as e:
         import logging

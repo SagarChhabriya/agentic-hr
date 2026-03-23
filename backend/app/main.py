@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Agentic HR API",
+    title="Hirebase API",
     description="Backend API for HR Automation SaaS Platform",
     version="0.1.0",
     lifespan=lifespan,
@@ -138,8 +138,8 @@ async def health_email_test(to: str):
 
     sent = await send_async(
         to,
-        "Agentic HR — email test",
-        "<h2>Email test successful</h2><p>Resend is correctly configured for Agentic HR.</p>"
+        "Hirebase — email test",
+        "<h2>Email test successful</h2><p>Resend is correctly configured for Hirebase.</p>"
         f"<p><small>Sent from: {s.email_from}</small></p>",
     )
     return {

@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi } from '../../services/api';
+import { showToast } from '../../components/Toast';
 
 const SITE_URL = 'https://hire-base.vercel.app';
 
@@ -30,7 +31,12 @@ export default function RecruiterJobDetailPage() {
 
   const statusMutation = useMutation({
     mutationFn: (status) => jobsApi.update(id, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['job', id] }),
+    onSuccess: (_, status) => {
+      queryClient.invalidateQueries({ queryKey: ['job', id] });
+      if (status === 'active') showToast('Job published successfully! Candidates can now apply.', 'success');
+      else if (status === 'closed') showToast('Job closed. No new applications will be accepted.', 'info');
+    },
+    onError: () => showToast('Failed to update job status. Please try again.', 'error'),
   });
 
   const copyLink = () => {
@@ -136,9 +142,26 @@ export default function RecruiterJobDetailPage() {
         <h2 className="text-lg font-semibold mb-3">Share This Job</h2>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => {
-              const details = `🚀 We're Hiring: ${job.title}\n\n📍 Location: ${job.location || 'Remote'}\n💼 Type: ${(job.job_type || '').replace('_', ' ')}\n💰 Salary: ${job.salary || 'Competitive'}\n📋 Skills: ${(job.required_skills || []).join(', ')}\n\nApply now: ${jobUrl}\n\n#hiring #jobs #careers`;
+              const descSnippet = (job.description || '').slice(0, 300).replace(/\n+/g, ' ').trim();
+              const reqSnippet  = (job.requirements || '').split('\n').slice(0, 5).join(' | ').trim();
+              const details = [
+                `🚀 We're Hiring: ${job.title}`,
+                ``,
+                `📍 Location: ${job.location || 'Remote'}`,
+                `💼 Type: ${(job.job_type || '').replace('_', ' ')}`,
+                `💰 Salary: ${job.salary || 'Competitive'}`,
+                `📋 Skills: ${(job.required_skills || []).join(', ')}`,
+                ``,
+                descSnippet ? `📝 About the Role:\n${descSnippet}...` : '',
+                reqSnippet  ? `\n✅ Requirements:\n${reqSnippet}` : '',
+                ``,
+                `🔗 Apply now: ${jobUrl}`,
+                ``,
+                `#hiring #jobs #careers #${(job.title || '').replace(/\s+/g, '')}`,
+              ].filter(Boolean).join('\n');
               navigator.clipboard.writeText(details).then(() => {
                 window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(jobUrl)}`, '_blank');
+                showToast('Post copied to clipboard — paste it into your LinkedIn post!', 'info', 5000);
               });
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#0077B5] text-white hover:opacity-90">
@@ -154,7 +177,31 @@ export default function RecruiterJobDetailPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#25D366] text-white hover:opacity-90">
             WhatsApp
           </a>
-          <a href={`mailto:?subject=${encodeURIComponent(`Job Opportunity: ${job.title}`)}&body=${encodeURIComponent(`Hi,\n\nI'd like to share this job opportunity with you:\n\n${job.title}\nLocation: ${job.location}\n\nApply here: ${jobUrl}\n\nBest regards`)}`}
+          <a
+            href={(() => {
+              const subject = `Job Opportunity: ${job.title} at Hirebase`;
+              const descSnippet = (job.description || '').slice(0, 400).trim();
+              const reqLines = (job.requirements || '').split('\n').filter(Boolean).slice(0, 6).join('\n');
+              const body = [
+                `Hi,`,
+                ``,
+                `I'd like to share an exciting job opportunity with you:`,
+                ``,
+                `Position: ${job.title}`,
+                `Location: ${job.location || 'Remote'}`,
+                `Type: ${(job.job_type || '').replace('_', ' ')}`,
+                job.salary ? `Salary: ${job.salary}` : '',
+                job.experience_required ? `Experience: ${job.experience_required}` : '',
+                ``,
+                descSnippet ? `About the Role:\n${descSnippet}` : '',
+                reqLines ? `\nKey Requirements:\n${reqLines}` : '',
+                ``,
+                `Apply here: ${jobUrl}`,
+                ``,
+                `Best regards`,
+              ].filter((l) => l !== undefined && l !== null).join('\n');
+              return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            })()}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${isDark ? 'border-slate-600 hover:bg-slate-700' : 'border-gray-300 hover:bg-gray-50'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             Email

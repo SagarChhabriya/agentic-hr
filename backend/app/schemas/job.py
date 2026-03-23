@@ -76,7 +76,7 @@ class PublicJobResponse(BaseModel):
     cover_letter_required: bool
     created_at: datetime
     custom_questions: list[CustomQuestionBrief] = []
-    company_name: str = "Agentic HR"
+    company_name: str = "Hirebase"
 
     class Config:
         from_attributes = True

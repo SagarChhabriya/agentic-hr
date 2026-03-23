@@ -73,7 +73,7 @@ class CandidateApplicationResponse(BaseModel):
     id: str
     job_id: str
     job_title: str = ""
-    job_company: str = "Agentic HR"
+    job_company: str = "Hirebase"
     job_location: str = ""
     status: str
     applied_at: datetime

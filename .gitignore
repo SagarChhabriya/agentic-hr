@@ -10,6 +10,8 @@ prompts
 infra
 ai-services
 instructions.md
+
+csv_export/
 # Environment
 .env
 .env.local
@@ -22,10 +24,13 @@ build/
 
 # IDE
 .vscode/
+.cursor/
 .idea/
 *.swp
 *.swo
 *~
+
+
 
 # OS
 .DS_Store

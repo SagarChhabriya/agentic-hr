@@ -68,7 +68,7 @@ export default function Footer() {
 
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="opacity-70">
-            © {new Date().getFullYear()} Agentic HR Automation. All rights reserved.
+            © {new Date().getFullYear()} Hirebase. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <a href="#about" className="opacity-75 hover:opacity-100 transition-opacity">

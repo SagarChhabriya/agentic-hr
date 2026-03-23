@@ -97,7 +97,7 @@ export default function JobDetailPage() {
   const isClosed = deadline ? deadline < new Date() : false;
 
   if (typedJob.title) {
-    document.title = `${typedJob.title} - Agentic HR`;
+    document.title = `${typedJob.title} - Hirebase`;
   }
 
   return (

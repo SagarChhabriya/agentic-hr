@@ -52,7 +52,7 @@ export default function LandingPage() {
   const testimonials = [
     {
       quote:
-        'Agentic HR cut our time-to-hire by 40%. The AI assessments and interview insights are game-changers.',
+        'Hirebase cut our time-to-hire by 40%. The AI assessments and interview insights are game-changers.',
       author: 'Sarah Chen',
       role: 'Head of Talent, TechCorp',
       avatar: null,
@@ -349,7 +349,7 @@ export default function LandingPage() {
               Trusted by hiring teams
             </h2>
             <p className="text-lg opacity-80">
-              See what recruiters and HR leaders say about Agentic HR.
+              See what recruiters and HR leaders say about Hirebase.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -455,7 +455,7 @@ export default function LandingPage() {
               Ready to transform your hiring?
             </h2>
             <p className="text-lg opacity-80 mb-8 max-w-xl mx-auto">
-              Join hundreds of teams already using Agentic HR to hire faster and smarter.
+              Join hundreds of teams already using Hirebase to hire faster and smarter.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
@@ -484,7 +484,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h3 className="text-xl font-semibold mb-3">About</h3>
           <p className="text-sm opacity-80 max-w-2xl">
-            Agentic HR Automation is a modern SaaS platform for automating the hiring lifecycle with
+            Hirebase is a modern SaaS platform for automating the hiring lifecycle with
             AI-powered assessments, LiveKit interviews, and real-time analytics. Built for distributed
             teams who want to hire faster and smarter.
           </p>
@@ -504,7 +504,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h3 className="text-xl font-semibold mb-3">Terms</h3>
           <p className="text-sm opacity-80 max-w-2xl">
-            By using Agentic HR, you agree to our terms of service. Usage is subject to fair use
+            By using Hirebase, you agree to our terms of service. Usage is subject to fair use
             policies. Contact us for enterprise SLAs and custom agreements.
           </p>
         </div>

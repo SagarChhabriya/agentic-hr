@@ -72,7 +72,7 @@ def notify_recruiter_new_application(
         html=f"""
         <h2>New Application Received</h2>
         <p><strong>{candidate_name}</strong> has applied for <strong>{job_title}</strong>.</p>
-        <p>Log in to <a href="https://hire-base.vercel.app/recruiter/candidates">Agentic HR</a> to review the application.</p>
+        <p>Log in to <a href="https://hire-base.vercel.app/recruiter/candidates">Hirebase</a> to review the application.</p>
         """,
     )
 
@@ -94,7 +94,7 @@ def notify_candidate_status_change(
         <h2>Application Status Update</h2>
         <p>Regarding your application for <strong>{job_title}</strong>:</p>
         <p>{message}.</p>
-        <p>View your applications at <a href="https://hire-base.vercel.app/candidate/applications">Agentic HR</a>.</p>
+        <p>View your applications at <a href="https://hire-base.vercel.app/candidate/applications">Hirebase</a>.</p>
         """,
     )
 
@@ -145,7 +145,7 @@ def notify_candidate_application_received(candidate_email: str, job_title: str):
         <h2>Application Submitted Successfully</h2>
         <p>Your application for <strong>{job_title}</strong> has been received.</p>
         <p>You will be notified when there are updates. Track your applications at
-        <a href="https://hire-base.vercel.app/candidate/applications">Agentic HR</a>.</p>
+        <a href="https://hire-base.vercel.app/candidate/applications">Hirebase</a>.</p>
         """,
     )
 
@@ -205,7 +205,7 @@ def notify_candidate_in_person_scheduled(
         </div>
         {notes_html}
         <p>Please be on time. If you need to reschedule, contact the recruiter.</p>
-        <p>View your applications at <a href="{apps_link}">Agentic HR</a>.</p>
+        <p>View your applications at <a href="{apps_link}">Hirebase</a>.</p>
         """,
     )
 
@@ -280,18 +280,47 @@ def notify_candidate_assessment(
     assessment_link = f"{base}/assessment/attempt/{assessment_id}?application_id={application_id}"
     _send(
         to=candidate_email,
-        subject=f"Assessment for {job_title}: {assessment_name}",
+        subject=f"You've been invited to take a test — {job_title}",
         html=f"""
-        <h2>Assessment Invitation</h2>
-        <p>Hi {candidate_name},</p>
-        <p>As part of your application for <strong>{job_title}</strong>, you are invited to complete
-        the following assessment:</p>
-        <div style="background:#f3f4f6;padding:16px;border-radius:8px;margin:16px 0;">
-          <p style="margin:0;font-weight:bold;">{assessment_name}</p>
-          <p style="margin:4px 0 0;color:#6b7280;">Duration: {duration_minutes} minutes</p>
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+          <h2 style="color:#1e293b;">You're Invited to Complete a Skills Test</h2>
+          <p>Hi {candidate_name},</p>
+          <p>
+            Congratulations on advancing in the hiring process for <strong>{job_title}</strong>!
+            As the next step, please complete the following skills test so the hiring team can
+            better evaluate your candidacy.
+          </p>
+
+          <div style="background:#f3f4f6;padding:20px;border-radius:10px;margin:20px 0;border-left:4px solid #2563eb;">
+            <p style="margin:0 0 6px;font-size:18px;font-weight:bold;color:#1e293b;">{assessment_name}</p>
+            <p style="margin:0;color:#6b7280;">⏱ Duration: {duration_minutes} minutes</p>
+            <p style="margin:6px 0 0;color:#6b7280;">📋 Format: Multiple-choice questions</p>
+          </div>
+
+          <h3 style="color:#1e293b;margin-top:24px;">Before you start:</h3>
+          <ul style="color:#374151;line-height:1.8;">
+            <li>Make sure you have a stable internet connection.</li>
+            <li>You must be logged in to your Hirebase account to attempt.</li>
+            <li>The timer starts as soon as you open the test — complete it in one sitting.</li>
+            <li>Choose your answers carefully; you cannot go back after submitting.</li>
+          </ul>
+
+          <p style="margin-top:24px;">
+            <a href="{assessment_link}"
+               style="display:inline-block;background:#2563eb;color:white;padding:14px 28px;
+                      border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">
+              Start Test
+            </a>
+          </p>
+          <p style="font-size:13px;color:#6b7280;">
+            Can't click the button? Copy and paste this link into your browser:<br/>
+            <a href="{assessment_link}" style="color:#2563eb;">{assessment_link}</a>
+          </p>
+
+          <p style="margin-top:32px;color:#6b7280;font-size:14px;">
+            Good luck! If you have any questions, reply to this email.<br/>
+            — The Hiring Team
+          </p>
         </div>
-        <p><a href="{assessment_link}" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Attempt Assessment</a></p>
-        <p>Or copy this link: <a href="{assessment_link}">{assessment_link}</a></p>
-        <p>You must be logged in to attempt. Good luck!</p>
         """,
     )
