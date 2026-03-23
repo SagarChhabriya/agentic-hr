@@ -1,200 +1,159 @@
-import { Link } from 'react-router-dom';
-import { useAuth, useUser, UserButton, SignedIn, SignedOut, SignInButton, SignUpButton } from '@clerk/clerk-react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth, useUser, UserButton, SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 import { useTheme } from '../contexts/ThemeContext';
+
+const CANDIDATE_NAV = [
+  { to: '/candidate/dashboard', label: 'Dashboard' },
+  { to: '/jobs', label: 'Browse Jobs' },
+  { to: '/candidate/applications', label: 'My Applications' },
+  { to: '/candidate/profile', label: 'Profile' },
+];
 
 export default function Header() {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
   const { theme, toggleTheme } = useTheme();
-  // Check both publicMetadata and unsafeMetadata for role
+  const location = useLocation();
+  const isDark = theme === 'dark';
+
   const userRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  
-  // Only show public nav if auth is loaded AND user is not signed in
+  const isCandidate = userRole === 'CANDIDATE';
   const showPublicNav = isLoaded && !isSignedIn;
-  const showAuthNav = isLoaded && isSignedIn;
+  const showCandidateNav = isLoaded && isSignedIn && isCandidate;
 
-  const getRoleDashboardLink = () => {
-    if (userRole === 'RECRUITER' || userRole === 'ADMIN') {
-      return '/recruiter/dashboard';
-    } else if (userRole === 'CANDIDATE') {
-      return '/candidate/dashboard';
-    }
-    return '/dashboard';
-  };
-
-  const getRoleNavLinks = () => {
-    if (userRole === 'RECRUITER' || userRole === 'ADMIN') {
-      return (
-        <>
-          <Link to="/recruiter/dashboard" className="hover:text-blue-600">
-            Dashboard
-          </Link>
-          <Link to="/recruiter/jobs" className="hover:text-blue-600">
-            Jobs
-          </Link>
-          <Link to="/recruiter/candidates" className="hover:text-blue-600">
-            Candidates
-          </Link>
-          <Link to="/recruiter/assessments" className="hover:text-blue-600">
-            Assessments
-          </Link>
-          <Link to="/recruiter/questions" className="hover:text-blue-600">
-            Questions
-          </Link>
-        </>
-      );
-    } else if (userRole === 'CANDIDATE') {
-      return (
-        <>
-          <Link to="/candidate/dashboard" className="hover:text-blue-600">
-            Dashboard
-          </Link>
-          <Link to="/jobs" className="hover:text-blue-600">
-            Browse Jobs
-          </Link>
-          <Link to="/candidate/applications" className="hover:text-blue-600">
-            My Applications
-          </Link>
-          <Link to="/candidate/profile" className="hover:text-blue-600">
-            Profile
-          </Link>
-        </>
-      );
-    }
-    return (
-      <>
-        <Link to="/dashboard" className="hover:text-blue-600">
-          Dashboard
-        </Link>
-      </>
-    );
-  };
+  const isActive = (path) =>
+    path === '/candidate/dashboard' || path === '/'
+      ? location.pathname === path
+      : location.pathname.startsWith(path);
 
   return (
-    <nav
-      className={`sticky top-0 z-50 backdrop-blur-sm ${
-        theme === 'dark'
-          ? 'bg-slate-900/95 border-b border-slate-800'
-          : 'bg-white/95 shadow-sm'
-      }`}
-    >
+    <nav className={`sticky top-0 z-40 ${
+      isDark
+        ? 'bg-slate-900/95 border-b border-slate-800 backdrop-blur-md'
+        : 'bg-white/95 border-b border-gray-200 backdrop-blur-md shadow-sm'
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo + main nav */}
-          <div className="flex items-center space-x-8">
-            <Link
-              to="/"
-              className="flex items-center text-xl font-extrabold tracking-tight"
-            >
-              <span className="rounded bg-blue-600 text-white px-2 py-0.5 mr-2 text-sm">
-                HR
+
+          {/* Logo */}
+          <div className="flex items-center gap-8">
+            <Link to="/" className="flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className={`text-lg font-bold tracking-tight ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+                Hirebase
               </span>
-              <span>Agentic</span>
             </Link>
-            {showAuthNav ? (
-              <div className="hidden md:flex items-center space-x-6 text-sm font-medium">
-                {getRoleNavLinks()}
+
+            {/* Candidate nav */}
+            {showCandidateNav && (
+              <div className="hidden md:flex items-center gap-1">
+                {CANDIDATE_NAV.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive(item.to)
+                        ? isDark
+                          ? 'bg-indigo-500/15 text-indigo-400'
+                          : 'bg-indigo-50 text-indigo-700'
+                        : isDark
+                          ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </div>
-            ) : showPublicNav ? (
-              <div className="hidden md:flex items-center space-x-6 text-sm font-medium">
-                <a href="/" className="hover:text-blue-600">
-                  Home
-                </a>
-                <a href="#features" className="hover:text-blue-600">
-                  Features
-                </a>
-                <a href="#pricing" className="hover:text-blue-600">
-                  Pricing
-                </a>
-                <a href="#contact" className="hover:text-blue-600">
-                  Contact
-                </a>
+            )}
+
+            {/* Public nav */}
+            {showPublicNav && (
+              <div className="hidden md:flex items-center gap-1">
+                {[
+                  { href: '/', label: 'Home' },
+                  { href: '#features', label: 'Features' },
+                  { href: '#pricing', label: 'Pricing' },
+                  { href: '/jobs', label: 'Jobs' },
+                ].map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isDark
+                        ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                ))}
               </div>
-            ) : null}
+            )}
           </div>
 
-          {/* Theme + auth actions */}
-          <div className="flex items-center space-x-3">
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {/* Theme toggle */}
             <button
-              type="button"
               onClick={toggleTheme}
-              className="rounded-full border p-2 transition-colors
-                border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200
-                dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={`p-2 rounded-lg transition-colors ${
+                isDark
+                  ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              aria-label="Toggle theme"
             >
-              {theme === 'dark' ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                  />
+              {isDark ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               ) : (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               )}
             </button>
 
-            {showAuthNav && (
-              <>
-                <span className={`inline-flex items-center text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap ${
-                  userRole 
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+            <SignedIn>
+              {isCandidate && (
+                <span className={`hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                  isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
                 }`}>
-                  {userRole 
-                    ? (userRole === 'RECRUITER' ? 'Recruiter' : userRole === 'ADMIN' ? 'Admin' : userRole === 'CANDIDATE' ? 'Candidate' : userRole)
-                    : 'Role Not Set'
-                  }
+                  Candidate
                 </span>
-                <Link to={getRoleDashboardLink()} className="text-xs sm:text-sm hover:underline hidden sm:inline">
-                  Dashboard
-                </Link>
-                <span className="hidden lg:inline text-xs opacity-80">
-                  {user?.primaryEmailAddress?.emailAddress}
-                </span>
-                <UserButton afterSignOutUrl="/" />
-              </>
-            )}
+              )}
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
 
-            {showPublicNav && (
-              <>
-                <Link to="/login" className="text-xs sm:text-sm hover:underline">
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm hover:bg-blue-700"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
+            <SignedOut>
+              <Link
+                to="/login"
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isDark
+                    ? 'text-slate-300 hover:bg-slate-800'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                className="px-4 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
+              >
+                Get started
+              </Link>
+            </SignedOut>
           </div>
         </div>
       </div>
     </nav>
   );
 }
-

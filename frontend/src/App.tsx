@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import RecruiterShell from './components/RecruiterShell';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupRoleSelectionPage from './pages/SignupRoleSelectionPage';
@@ -77,79 +78,25 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Recruiter Routes */}
+          {/* Recruiter Routes — wrapped in sidebar shell */}
           <Route
-            path="recruiter/dashboard"
+            path="recruiter"
             element={
               <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <RecruiterDashboardPage />
+                <RecruiterShell />
               </RoleProtectedRoute>
             }
-          />
-          <Route
-            path="recruiter/jobs"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <JobsPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/jobs/new"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <CreateJobPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/jobs/:id"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <RecruiterJobDetailPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/jobs/:id/edit"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <RecruiterEditJobPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/questions"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <CustomQuestionsPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/assessments"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <AssessmentsPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/candidates"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <CandidatesPage />
-              </RoleProtectedRoute>
-            }
-          />
-          <Route
-            path="recruiter/candidates/:id"
-            element={
-              <RoleProtectedRoute allowedRoles={['RECRUITER', 'ADMIN']}>
-                <RecruiterCandidateDetailPage />
-              </RoleProtectedRoute>
-            }
-          />
+          >
+            <Route path="dashboard" element={<RecruiterDashboardPage />} />
+            <Route path="jobs" element={<JobsPage />} />
+            <Route path="jobs/new" element={<CreateJobPage />} />
+            <Route path="jobs/:id" element={<RecruiterJobDetailPage />} />
+            <Route path="jobs/:id/edit" element={<RecruiterEditJobPage />} />
+            <Route path="questions" element={<CustomQuestionsPage />} />
+            <Route path="assessments" element={<AssessmentsPage />} />
+            <Route path="candidates" element={<CandidatesPage />} />
+            <Route path="candidates/:id" element={<RecruiterCandidateDetailPage />} />
+          </Route>
           {/* Assessment attempt - candidate must be logged in */}
           <Route
             path="assessment/attempt/:assessmentId"

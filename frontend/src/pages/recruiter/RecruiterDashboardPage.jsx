@@ -117,92 +117,54 @@ export default function RecruiterDashboardPage() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <StatCard
-          title="Total Jobs"
-          value={stats.totalJobs}
-          subtitle={`${stats.activeJobs} active`}
-          icon={<JobsIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
-        <StatCard
-          title="Total Candidates"
-          value={stats.totalCandidates}
-          subtitle="Across all jobs"
-          icon={<CandidatesIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
-        <StatCard
-          title="Pending Assessments"
-          value={stats.pendingAssessments}
-          subtitle="Awaiting completion"
-          icon={<AssessmentIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
-        <StatCard
-          title="Scheduled Interviews"
-          value={stats.scheduledInterviews}
-          subtitle="Upcoming sessions"
-          icon={<InterviewIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
-        <StatCard
-          title="Completed Reviews"
-          value={stats.completedReviews}
-          subtitle="Selected / Rejected"
-          icon={<CheckIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
-        <StatCard
-          title="Active Jobs"
-          value={stats.activeJobs}
-          subtitle="Currently hiring"
-          icon={<RocketIcon className="w-8 h-8" />}
-          isDark={isDark}
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <StatCard title="Total Jobs"           value={stats.totalJobs}           subtitle={`${stats.activeJobs} active`}    icon={<JobsIcon className="w-5 h-5" />}       isDark={isDark} accentIdx={0} />
+        <StatCard title="Total Candidates"     value={stats.totalCandidates}     subtitle="Across all jobs"                  icon={<CandidatesIcon className="w-5 h-5" />} isDark={isDark} accentIdx={1} />
+        <StatCard title="Pending Assessments"  value={stats.pendingAssessments}  subtitle="Awaiting completion"              icon={<AssessmentIcon className="w-5 h-5" />} isDark={isDark} accentIdx={2} />
+        <StatCard title="Scheduled Interviews" value={stats.scheduledInterviews} subtitle="Upcoming sessions"                icon={<InterviewIcon className="w-5 h-5" />}  isDark={isDark} accentIdx={3} />
+        <StatCard title="Completed Reviews"    value={stats.completedReviews}    subtitle="Selected / Rejected"              icon={<CheckIcon className="w-5 h-5" />}      isDark={isDark} accentIdx={4} />
+        <StatCard title="Active Jobs"          value={stats.activeJobs}          subtitle="Currently hiring"                 icon={<RocketIcon className="w-5 h-5" />}     isDark={isDark} accentIdx={5} />
       </div>
 
       {/* Quick Actions */}
-      <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <p className="text-sm opacity-75 mb-4">Get started by creating a job posting or managing your existing content</p>
-        <div className="flex flex-wrap gap-4">
+      <div className={`mb-8 rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-800/80' : 'border-gray-100 bg-white shadow-sm'}`}>
+        <h2 className={`text-sm font-semibold uppercase tracking-wide mb-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Quick Actions
+        </h2>
+        <div className="flex flex-wrap gap-3">
           <Link
             to="/recruiter/jobs/new"
-            className="px-6 py-3 rounded-lg font-medium transition-colors shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
           >
-            + Create New Job
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+            New Job
           </Link>
-          <Link
-            to="/recruiter/jobs"
-            className={`px-6 py-3 rounded-lg font-medium border transition-colors hover:shadow-md ${
-              isDark ? 'border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-100' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-900'
-            }`}
-          >
-            View All Jobs
-          </Link>
-          <Link
-            to="/recruiter/questions"
-            className={`px-6 py-3 rounded-lg font-medium border transition-colors hover:shadow-md ${
-              isDark ? 'border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-100' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-900'
-            }`}
-          >
-            Manage Questions
-          </Link>
-          <Link
-            to="/recruiter/assessments"
-            className={`px-6 py-3 rounded-lg font-medium border transition-colors hover:shadow-md ${
-              isDark ? 'border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-100' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-900'
-            }`}
-          >
-            Manage Assessments
-          </Link>
+          {[
+            { to: '/recruiter/jobs', label: 'All Jobs' },
+            { to: '/recruiter/candidates', label: 'Candidates' },
+            { to: '/recruiter/assessments', label: 'Assessments' },
+            { to: '/recruiter/questions', label: 'Questions' },
+          ].map((a) => (
+            <Link
+              key={a.to}
+              to={a.to}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                isDark
+                  ? 'border-slate-600 text-slate-300 hover:bg-slate-700'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {a.label}
+            </Link>
+          ))}
         </div>
       </div>
 
       {/* Hiring Pipeline */}
-      <div className={`mb-8 rounded-lg border p-6 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
-        <h2 className="text-xl font-semibold mb-5">Hiring Pipeline</h2>
+      <div className={`mb-8 rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-800/80' : 'border-gray-100 bg-white shadow-sm'}`}>
+        <h2 className="text-base font-semibold mb-5">Hiring Pipeline</h2>
         {totalPipelineCount === 0 ? (
           <div className="py-8 text-center">
             <p className="text-sm opacity-60 mb-2">No candidates in the pipeline yet.</p>
@@ -371,27 +333,33 @@ export default function RecruiterDashboardPage() {
   );
 }
 
-function StatCard({ title, value, subtitle, icon, isDark }) {
+const STAT_ACCENTS = [
+  { icon: 'bg-blue-500',    ring: 'border-l-blue-500',    text: 'text-blue-500'    },
+  { icon: 'bg-violet-500',  ring: 'border-l-violet-500',  text: 'text-violet-500'  },
+  { icon: 'bg-amber-500',   ring: 'border-l-amber-500',   text: 'text-amber-500'   },
+  { icon: 'bg-purple-500',  ring: 'border-l-purple-500',  text: 'text-purple-500'  },
+  { icon: 'bg-emerald-500', ring: 'border-l-emerald-500', text: 'text-emerald-500' },
+  { icon: 'bg-rose-500',    ring: 'border-l-rose-500',    text: 'text-rose-500'    },
+];
+
+function StatCard({ title, value, subtitle, icon, isDark, accentIdx = 0 }) {
+  const accent = STAT_ACCENTS[accentIdx % STAT_ACCENTS.length];
   return (
-    <div
-      className={`rounded-lg border p-6 transition-all hover:shadow-lg hover:scale-105 ${
-        isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'
-      }`}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-          {icon}
+    <div className={`rounded-xl border-l-4 ${accent.ring} p-5 transition-all hover:shadow-md ${
+      isDark ? 'border-t border-r border-b border-slate-700 bg-slate-800/80' : 'border-t border-r border-b border-gray-100 bg-white shadow-sm'
+    }`}>
+      <div className="flex items-start justify-between">
+        <div className={`p-2.5 rounded-lg ${accent.icon} bg-opacity-10`}>
+          <div className={accent.text}>{icon}</div>
         </div>
-        <div className="text-right">
-          <div className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-            {value}
-          </div>
-        </div>
+        <span className={`text-3xl font-bold tabular-nums ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+          {value}
+        </span>
       </div>
-      <h3 className={`font-semibold mb-1 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+      <h3 className={`mt-3 text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
         {title}
       </h3>
-      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{subtitle}</p>
+      <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{subtitle}</p>
     </div>
   );
 }

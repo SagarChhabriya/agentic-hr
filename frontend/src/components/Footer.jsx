@@ -7,9 +7,13 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link to="/" className="flex items-center text-xl font-extrabold tracking-tight mb-4">
-              <span className="rounded bg-blue-600 text-white px-2 py-0.5 mr-2 text-sm">HR</span>
-              <span>Agentic</span>
+            <Link to="/" className="flex items-center gap-2.5 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-lg font-bold tracking-tight">Hirebase</span>
             </Link>
             <p className="text-sm opacity-75 max-w-xs">
               Modern HR automation for job posting, AI assessments, and LiveKit interviews.
