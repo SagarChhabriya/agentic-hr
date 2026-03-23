@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi } from '../../services/api';
+import PageHeader from '../../components/PageHeader';
+import TabFilter from '../../components/TabFilter';
 
 function combined(c) {
   const scores = [c.assessment_score, c.interview_score].filter((s) => s != null);
@@ -61,62 +63,42 @@ export default function CandidatesPage() {
   };
   const getStatusColor = (status) => STATUS_COLORS[status] || STATUS_COLORS.applied;
 
-  if (isLoading) {
-    return (
-      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-        <div className="flex justify-center items-center min-h-[200px]">Loading candidates...</div>
-      </div>
-    );
-  }
+  const tabs = ['all', 'applied', 'assessment', 'interview', 'selected', 'hired', 'withdrawn', 'rejected'].map((s) => ({
+    value: s,
+    label: STATUS_LABELS[s] ?? (s.charAt(0).toUpperCase() + s.slice(1)),
+    count: s === 'all' ? candidates.length : candidates.filter((c) => c.status === s).length,
+  }));
+
   if (error) {
     return (
-      <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-        <div className="rounded-lg border p-6 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-          <p className="text-red-600 dark:text-red-400">Failed to load candidates.</p>
+      <div>
+        <PageHeader title="Candidates" subtitle="View and manage all applicants" />
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400">
+          Failed to load candidates. {error?.message}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Candidates</h1>
-        <p className="text-sm opacity-75">View and manage all candidate applications</p>
-      </div>
+    <div>
+      <PageHeader
+        title="Candidates"
+        subtitle="View and manage all applicants"
+        badge={candidates.length}
+      />
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {['all', 'applied', 'assessment', 'interview', 'selected', 'hired', 'withdrawn', 'rejected'].map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === status
-                ? isDark
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-600 text-white'
-                : isDark
-                  ? 'bg-slate-800 border border-slate-700 hover:bg-slate-700'
-                  : 'bg-white border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {STATUS_LABELS[status] ?? (status.charAt(0).toUpperCase() + status.slice(1))}
-          </button>
-        ))}
-      </div>
+      <TabFilter tabs={tabs} active={filter} onChange={setFilter} />
 
       {/* Candidates Table */}
-      <div className={`rounded-lg border overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+      <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead
-              className={isDark ? 'bg-slate-900 border-b border-slate-700' : 'bg-gray-50 border-b border-gray-200'}
-            >
+            <thead className={`${isDark ? 'bg-slate-800 border-b border-slate-700' : 'bg-gray-50 border-b border-gray-200'}`}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Candidate</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Job</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Candidate</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Job</th>
+                <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Status</th>
                 {[
                   { col: 'assessment_score', label: 'Assessment' },
                   { col: 'interview_score', label: 'Interview' },
@@ -126,74 +108,78 @@ export default function CandidatesPage() {
                   <th
                     key={col}
                     onClick={() => toggleSort(col)}
-                    className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none hover:opacity-80"
+                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none hover:opacity-80 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}
                   >
                     {label}<SortIcon dir={sort.col === col ? sort.dir : null} />
                   </th>
                 ))}
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-              {sortedCandidates.length === 0 ? (
+            <tbody className={`divide-y text-sm ${isDark ? 'divide-slate-700 bg-slate-800/50' : 'divide-gray-100 bg-white'}`}>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 8 }).map((__, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-3 rounded animate-pulse bg-gray-200 dark:bg-slate-700" style={{ width: `${50 + Math.random() * 40}%` }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : sortedCandidates.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
-                    <p className="text-lg opacity-75">No candidates found</p>
+                  <td colSpan="8">
+                    <div className="py-16 text-center">
+                      <svg className="mx-auto w-10 h-10 text-gray-300 dark:text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <p className="text-sm text-gray-500 dark:text-slate-400">No candidates found</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 sortedCandidates.map((candidate) => (
-                  <tr
-                    key={candidate.id}
-                    className={isDark ? 'hover:bg-slate-900' : 'hover:bg-gray-50'}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="font-medium">{candidate.name}</div>
-                        <div className="text-sm opacity-75">{candidate.email}</div>
-                      </div>
+                  <tr key={candidate.id} className={`group transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className={`font-medium ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{candidate.name}</div>
+                      <div className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>{candidate.email}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{candidate.job_title}</div>
+                    <td className={`px-4 py-3 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                      {candidate.job_title}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(candidate.status)}`}
-                      >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(candidate.status)}`}>
                         {STATUS_LABELS[candidate.status] ?? candidate.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {candidate.assessment_score != null ? (
-                        <span className="font-medium">{candidate.assessment_score}%</span>
-                      ) : (
-                        <span className="text-sm opacity-60">-</span>
-                      )}
+                    <td className={`px-4 py-3 whitespace-nowrap tabular-nums ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                      {candidate.assessment_score != null ? `${candidate.assessment_score}%` : <span className="text-gray-300 dark:text-slate-600">—</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {candidate.interview_score != null ? (
-                        <span className="font-medium">{candidate.interview_score}%</span>
-                      ) : (
-                        <span className="text-sm opacity-60">-</span>
-                      )}
+                    <td className={`px-4 py-3 whitespace-nowrap tabular-nums ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                      {candidate.interview_score != null ? `${candidate.interview_score}%` : <span className="text-gray-300 dark:text-slate-600">—</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                       {(() => {
                         const c = combined(candidate);
-                        if (c == null) return <span className="text-sm opacity-60">-</span>;
-                        const color = c >= 70 ? 'text-emerald-600 dark:text-emerald-400' : c >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
-                        return <span className={`font-bold ${color}`}>{c}%</span>;
+                        if (c == null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
+                        const color = c >= 70 ? 'text-emerald-600 dark:text-emerald-400' : c >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500 dark:text-red-400';
+                        return <span className={`font-semibold ${color}`}>{c}%</span>;
                       })()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {candidate.applied_at ? new Date(candidate.applied_at).toLocaleDateString() : '-'}
+                    <td className={`px-4 py-3 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                      {candidate.applied_at ? new Date(candidate.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Link
                         to={`/recruiter/candidates/${candidate.id}`}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className={`inline-flex items-center gap-1 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}
                       >
-                        View Details
+                        View
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </Link>
                     </td>
                   </tr>
@@ -206,3 +192,4 @@ export default function CandidatesPage() {
     </div>
   );
 }
+

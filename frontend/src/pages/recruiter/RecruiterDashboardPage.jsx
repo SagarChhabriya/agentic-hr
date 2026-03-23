@@ -73,14 +73,14 @@ export default function RecruiterDashboardPage() {
   const maxPipelineCount = Math.max(1, ...PIPELINE_STAGES.map((s) => pipeline[s.key] || 0));
 
   return (
-    <div className={`px-4 py-8 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+    <div>
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.firstName || user?.fullName || 'Recruiter'}!
+            <h1 className="text-xl font-semibold tracking-tight">
+              Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.firstName || user?.fullName || 'Recruiter'}
             </h1>
-            <p className="text-sm opacity-75">Here's an overview of your hiring pipeline</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Here's an overview of your hiring pipeline</p>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="opacity-60 hidden md:inline">Updated {relativeTime}</span>
