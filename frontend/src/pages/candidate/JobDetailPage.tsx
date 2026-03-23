@@ -127,7 +127,7 @@ export default function JobDetailPage() {
   ].filter(Boolean) as { icon: React.ReactNode; label: string }[];
 
   const requirementLines = typedJob.requirements
-    ? typedJob.requirements.split('\n').map(l => l.replace(/^[\s•\-*]+/, '').trim()).filter(Boolean)
+    ? typedJob.requirements.split('\n').map(l => l.replace(/^[\s\u2022\u25CF\u25AA\u25B8\u25BA\u25C6\u00B7\u2023\u2013\u2014\-*✓►]+/, '').trim()).filter(Boolean)
     : [];
 
   return (

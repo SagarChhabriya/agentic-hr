@@ -166,7 +166,7 @@ export default function RecruiterJobDetailPage() {
               // Strip existing leading bullet chars so we don't double-up (e.g. "• • line")
               const reqLines = (job.requirements || '')
                 .split('\n')
-                .map((l) => l.replace(/^[\s•\-*]+/, '').trim())
+                .map((l) => l.replace(/^[\s\u2022\u25CF\u25AA\u25B8\u25BA\u25C6\u00B7\u2023\u2013\u2014\-*✓►]+/, '').trim())
                 .filter(Boolean)
                 .slice(0, 8)
                 .map((l) => `• ${l}`)
@@ -249,12 +249,31 @@ export default function RecruiterJobDetailPage() {
         )}
 
         {/* Requirements */}
-        {job.requirements && (
-          <section className={`rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
-            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Requirements</h2>
-            <div className={`text-sm leading-7 whitespace-pre-wrap ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{job.requirements}</div>
-          </section>
-        )}
+        {job.requirements && (() => {
+          const reqItems = job.requirements
+            .split('\n')
+            .map((l) => l.replace(/^[\s\u2022\u25CF\u25AA\u25B8\u25BA\u25C6\u00B7\u2023\u2013\u2014\-*✓►]+/, '').trim())
+            .filter(Boolean);
+          return (
+            <section className={`rounded-xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+              <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Requirements</h2>
+              {reqItems.length > 0 ? (
+                <ul className="space-y-2">
+                  {reqItems.map((item, i) => (
+                    <li key={i} className={`flex items-start gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                      <svg className="w-4 h-4 mt-0.5 shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={`text-sm leading-7 whitespace-pre-wrap ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{job.requirements}</div>
+              )}
+            </section>
+          );
+        })()}
 
         {/* Skills */}
         {job.required_skills?.length > 0 && (

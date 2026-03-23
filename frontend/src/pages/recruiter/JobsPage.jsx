@@ -49,7 +49,7 @@ function ShareMenu({ job, isDark }) {
         const descSnippet = (job.description || '').slice(0, 700).replace(/\n+/g, ' ').trim();
         const reqLines = (job.requirements || '')
           .split('\n')
-          .map((l) => l.replace(/^[\s•\-*]+/, '').trim())
+          .map((l) => l.replace(/^[\s\u2022\u25CF\u25AA\u25B8\u25BA\u25C6\u00B7\u2023\u2013\u2014\-*✓►]+/, '').trim())
           .filter(Boolean)
           .slice(0, 8)
           .map((l) => `• ${l}`)
