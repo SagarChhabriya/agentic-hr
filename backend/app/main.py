@@ -118,11 +118,11 @@ def health_email():
     }
 
 
-@app.post("/health/email/test")
+@app.get("/health/email/test")
 async def health_email_test(to: str):
     """
     Send a real test email via Resend and return the result.
-    Usage: POST /health/email/test?to=you@example.com
+    Usage: GET /health/email/test?to=you@example.com
     This endpoint is for diagnostics only — do not expose publicly in production.
     """
     import asyncio
