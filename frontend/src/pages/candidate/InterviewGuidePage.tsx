@@ -40,7 +40,7 @@ const GENERIC_SECTIONS: Section[] = [
       </svg>
     ),
     items: [
-      { heading: 'Listen carefully before answering', body: "If you're unsure about a question, it's perfectly fine to say "That's a great question, let me take a moment to think." Avoid rushing." },
+        { heading: 'Listen carefully before answering', body: "If you're unsure about a question, it's perfectly fine to say \"That's a great question, let me take a moment to think.\" Avoid rushing." },
       { heading: 'Be concise and specific', body: 'Avoid vague answers. Use concrete examples with numbers and outcomes when possible (e.g., "I reduced load time by 40%").' },
       { heading: 'Maintain eye contact', body: 'Look at the camera, not the screen. Smile naturally. Sit up straight — body language communicates confidence.' },
       { heading: 'Show enthusiasm', body: 'Express genuine interest in the role and company. Interviewers hire people they believe are excited about the opportunity.' },
@@ -57,12 +57,12 @@ const GENERIC_SECTIONS: Section[] = [
       </svg>
     ),
     items: [
-      { heading: '"Tell me about yourself."', body: 'Structure: Present role/background → Key strengths/achievements → Why you\'re here now. Keep it under 90 seconds.' },
+      { heading: '"Tell me about yourself."', body: "Structure: Present role/background \u2192 Key strengths/achievements \u2192 Why you're here now. Keep it under 90 seconds." },
       { heading: '"What is your greatest strength?"', body: 'Pick a strength directly relevant to the role. Back it with a specific example of how it led to a positive outcome.' },
-      { heading: '"Describe a challenge you faced."', body: 'Use STAR. Focus on what YOU did (not "we"), and end on what you learned or the positive result.' },
-      { heading: '"Where do you see yourself in 5 years?"', body: 'Show ambition that aligns with the role. Interviewers want to know you\'re growth-oriented and will stay engaged.' },
+      { heading: '"Describe a challenge you faced."', body: "Use STAR. Focus on what YOU did (not 'we'), and end on what you learned or the positive result." },
+      { heading: '"Where do you see yourself in 5 years?"', body: "Show ambition that aligns with the role. Interviewers want to know you're growth-oriented and will stay engaged." },
       { heading: '"Why do you want this role?"', body: 'Tie your answer to specific aspects of the job and company (mission, products, team culture). Research beforehand.' },
-      { heading: '"Do you have any questions for us?"', body: 'Great options: "What does success look like in the first 90 days?", "How does the team collaborate?", "What\'s the biggest challenge the team is facing right now?"' },
+      { heading: '"Do you have any questions for us?"', body: "Great options: 'What does success look like in the first 90 days?', 'How does the team collaborate?', 'What's the biggest challenge the team is facing right now?'" },
     ],
   },
   {
