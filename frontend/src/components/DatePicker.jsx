@@ -70,18 +70,18 @@ export default function DatePicker({ value, onChange, placeholder = 'Select date
 
   const totalDays  = daysInMonth(viewYear, viewMonth);
   const startPad   = firstDayOfMonth(viewYear, viewMonth);
-  const cells: (number | null)[] = [...Array(startPad).fill(null), ...Array.from({ length: totalDays }, (_, i) => i + 1)];
+  const cells = [...Array(startPad).fill(null), ...Array.from({ length: totalDays }, (_, i) => i + 1)];
 
-  const isSelected = (day: number) => {
+  const isSelected = (day) => {
     if (!parsed || !day) return false;
     return parsed.getFullYear() === viewYear && parsed.getMonth() === viewMonth && parsed.getDate() === day;
   };
-  const isDisabled = (day: number) => {
+  const isDisabled = (day) => {
     if (!minDate || !day) return false;
     const d = new Date(viewYear, viewMonth, day);
     return d < minDate;
   };
-  const isToday = (day: number) => {
+  const isToday = (day) => {
     if (!day) return false;
     return today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
   };
