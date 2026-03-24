@@ -125,10 +125,10 @@ export default function RecruiterAnalyticsPage() {
   const totalApps = applications.length;
   const funnelMax = Math.max(totalApps, 1);
 
-  const conv = (n: number, d: number) => d > 0 ? Math.round((n / d) * 100) : 0;
+  const conv = (n, d) => d > 0 ? Math.round((n / d) * 100) : 0;
 
   // Top jobs by applications
-  const jobAppsMap: Record<string, { title: string; count: number }> = {};
+  const jobAppsMap = {};
   applications.forEach((app) => {
     const jid = app.job_id;
     if (!jid) return;
