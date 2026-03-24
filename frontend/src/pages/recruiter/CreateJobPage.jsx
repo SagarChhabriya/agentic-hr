@@ -654,9 +654,8 @@ export default function CreateJobPage() {
           </div>
         </section>
 
-        {/* Sticky submit bar */}
-        <div className={`sticky bottom-0 z-10 -mx-4 px-4 py-3 border-t ${isDark ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-gray-200'} backdrop-blur`}>
-          <div className="max-w-3xl mx-auto flex items-center gap-3">
+        {/* Submit bar */}
+        <div className="flex items-center gap-3 pt-2">
             <button type="submit" disabled={isSubmitting}
               className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white disabled:opacity-50 transition-all shadow-sm">
               {isSubmitting ? (
@@ -680,7 +679,6 @@ export default function CreateJobPage() {
               className={`px-5 py-2.5 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
               Cancel
             </button>
-          </div>
         </div>
       </form>
     </div>
