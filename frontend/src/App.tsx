@@ -25,12 +25,14 @@ import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
 import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
 import RecruiterCandidateDetailPage from './pages/recruiter/RecruiterCandidateDetailPage';
 import AssessmentDetailPage from './pages/recruiter/AssessmentDetailPage';
+import RecruiterAnalyticsPage from './pages/recruiter/RecruiterAnalyticsPage';
 import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
 import MyApplicationsPage from './pages/candidate/MyApplicationsPage';
 import AssessmentAttemptPage from './pages/candidate/AssessmentAttemptPage';
 import InterviewRoomPage from './pages/candidate/InterviewRoomPage';
+import InterviewGuidePage from './pages/candidate/InterviewGuidePage';
 
 function App() {
   return (
@@ -110,6 +112,14 @@ function App() {
               </RoleProtectedRoute>
             }
           />
+          <Route
+            path="candidate/interview-guide"
+            element={
+              <RoleProtectedRoute allowedRoles={['CANDIDATE']}>
+                <InterviewGuidePage />
+              </RoleProtectedRoute>
+            }
+          />
         </Route>
 
         {/* Recruiter routes — RecruiterShell is the full-page layout, no public header */}
@@ -131,6 +141,7 @@ function App() {
           <Route path="assessments/:id" element={<AssessmentDetailPage />} />
           <Route path="candidates" element={<CandidatesPage />} />
           <Route path="candidates/:id" element={<RecruiterCandidateDetailPage />} />
+          <Route path="analytics" element={<RecruiterAnalyticsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

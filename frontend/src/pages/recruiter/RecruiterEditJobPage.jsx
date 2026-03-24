@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi, assessmentsApi, aiApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
+import DatePicker from '../../components/DatePicker';
 
 export default function RecruiterEditJobPage() {
   const { id } = useParams();
@@ -230,7 +231,12 @@ export default function RecruiterEditJobPage() {
             </div>
             <div>
               <label className={labelCls}>Application Deadline</label>
-              <input type="date" name="applicationDeadline" value={formData.applicationDeadline} onChange={handleChange} className={inputCls} />
+              <DatePicker
+                value={formData.applicationDeadline}
+                onChange={(v) => setFormData((p) => ({ ...p, applicationDeadline: v }))}
+                min={new Date().toISOString().slice(0, 10)}
+                placeholder="Pick a deadline"
+              />
             </div>
             <div>
               <label className={labelCls}>Status</label>

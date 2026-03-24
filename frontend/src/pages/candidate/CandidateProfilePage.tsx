@@ -301,9 +301,15 @@ export default function CandidateProfilePage() {
       <div className={`rounded-xl border mb-6 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />
         <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          {/* Avatar */}
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-lg font-bold shrink-0">
-            {initials || '?'}
+          {/* Avatar — Clerk profile photo with initials fallback */}
+          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-800">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt={user.fullName || 'Profile'} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-lg font-bold">
+                {initials || '?'}
+              </div>
+            )}
           </div>
           {/* Name & meta */}
           <div className="flex-1 min-w-0">

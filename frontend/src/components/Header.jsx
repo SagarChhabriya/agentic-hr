@@ -6,6 +6,7 @@ const CANDIDATE_NAV = [
   { to: '/candidate/dashboard', label: 'Dashboard' },
   { to: '/jobs', label: 'Browse Jobs' },
   { to: '/candidate/applications', label: 'My Applications' },
+  { to: '/candidate/interview-guide', label: 'Interview Guide' },
   { to: '/candidate/profile', label: 'Profile' },
 ];
 
