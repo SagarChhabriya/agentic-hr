@@ -18,6 +18,7 @@ import { Track, ParticipantEvent } from 'livekit-client';
 import { useTheme } from '../../contexts/ThemeContext';
 import { interviewsApi } from '../../services/api';
 import type { UploadResult } from '../../lib/supabaseStorage';
+import { showToast } from '../../components/Toast';
 
 // ---------------------------------------------------------------------------
 // Supabase Storage upload helper — silently disabled if env vars are absent
@@ -568,7 +569,7 @@ function PreJoinScreen({
               <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-amber-700/50' : 'border-amber-200'}`}>
                 <button
                   type="button"
-                  onClick={() => setShowGuide((v) => !v)}
+                  onClick={() => { showToast('Toggled help guide', 'info'); setShowGuide((v) => !v); }}
                   className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors ${isDark ? 'bg-amber-900/30 text-amber-300 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}`}
                 >
                   <span className="flex items-center gap-2">
@@ -597,7 +598,7 @@ function PreJoinScreen({
                     <div className="pt-2">
                       <button
                         type="button"
-                        onClick={() => { setShowGuide(false); checkDevices(); }}
+                        onClick={() => { showToast('Retrying device check…', 'info'); setShowGuide(false); checkDevices(); }}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-amber-700/40 hover:bg-amber-700/60 text-amber-200' : 'bg-amber-200 hover:bg-amber-300 text-amber-900'}`}
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -641,13 +642,16 @@ function PreJoinScreen({
 
         {/* Footer */}
         <div className={`px-6 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
-          <Link to="/candidate/applications" className={`text-sm ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'} transition-colors`}>
+          <Link to="/candidate/applications" onClick={() => showToast('Back to applications', 'info')} className={`text-sm ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'} transition-colors`}>
             ← Back
           </Link>
 
           <div className="flex flex-col items-end gap-1.5">
             <button
-              onClick={onJoin}
+              onClick={() => {
+                if (canJoin) showToast('Connecting to interview room…', 'info');
+                onJoin();
+              }}
               disabled={!canJoin}
               title={stillChecking ? 'Checking devices…' : !permissionsReady ? 'Allow camera and microphone to join' : ''}
               className={`px-7 py-2.5 rounded-xl font-semibold text-white transition-all flex items-center gap-2 text-sm ${
@@ -867,6 +871,7 @@ export default function InterviewRoomPage() {
             </p>
           )}
           <Link to="/candidate/applications"
+            onClick={() => showToast('Opening My Applications', 'info')}
             className="inline-flex items-center justify-center w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-3 font-semibold transition-colors mb-3">
             View My Applications
           </Link>
@@ -880,7 +885,7 @@ export default function InterviewRoomPage() {
     return (
       <div className={`px-4 py-12 text-center ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
         <p className="text-red-500">Invalid interview link.</p>
-        <button onClick={() => navigate('/candidate/applications')} className="mt-4 text-indigo-600 underline">
+        <button onClick={() => { showToast('Back to applications', 'info'); navigate('/candidate/applications'); }} className="mt-4 text-indigo-600 underline">
           Back to Applications
         </button>
       </div>

@@ -12,6 +12,7 @@ from app.models.job import Job
 from app.models.application import Application
 from app.models.assessment import Assessment, AssessmentQuestion
 from app.models.assessment_attempt import AssessmentAttempt
+from app.core.deadlines import assessment_deadline_utc, is_assessment_window_expired
 from app.schemas.assessment import AssessmentCreate, AssessmentResponse
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -180,12 +181,20 @@ async def get_assessment_for_attempt(
     a = a_result.scalar_one_or_none()
     if not a:
         raise HTTPException(status_code=404, detail="Assessment not found for this application")
+    if app.assessment_score is not None:
+        raise HTTPException(status_code=400, detail="Assessment already completed")
+    if is_assessment_window_expired(app):
+        raise HTTPException(
+            status_code=410,
+            detail="The 24-hour assessment window has expired. Contact the recruiter for a new link.",
+        )
     questions = sorted(a.questions, key=lambda q: q.order_index)
     return {
         "id": a.id,
         "name": a.name,
         "duration_minutes": a.duration_minutes,
         "application_id": application_id,
+        "assessment_deadline_at": assessment_deadline_utc(app).isoformat(),
         "questions": [
             {
                 "id": q.id,
@@ -256,6 +265,13 @@ async def submit_assessment_attempt(
     a = a_result.scalar_one_or_none()
     if not a:
         raise HTTPException(status_code=404, detail="Assessment not found")
+    if app.assessment_score is not None:
+        raise HTTPException(status_code=400, detail="Assessment already submitted")
+    if is_assessment_window_expired(app):
+        raise HTTPException(
+            status_code=410,
+            detail="The 24-hour assessment window has expired. Contact the recruiter for a new link.",
+        )
     existing_attempt = await db.execute(
         select(AssessmentAttempt).where(
             AssessmentAttempt.application_id == app.id,

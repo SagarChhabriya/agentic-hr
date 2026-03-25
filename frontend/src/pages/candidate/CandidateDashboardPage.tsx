@@ -4,6 +4,8 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
+import { showToast } from '../../components/Toast';
+import { isAssessmentPendingAndOpen, isInterviewJoinWindowOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
 
 const PIPELINE_STAGES = [
   { key: 'applied',    label: 'Applied',    color: 'bg-sky-500' },
@@ -90,19 +92,18 @@ export default function CandidateDashboardPage() {
     return acc;
   }, {});
 
-  // Only show scheduled (not yet attended) interviews — completed/no_show are excluded
+  /** Scheduled AI interviews within the 24h join window after start time */
   const upcomingInterviews = interviews.filter(
-    (iv: any) => iv.status === 'scheduled' && !['completed', 'no_show', 'cancelled'].includes(iv.status)
+    (iv: any) =>
+      iv.status === 'scheduled' &&
+      !['completed', 'no_show', 'cancelled'].includes(iv.status) &&
+      isInterviewJoinWindowOpen(iv.scheduled_at)
   );
-  /** Jobs with an assessment the candidate has not completed yet */
-  const pendingAssessments = apps.filter(
-    (a: any) =>
-      a.job_has_assessment &&
-      a.assessment_id &&
-      (a.assessment_score == null || a.assessment_score === undefined) &&
-      !['rejected', 'withdrawn', 'hired', 'interview', 'selected'].includes(a.status)
+  /** Assessment required, within 24h window, not yet completed */
+  const pendingAssessments = apps.filter((a: any) => isAssessmentPendingAndOpen(a));
+  const pendingOffers = apps.filter(
+    (a: any) => a.status === 'selected' && a.offer_sent_at && isOfferResponseOpen(a)
   );
-  const pendingOffers = apps.filter((a: any) => a.status === 'selected' && a.offer_sent_at);
   const inPersonScheduled = apps.filter((a: any) => a.in_person_scheduled_at);
   const recentApps = apps.slice(0, 6);
 
@@ -162,6 +163,7 @@ export default function CandidateDashboardPage() {
         </div>
         <div className="flex gap-2">
           <Link to="/jobs"
+            onClick={() => showToast('Opening job search', 'info')}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"/>
@@ -169,6 +171,7 @@ export default function CandidateDashboardPage() {
             Browse Jobs
           </Link>
           <Link to="/candidate/profile"
+            onClick={() => showToast('Opening profile', 'info')}
             className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
             Profile
           </Link>
@@ -235,6 +238,7 @@ export default function CandidateDashboardPage() {
               </div>
               <Link
                 to={`/assessment/attempt/${a.assessment_id}?application_id=${encodeURIComponent(a.id)}`}
+                onClick={() => showToast('Opening assessment', 'info')}
                 className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
               >
                 Start
@@ -272,6 +276,7 @@ export default function CandidateDashboardPage() {
                   </div>
                 </div>
                 <Link to={`/interview/room/${iv.id}`}
+                  onClick={() => showToast('Opening interview room', 'info')}
                   className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">
                   Join
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,6 +304,7 @@ export default function CandidateDashboardPage() {
             <div key={app.id} className="flex items-center justify-between py-1">
               <p className={`text-sm ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>{app.job_title}</p>
               <Link to="/candidate/applications"
+                onClick={() => showToast('Opening My Applications', 'info')}
                 className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline">
                 Respond →
               </Link>
@@ -370,6 +376,7 @@ export default function CandidateDashboardPage() {
           <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
             <h2 className="text-sm font-semibold">Recent Applications</h2>
             <Link to="/candidate/applications"
+              onClick={() => showToast('Opening My Applications', 'info')}
               className={`text-xs font-medium ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
               View all →
             </Link>
@@ -378,7 +385,7 @@ export default function CandidateDashboardPage() {
             {recentApps.length === 0 ? (
               <div className="py-12 text-center">
                 <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>No applications yet</p>
-                <Link to="/jobs" className={`text-xs font-medium mt-1 block ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:underline`}>
+                <Link to="/jobs" onClick={() => showToast('Opening job search', 'info')} className={`text-xs font-medium mt-1 block ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:underline`}>
                   Find your first job →
                 </Link>
               </div>
@@ -413,6 +420,7 @@ export default function CandidateDashboardPage() {
             </h2>
             <div className="space-y-2">
               <Link to="/jobs"
+                onClick={() => showToast('Opening job search', 'info')}
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"/>
@@ -420,10 +428,11 @@ export default function CandidateDashboardPage() {
                 Browse Jobs
               </Link>
               {[
-                { to: '/candidate/applications', label: 'My Applications' },
-                { to: '/candidate/profile', label: 'Edit Profile' },
+                { to: '/candidate/applications', label: 'My Applications', toast: 'Opening My Applications' },
+                { to: '/candidate/profile', label: 'Edit Profile', toast: 'Opening profile' },
               ].map(a => (
                 <Link key={a.to} to={a.to}
+                  onClick={() => showToast(a.toast, 'info')}
                   className={`flex items-center justify-center w-full px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
                   {a.label}
                 </Link>

@@ -4,6 +4,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { jobsApi, applicationsApi, profileApi } from '../../services/api';
 import axios from 'axios';
+import { showToast } from '../../components/Toast';
 
 type CustomQuestion = { id: string; question: string; type: string; required: boolean };
 type JobData = {
@@ -104,6 +105,7 @@ export default function ApplyJobPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    showToast('Submitting application…', 'info');
     if (!job_id || !job) return;
     const jobData = job as JobData;
     const cover = jobData.cover_letter_required ? coverLetter : (coverLetter || undefined);
@@ -112,9 +114,20 @@ export default function ApplyJobPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['applications', 'mine'] });
+          showToast(`Application submitted for ${jobData.title}`, 'success');
           navigate('/candidate/applications', { state: { message: `Application submitted for ${jobData.title}!` } });
         },
-        onError: (err) => { if (axios.isAxiosError(err) && err.response?.status === 409) applyMutation.reset(); },
+        onError: (err) => {
+          if (axios.isAxiosError(err) && err.response?.status === 409) {
+            applyMutation.reset();
+            showToast('You have already applied to this job.', 'warning');
+            return;
+          }
+          const msg = axios.isAxiosError(err) && err.response?.data?.detail
+            ? String(err.response.data.detail)
+            : 'Could not submit application.';
+          showToast(msg, 'error');
+        },
       }
     );
   };
@@ -133,7 +146,7 @@ export default function ApplyJobPage() {
     return (
       <div className="max-w-lg mx-auto px-4 py-8 text-center">
         <p className="text-sm text-red-500 mb-3">Job not found or no longer available.</p>
-        <button onClick={() => navigate(-1)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Go back</button>
+        <button onClick={() => { showToast('Going back', 'info'); navigate(-1); }} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Go back</button>
       </div>
     );
   }
@@ -151,7 +164,7 @@ export default function ApplyJobPage() {
           <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
             Add your phone number, bio, and at least one skill to start applying.
           </p>
-          <Link to="/candidate/profile" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
+          <Link to="/candidate/profile" onClick={() => showToast('Opening profile', 'info')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
             Set up profile →
           </Link>
         </div>
@@ -172,7 +185,7 @@ export default function ApplyJobPage() {
           <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
             Upload a PDF resume to your profile before applying.
           </p>
-          <Link to="/candidate/profile" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
+          <Link to="/candidate/profile" onClick={() => showToast('Opening profile', 'info')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
             Upload resume →
           </Link>
         </div>
@@ -189,7 +202,7 @@ export default function ApplyJobPage() {
   if (step === 1) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <Link to={`/jobs/${job_id}`} className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 mb-5 transition-colors">
+        <Link to={`/jobs/${job_id}`} onClick={() => showToast('Opening job details', 'info')} className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 mb-5 transition-colors">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
           Back to job
         </Link>
@@ -255,7 +268,7 @@ export default function ApplyJobPage() {
             )}
           </div>
           <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
-            <Link to="/candidate/profile" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+            <Link to="/candidate/profile" onClick={() => showToast('Opening profile', 'info')} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
               Edit profile →
             </Link>
           </div>
@@ -283,14 +296,14 @@ export default function ApplyJobPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => setStep(2)}
+            onClick={() => { showToast('Continue to application form', 'info'); setStep(2); }}
             className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white transition-all shadow-sm hover:shadow-md text-sm">
             Continue to Application
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
             </svg>
           </button>
-          <button onClick={() => navigate(-1)}
+          <button onClick={() => { showToast('Cancelled', 'info'); navigate(-1); }}
             className="px-4 py-3 rounded-lg text-sm font-medium border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
             Cancel
           </button>
@@ -302,7 +315,7 @@ export default function ApplyJobPage() {
   // ========================== STEP 2 ==========================
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <button onClick={() => setStep(1)} className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 mb-5 transition-colors">
+      <button onClick={() => { showToast('Back to review', 'info'); setStep(1); }} className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 mb-5 transition-colors">
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
         Back to review
       </button>
@@ -386,7 +399,7 @@ export default function ApplyJobPage() {
               </>
             )}
           </button>
-          <button type="button" onClick={() => setStep(1)}
+          <button type="button" onClick={() => { showToast('Back to review', 'info'); setStep(1); }}
             className="px-4 py-3 rounded-lg text-sm font-medium border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
             Back
           </button>

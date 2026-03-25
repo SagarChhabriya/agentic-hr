@@ -19,6 +19,7 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("applications", "in_person_scheduled_at", "TIMESTAMP WITHOUT TIME ZONE"),
     ("applications", "in_person_notes", "TEXT"),
     ("applications", "offer_sent_at", "TIMESTAMP WITHOUT TIME ZONE"),
+    ("applications", "assessment_deadline_at", "TIMESTAMP WITHOUT TIME ZONE"),
     ("applications", "updated_at", "TIMESTAMP DEFAULT NOW()"),
     ("candidate_profiles", "resume_score", "DOUBLE PRECISION"),
     ("candidate_profiles", "resume_score_justification", "TEXT"),

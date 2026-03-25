@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationsApi, interviewsApi } from '../../services/api';
+import { showToast } from '../../components/Toast';
+import { isAssessmentPendingAndOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
 
 const PIPELINE_STEPS = [
   { key: 'applied',    label: 'Applied' },
@@ -70,6 +72,8 @@ type Application = {
   job_has_assessment?: boolean;
   assessment_id?: string | null;
   assessment_score?: number | null;
+  assessment_deadline_at?: string | null;
+  offer_response_deadline_at?: string | null;
   interview_score?: number | null;
   offer_sent_at?: string | null;
   in_person_scheduled_at?: string | null;
@@ -355,6 +359,15 @@ function OfferActions({
 
   if (!app.offer_sent_at) return null;
 
+  const offerOpen = isOfferResponseOpen(app);
+  if (!offerOpen) {
+    return (
+      <div className="mt-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm text-amber-800 dark:text-amber-200">
+        The 24-hour window to respond to this offer has ended. Contact the recruiter if you still need to respond.
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 p-3">
       <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mb-3">
@@ -363,6 +376,11 @@ function OfferActions({
           Sent {formatDate(app.offer_sent_at)}
         </span>
       </p>
+      {app.offer_response_deadline_at && (
+        <p className="text-xs text-emerald-700/90 dark:text-emerald-400/90 mb-3">
+          Respond by {formatDateTime(app.offer_response_deadline_at)} (24 hours from sent).
+        </p>
+      )}
 
       {showConfirm ? (
         <div className="space-y-2">
@@ -373,7 +391,11 @@ function OfferActions({
           </p>
           <div className="flex gap-2">
             <button
-              onClick={() => { showConfirm === 'accept' ? onAccept() : onDecline(); setShowConfirm(null); }}
+              onClick={() => {
+                showToast(showConfirm === 'accept' ? 'Accepting offer…' : 'Declining offer…', 'info');
+                showConfirm === 'accept' ? onAccept() : onDecline();
+                setShowConfirm(null);
+              }}
               disabled={isPending}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50 ${
                 showConfirm === 'accept' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
@@ -382,7 +404,7 @@ function OfferActions({
               {isPending ? 'Processing...' : 'Confirm'}
             </button>
             <button
-              onClick={() => setShowConfirm(null)}
+              onClick={() => { showToast('Cancelled', 'info'); setShowConfirm(null); }}
               className="px-4 py-1.5 rounded-lg text-sm font-medium border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
             >
               Cancel
@@ -392,13 +414,13 @@ function OfferActions({
       ) : (
         <div className="flex gap-2">
           <button
-            onClick={() => setShowConfirm('accept')}
+            onClick={() => { showToast('Review accept confirmation', 'info'); setShowConfirm('accept'); }}
             className="px-4 py-1.5 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white"
           >
             Accept Offer
           </button>
           <button
-            onClick={() => setShowConfirm('decline')}
+            onClick={() => { showToast('Review decline confirmation', 'info'); setShowConfirm('decline'); }}
             className="px-4 py-1.5 rounded-lg text-sm font-medium border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
           >
             Decline
@@ -430,13 +452,16 @@ export default function MyApplicationsPage() {
       applicationsApi.respondOffer(id, response),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['applications', 'mine'] });
+      const text = vars.response === 'accept' ? 'Offer accepted! Welcome aboard.' : 'Offer declined.';
+      showToast(text, 'success');
       setOfferMessage({
         id: vars.id,
         type: 'success',
-        text: vars.response === 'accept' ? 'Offer accepted! Welcome aboard.' : 'Offer declined.',
+        text,
       });
     },
     onError: (_, vars) => {
+      showToast('Could not process your response. Please try again.', 'error');
       setOfferMessage({ id: vars.id, type: 'error', text: 'Could not process your response. Please try again.' });
     },
   });
@@ -466,7 +491,7 @@ export default function MyApplicationsPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-center">
         <p className="text-red-500 text-sm mb-3">Failed to load applications.</p>
-        <Link to="/jobs" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Browse Jobs</Link>
+        <Link to="/jobs" onClick={() => showToast('Opening job search', 'info')} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Browse Jobs</Link>
       </div>
     );
   }
@@ -482,6 +507,7 @@ export default function MyApplicationsPage() {
           </p>
         </div>
         <Link to="/jobs"
+          onClick={() => showToast('Opening job search', 'info')}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity w-fit shadow-sm">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"/>
@@ -503,6 +529,7 @@ export default function MyApplicationsPage() {
           </svg>
           <p className="text-gray-500 dark:text-slate-400 text-sm mb-4">You haven&apos;t applied to any jobs yet.</p>
           <Link to="/jobs"
+            onClick={() => showToast('Opening job search', 'info')}
             className="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
             Browse Open Positions
           </Link>
@@ -564,13 +591,11 @@ export default function MyApplicationsPage() {
                     </div>
                   </div>
 
-                  {app.job_has_assessment &&
-                    app.assessment_id &&
-                    (app.assessment_score == null || app.assessment_score === undefined) &&
-                    !['rejected', 'withdrawn', 'hired', 'interview', 'selected'].includes(app.status) && (
+                  {isAssessmentPendingAndOpen(app) && (
                     <div className="mt-3">
                       <Link
                         to={`/assessment/attempt/${app.assessment_id}?application_id=${encodeURIComponent(app.id)}`}
+                        onClick={() => showToast('Opening assessment', 'info')}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
                       >
                         Complete assessment
@@ -578,6 +603,20 @@ export default function MyApplicationsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </Link>
+                      {app.assessment_deadline_at && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-2">
+                          Complete by {formatDateTime(app.assessment_deadline_at)} (24-hour window).
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {app.job_has_assessment &&
+                    app.assessment_id &&
+                    (app.assessment_score == null || app.assessment_score === undefined) &&
+                    !isAssessmentPendingAndOpen(app) &&
+                    !['rejected', 'withdrawn', 'hired'].includes(app.status) && (
+                    <div className="mt-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                      Assessment window ended. Contact the recruiter for a new link.
                     </div>
                   )}
 

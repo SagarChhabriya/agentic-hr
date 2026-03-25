@@ -39,6 +39,7 @@ class Application(Base):
     in_person_scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     in_person_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     offer_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    assessment_deadline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -80,6 +80,8 @@ class CandidateApplicationResponse(BaseModel):
     job_has_assessment: bool = False
     assessment_id: Optional[str] = None
     assessment_score: Optional[int] = None
+    assessment_deadline_at: Optional[datetime] = None
+    offer_response_deadline_at: Optional[datetime] = None
     interview_score: Optional[int] = None
     offer_sent_at: Optional[datetime] = None
     in_person_scheduled_at: Optional[datetime] = None

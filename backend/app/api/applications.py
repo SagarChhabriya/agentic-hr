@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from app.schemas.application import (
     ApplicationResponse, ApplicationDetailResponse,
     CandidateProfileForRecruiter, CandidateApplicationResponse,
 )
+from app.core.deadlines import offer_response_deadline_utc, is_offer_response_expired
 
 
 class OfferResponseBody(PydanticBaseModel):
@@ -84,6 +85,7 @@ async def apply_to_job(
     assessment = assessment_result.scalar_one_or_none()
     if assessment:
         application.status = "assessment"
+        application.assessment_deadline_at = datetime.utcnow() + timedelta(hours=24)
         await db.flush()
         await db.refresh(application)
 
@@ -126,6 +128,8 @@ async def apply_to_job(
         job_has_assessment=assessment is not None,
         assessment_id=str(assessment.id) if assessment else None,
         assessment_score=application.assessment_score,
+        assessment_deadline_at=application.assessment_deadline_at,
+        offer_response_deadline_at=offer_response_deadline_utc(application),
     )
 
 
@@ -154,6 +158,8 @@ async def my_applications(
             job_has_assessment=assessment is not None,
             assessment_id=str(assessment.id) if assessment else None,
             assessment_score=app.assessment_score,
+            assessment_deadline_at=app.assessment_deadline_at,
+            offer_response_deadline_at=offer_response_deadline_utc(app),
             interview_score=app.interview_score,
             offer_sent_at=app.offer_sent_at,
             in_person_scheduled_at=app.in_person_scheduled_at,
@@ -189,6 +195,12 @@ async def respond_to_offer(
 
     if app.status in ("hired", "withdrawn"):
         raise HTTPException(status_code=400, detail="You have already responded to this offer")
+
+    if is_offer_response_expired(app):
+        raise HTTPException(
+            status_code=400,
+            detail="The 24-hour window to respond to this offer has expired. Please contact the recruiter.",
+        )
 
     if body.response == "accept":
         app.status = "hired"
@@ -419,6 +431,8 @@ async def resend_assessment_email(
     assessment = assessment_result.scalar_one_or_none()
     if not assessment:
         raise HTTPException(status_code=400, detail="Job has no assessment attached")
+    app.assessment_deadline_at = datetime.utcnow() + timedelta(hours=24)
+    await db.flush()
     try:
         import asyncio
         from app.core.email import notify_candidate_assessment
@@ -608,6 +622,8 @@ async def update_application_status(
                 )
                 assessment = assessment_result.scalar_one_or_none()
                 if assessment:
+                    app.assessment_deadline_at = datetime.utcnow() + timedelta(hours=24)
+                    await db.flush()
                     asyncio.create_task(asyncio.to_thread(
                         notify_candidate_assessment,
                         user.email,
