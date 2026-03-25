@@ -20,9 +20,14 @@ export async function uploadInterviewRecordingBestEffort(
     try {
       const sig = await interviewsApi.createRecordingSignedUpload(interviewId);
       const supabase = createClient(url, anon);
-      const { error } = await supabase.storage.from(BUCKET).uploadToSignedUrl(sig.storage_path, sig.token, blob, {
+      // Blob → multipart FormData in storage-js; some browsers/CORS choke on that for signed PUT.
+      // ArrayBuffer → raw body + Content-Type: video/webm (matches Storage signed-upload API).
+      const body = await blob.arrayBuffer();
+      // Must match the signed JWT: backend signs with upsert=false by default; x-upsert:true breaks the PUT.
+      const { error } = await supabase.storage.from(BUCKET).uploadToSignedUrl(sig.storage_path, sig.token, body, {
         contentType: 'video/webm',
-        upsert: true,
+        upsert: false,
+        cacheControl: '3600',
       });
       if (error) throw error;
       await interviewsApi.saveRecordingPath(interviewId, sig.storage_path);
