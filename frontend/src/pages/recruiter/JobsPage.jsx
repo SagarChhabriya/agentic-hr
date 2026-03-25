@@ -7,6 +7,7 @@ import { showToast } from '../../components/Toast';
 import PageHeader from '../../components/PageHeader';
 import TabFilter from '../../components/TabFilter';
 import { SkeletonCard } from '../../components/Skeleton';
+import { openGmailCompose } from '../../utils/gmailCompose';
 
 const SITE_URL = 'https://hire-base.vercel.app';
 
@@ -86,13 +87,51 @@ function ShareMenu({ job, isDark }) {
       ),
       href: `https://wa.me/?text=${encodeURIComponent(`We're hiring: ${job.title}! Apply now: ${jobUrl}`)}`,
     },
+    {
+      label: 'Email (Gmail)',
+      icon: (
+        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+      action: () => {
+        const subject = `Job Opportunity: ${job.title}`;
+        const descSnippet = (job.description || '').slice(0, 400).trim();
+        const reqLines = (job.requirements || '').split('\n').filter(Boolean).slice(0, 6).join('\n');
+        const body = [
+          `Hi,`,
+          ``,
+          `I'd like to share an exciting job opportunity with you:`,
+          ``,
+          `Position: ${job.title}`,
+          `Location: ${job.location || 'Remote'}`,
+          `Type: ${(job.job_type || '').replace('_', ' ')}`,
+          job.salary ? `Salary: ${job.salary}` : '',
+          job.experience_required ? `Experience: ${job.experience_required}` : '',
+          ``,
+          descSnippet ? `About the Role:\n${descSnippet}` : '',
+          reqLines ? `\nKey Requirements:\n${reqLines}` : '',
+          ``,
+          `Apply here: ${jobUrl}`,
+          ``,
+          `Best regards`,
+        ]
+          .filter((l) => l !== undefined && l !== null && l !== '')
+          .join('\n');
+        openGmailCompose(subject, body);
+      },
+    },
     { label: 'Copy link', icon: null, action: copyLink },
   ];
 
   return (
-    <div className="relative">
+    <div className="relative z-20">
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
         className={`p-1.5 rounded-md transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
         title="Share"
       >
@@ -103,8 +142,14 @@ function ShareMenu({ job, isDark }) {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className={`absolute right-0 mt-1 w-40 rounded-lg border shadow-lg z-20 py-1 text-sm ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+          <div
+            className="fixed inset-0 z-[100]"
+            aria-hidden="true"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`absolute right-0 top-full mt-1 w-48 rounded-lg border shadow-xl z-[110] py-1 text-sm ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+          >
             {items.map((item) =>
               item.href ? (
                 <a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer"
@@ -205,7 +250,7 @@ export default function JobsPage() {
       )}
 
       {/* Table */}
-      <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+      <div className={`rounded-xl border ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
         <table className="w-full text-sm">
           <thead className={`${isDark ? 'bg-slate-800 border-b border-slate-700' : 'bg-gray-50 border-b border-gray-200'}`}>
             <tr>
@@ -285,8 +330,8 @@ export default function JobsPage() {
                       ? new Date(job.application_deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : '—'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="px-4 py-3 relative">
+                    <div className="flex items-center gap-1 justify-end">
                       {job.status === 'draft' && (
                         <button
                           onClick={() => publishMutation.mutate(job.id)}

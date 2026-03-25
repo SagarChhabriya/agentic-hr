@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
+import { openGmailCompose } from '../../utils/gmailCompose';
 
 const SITE_URL = 'https://hire-base.vercel.app';
 
@@ -203,8 +204,9 @@ export default function RecruiterJobDetailPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#25D366] text-white hover:opacity-90">
             WhatsApp
           </a>
-          <a
-            href={(() => {
+          <button
+            type="button"
+            onClick={() => {
               const subject = `Job Opportunity: ${job.title} at Hirebase`;
               const descSnippet = (job.description || '').slice(0, 400).trim();
               const reqLines = (job.requirements || '').split('\n').filter(Boolean).slice(0, 6).join('\n');
@@ -225,13 +227,15 @@ export default function RecruiterJobDetailPage() {
                 `Apply here: ${jobUrl}`,
                 ``,
                 `Best regards`,
-              ].filter((l) => l !== undefined && l !== null).join('\n');
-              return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            })()}
+              ]
+                .filter((l) => l !== undefined && l !== null && l !== '')
+                .join('\n');
+              openGmailCompose(subject, body);
+            }}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${isDark ? 'border-slate-600 hover:bg-slate-700' : 'border-gray-300 hover:bg-gray-50'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-            Email
-          </a>
+            Email (Gmail)
+          </button>
           <button onClick={copyLink}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${isDark ? 'border-slate-600 hover:bg-slate-700' : 'border-gray-300 hover:bg-gray-50'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>

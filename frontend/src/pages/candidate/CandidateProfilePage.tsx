@@ -417,7 +417,7 @@ export default function CandidateProfilePage() {
               <div>
                 <label className={labelCls}>City</label>
                 <input type="text" value={form.city || ''} onChange={(e) => updateForm({ city: e.target.value })}
-                  className={inputCls} placeholder="Karachi" />
+                  className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Country</label>

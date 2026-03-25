@@ -1,3 +1,7 @@
+import json
+import logging
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,8 +13,66 @@ from app.models.candidate_profile import CandidateProfile
 from app.schemas.candidate_profile import CandidateProfileUpdate, CandidateProfileResponse
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+logger = logging.getLogger(__name__)
 
 MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+def _parse_json_from_llm(raw: str) -> dict | None:
+    """Parse JSON from LLM output; tolerate markdown code fences."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    m = re.search(r"```(?:json)?\s*(\{[\s\S]*\})\s*```", s)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+    start = s.find("{")
+    end = s.rfind("}") + 1
+    if start < 0 or end <= start:
+        return None
+    try:
+        return json.loads(s[start:end])
+    except json.JSONDecodeError:
+        return None
+
+
+def _apply_resume_extraction(profile: CandidateProfile, parsed: dict) -> None:
+    """Apply extracted resume fields (overwrite when AI returns a value)."""
+    if parsed.get("phone"):
+        profile.phone = str(parsed["phone"])[:50]
+    if parsed.get("address"):
+        profile.address = str(parsed["address"])[:500]
+    if parsed.get("city"):
+        profile.city = str(parsed["city"])[:100]
+    if parsed.get("country"):
+        profile.country = str(parsed["country"])[:100]
+    if parsed.get("bio"):
+        profile.bio = str(parsed["bio"])[:5000]
+    skills = parsed.get("skills")
+    if isinstance(skills, list) and skills:
+        profile.skills = [str(x).strip() for x in skills if str(x).strip()][:80]
+    if parsed.get("experience_years") is not None:
+        try:
+            ey = int(parsed["experience_years"])
+            if 0 <= ey <= 80:
+                profile.experience_years = ey
+        except (TypeError, ValueError):
+            pass
+    edu = parsed.get("education")
+    if isinstance(edu, list) and edu:
+        profile.education = edu
+    wx = parsed.get("work_experience")
+    if isinstance(wx, list) and wx:
+        profile.work_experience = wx
+    if parsed.get("linkedin_url"):
+        profile.linkedin_url = str(parsed["linkedin_url"])[:500]
+    if parsed.get("github_url"):
+        profile.github_url = str(parsed["github_url"])[:500]
+    if parsed.get("portfolio_url"):
+        profile.portfolio_url = str(parsed["portfolio_url"])[:500]
 
 
 def _to_response(profile: CandidateProfile, user: User) -> CandidateProfileResponse:
@@ -150,57 +212,43 @@ async def upload_resume(
     profile.resume_filename = file.filename
 
     try:
-        import pdfplumber, io, json
+        import pdfplumber
+        import io
+
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
             text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         if text.strip():
             from app.core.ai import rank_resume, _chat
+
             ranking = rank_resume(text)
             raw_score = ranking.get("score", 0.5)
             profile.resume_score = round(float(raw_score) * 100, 1) if raw_score is not None else None
             profile.resume_score_justification = ranking.get("justification", "")
 
-            # Auto-fill profile fields from resume (always add ALL work experiences from resume)
             try:
                 extract_prompt = (
-                    "Extract ALL structured data from this resume. Return valid JSON with keys: "
-                    "phone (str or null), city (str or null), country (str or null), "
-                    "bio (str — a 2-3 sentence professional summary), "
-                    "skills (array of skill strings), experience_years (int or null), "
+                    "Extract ALL structured data from this resume. Return ONLY valid JSON with keys: "
+                    "phone, address, city, country, bio (2-3 sentence professional summary), "
+                    "skills (array of strings), experience_years (integer or null), "
                     "education (array of {institution, degree, field_of_study, start_year, end_year}), "
-                    "work_experience (array of ALL jobs/positions — each: {company, title, description, start_date, end_date, current}), "
-                    "linkedin_url (str or null), github_url (str or null), portfolio_url (str or null). "
-                    "IMPORTANT: Extract EVERY work experience entry from the resume into work_experience array."
+                    "work_experience (array of {company, title, description, start_date, end_date, current}), "
+                    "linkedin_url, github_url, portfolio_url. Use null for unknown. "
+                    "Never guess city, country, or address — only fill from explicit resume text; otherwise null. "
+                    "Include EVERY job in work_experience."
                 )
-                raw = _chat(extract_prompt, f"Resume:\n{text[:4000]}", temperature=0.2, max_tokens=3000)
-                start = raw.find("{")
-                end = raw.rfind("}") + 1
-                parsed = json.loads(raw[start:end])
-                if parsed.get("phone") and not profile.phone:
-                    profile.phone = parsed["phone"]
-                if parsed.get("city") and not profile.city:
-                    profile.city = parsed["city"]
-                if parsed.get("country") and not profile.country:
-                    profile.country = parsed["country"]
-                if parsed.get("bio") and not profile.bio:
-                    profile.bio = parsed["bio"]
-                if parsed.get("skills") and not profile.skills:
-                    profile.skills = parsed["skills"]
-                if parsed.get("experience_years") and not profile.experience_years:
-                    profile.experience_years = parsed["experience_years"]
-                if parsed.get("education") and not profile.education:
-                    profile.education = parsed["education"]
-                # Always add ALL work experiences from resume to profile
-                if parsed.get("work_experience") and isinstance(parsed["work_experience"], list):
-                    profile.work_experience = parsed["work_experience"]
-                if parsed.get("linkedin_url") and not profile.linkedin_url:
-                    profile.linkedin_url = parsed["linkedin_url"]
-                if parsed.get("github_url") and not profile.github_url:
-                    profile.github_url = parsed["github_url"]
-                if parsed.get("portfolio_url") and not profile.portfolio_url:
-                    profile.portfolio_url = parsed["portfolio_url"]
-            except Exception:
-                pass
+                raw = _chat(
+                    extract_prompt,
+                    f"Resume text:\n{text[:12000]}",
+                    temperature=0.2,
+                    max_tokens=4096,
+                )
+                parsed = _parse_json_from_llm(raw)
+                if parsed:
+                    _apply_resume_extraction(profile, parsed)
+                else:
+                    logger.warning("Resume JSON extraction returned no parseable object")
+            except Exception as e:
+                logger.warning("Resume field extraction failed: %s", e)
     except Exception:
         pass
 
