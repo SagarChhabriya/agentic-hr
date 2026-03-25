@@ -20,9 +20,9 @@ export default function RoleProtectedRoute({ children, allowedRoles }: RoleProte
     return <Navigate to="/login" state={{ from: returnTo }} replace />;
   }
 
-  // Check both publicMetadata and unsafeMetadata for role
-  const userRole = (user?.publicMetadata?.role || user?.unsafeMetadata?.role) as string;
-  
+  const rawRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const userRole = String(rawRole || '').trim().toUpperCase();
+
   // If role is not set but user is signed in, allow access (role might be set later)
   // This is a temporary measure until Clerk metadata is properly synced
   if (!userRole) {

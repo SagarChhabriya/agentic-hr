@@ -135,17 +135,10 @@ export default function RecruiterShell() {
         ? 'Verify companies'
         : NAV_ITEMS.find((n) => isActive(n.to))?.label ?? 'Recruiter';
 
-  const secondaryNav = [];
-  if (showPlatformAdminNav) secondaryNav.push(ADMIN_COMPANIES_NAV);
-  else if (!isAdmin) secondaryNav.push(COMPANY_NAV_ITEM);
+  /** Main menu: no Company / Verify here — those live in the footer below Quick Create. */
+  const navItems = isRecruiter && !recruiterHasCompany ? [] : NAV_ITEMS;
 
-  const fullNavItems = [...NAV_ITEMS.slice(0, 1), ...secondaryNav, ...NAV_ITEMS.slice(1)];
-
-  /** Until company profile exists, recruiters only see Company */
-  const navItems =
-    isRecruiter && !recruiterHasCompany
-      ? [COMPANY_NAV_ITEM]
-      : fullNavItems;
+  const showFooterNav = showPlatformAdminNav || !isAdmin;
 
   const sidebarBg = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200';
   const activeCls = isDark
@@ -170,27 +163,31 @@ export default function RecruiterShell() {
         </span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-          Menu
-        </p>
-        <ul className="space-y-0.5">
-          {navItems.map((item) => (
-            <li key={item.to}>
-              <Link
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all ${
-                  isActive(item.to) ? activeCls : inactiveCls
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {/* Scrollable menu + Quick Create — Workspace stays pinned above profile */}
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4">
+        {navItems.length > 0 && (
+          <>
+            <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              Menu
+            </p>
+            <ul className="space-y-0.5">
+              {navItems.map((item) => (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all ${
+                      isActive(item.to) ? activeCls : inactiveCls
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
         {isRecruiter && !recruiterHasCompany && (
           <p className={`px-5 mt-3 text-xs leading-relaxed ${isDark ? 'text-amber-400/90' : 'text-amber-800'}`}>
@@ -200,7 +197,7 @@ export default function RecruiterShell() {
 
         {recruiterHasCompany && (
           <>
-            <div className={`mx-4 my-4 h-px ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
+            <div className={`mx-4 my-4 h-px shrink-0 ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
 
             <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
               Quick Create
@@ -220,6 +217,44 @@ export default function RecruiterShell() {
           </>
         )}
       </nav>
+
+      {showFooterNav && (
+        <div className={`shrink-0 border-t py-3 ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
+          <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+            Workspace
+          </p>
+          <ul className="space-y-0.5">
+            {showPlatformAdminNav && (
+              <li key={ADMIN_COMPANIES_NAV.to}>
+                <Link
+                  to={ADMIN_COMPANIES_NAV.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all ${
+                    isActive(ADMIN_COMPANIES_NAV.to) ? activeCls : inactiveCls
+                  }`}
+                >
+                  {ADMIN_COMPANIES_NAV.icon}
+                  {ADMIN_COMPANIES_NAV.label}
+                </Link>
+              </li>
+            )}
+            {!isAdmin && (
+              <li key={COMPANY_NAV_ITEM.to}>
+                <Link
+                  to={COMPANY_NAV_ITEM.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all ${
+                    isActive(COMPANY_NAV_ITEM.to) ? activeCls : inactiveCls
+                  }`}
+                >
+                  {COMPANY_NAV_ITEM.icon}
+                  {COMPANY_NAV_ITEM.label}
+                </Link>
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* Bottom user section */}
       <div className={`shrink-0 border-t p-4 ${isDark ? 'border-slate-800' : 'border-gray-200'}`}>
