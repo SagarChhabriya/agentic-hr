@@ -17,28 +17,8 @@ import {
 import { Track, ParticipantEvent } from 'livekit-client';
 import { useTheme } from '../../contexts/ThemeContext';
 import { interviewsApi } from '../../services/api';
+import { uploadInterviewRecordingBestEffort } from '../../lib/recordingUpload';
 import { showToast } from '../../components/Toast';
-
-async function uploadRecordingBestEffort(
-  blob: Blob,
-  interviewId: string,
-  candidateName: string,
-): Promise<void> {
-  try {
-    await interviewsApi.uploadRecordingBlob(interviewId, blob);
-  } catch (backendErr) {
-    console.warn('[InterviewRoom] Backend recording upload failed, trying direct storage:', backendErr);
-    const { uploadRecording } = await import('../../lib/supabaseStorage');
-    const direct = await uploadRecording(blob, interviewId, candidateName);
-    if (direct) {
-      try {
-        await interviewsApi.saveRecordingPath(interviewId, direct.path);
-      } catch (e) {
-        console.warn('[InterviewRoom] saveRecordingPath failed:', e);
-      }
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // AI Agent visualizer — replaces the generic silhouette
@@ -737,6 +717,8 @@ export default function InterviewRoomPage() {
     candidate_name?: string;
   } | null>(null);
   const [completed, setCompleted] = useState(false);
+  /** When true, recording stop + upload finished (or attempted); allows redirect countdown. */
+  const [finalizeDone, setFinalizeDone] = useState(false);
   const [countdown, setCountdown] = useState(10);
 
   // Stable refs for recording — avoids stale-closure issues in callbacks
@@ -752,6 +734,7 @@ export default function InterviewRoomPage() {
 
   useEffect(() => {
     interviewFinalizeStartedRef.current = false;
+    setFinalizeDone(false);
   }, [interviewId]);
 
   const tokenMutation = useMutation({
@@ -776,6 +759,7 @@ export default function InterviewRoomPage() {
 
         // Set up Web Audio mixing node
         const audioCtx = new AudioContext();
+        void audioCtx.resume().catch(() => {});
         const dest = audioCtx.createMediaStreamDestination();
         audioCtxRef.current = audioCtx;
         destRef.current = dest;
@@ -786,7 +770,9 @@ export default function InterviewRoomPage() {
         // Combined stream: candidate video + mixed audio (agent audio is added by CustomRoomView)
         const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
           ? 'video/webm;codecs=vp9,opus'
-          : 'video/webm';
+          : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+            ? 'video/webm;codecs=vp8,opus'
+            : 'video/webm';
         const recordingStream = new MediaStream([
           ...stream.getVideoTracks(),
           ...dest.stream.getAudioTracks(),
@@ -799,7 +785,9 @@ export default function InterviewRoomPage() {
         };
         recorder.start(1000);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('[InterviewRoom] Recording getUserMedia / MediaRecorder setup failed:', err);
+      });
 
     return () => {
       active = false;
@@ -823,46 +811,68 @@ export default function InterviewRoomPage() {
     // effect does not run cleanup and destroy the MediaRecorder before we flush chunks.
     setCompleted(true);
 
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== 'inactive') {
-      try {
-        if (typeof recorder.requestData === 'function') {
-          recorder.requestData();
+    try {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        await new Promise<void>((resolve) => {
+          const failSafe = window.setTimeout(() => resolve(), 5000);
+          const done = () => {
+            window.clearTimeout(failSafe);
+            resolve();
+          };
+          recorder.addEventListener('error', done, { once: true });
+          recorder.addEventListener('stop', done, { once: true });
+          try {
+            if (typeof recorder.requestData === 'function') recorder.requestData();
+          } catch {
+            /* ignore */
+          }
+          try {
+            recorder.stop();
+          } catch {
+            done();
+          }
+        });
+        recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+        audioCtxRef.current?.close();
+        audioCtxRef.current = null;
+        destRef.current = null;
+        await new Promise((r) => setTimeout(r, 400));
+        const chunks = recordedChunksRef.current;
+        if (chunks.length > 0 && interviewId) {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          await uploadInterviewRecordingBestEffort(blob, interviewId, candidateNameRef.current);
+        } else if (interviewId) {
+          console.warn('[InterviewRoom] No recording chunks to upload');
         }
-      } catch {
-        /* ignore */
+      } else {
+        recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+        audioCtxRef.current?.close();
+        audioCtxRef.current = null;
+        destRef.current = null;
       }
-      recorder.stop();
-      recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
-      audioCtxRef.current?.close();
-      audioCtxRef.current = null;
-      destRef.current = null;
-      // Wait for ondataavailable / final chunk after stop
-      await new Promise((r) => setTimeout(r, 1200));
-      const chunks = recordedChunksRef.current;
-      if (chunks.length > 0 && interviewId) {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        await uploadRecordingBestEffort(blob, interviewId, candidateNameRef.current);
-      } else if (interviewId) {
-        console.warn('[InterviewRoom] No recording chunks to upload');
-      }
-    } else {
-      recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
-      audioCtxRef.current?.close();
-      audioCtxRef.current = null;
-      destRef.current = null;
+    } catch (e) {
+      console.warn('[InterviewRoom] Interview finalize error:', e);
+    } finally {
+      setFinalizeDone(true);
+      setTokenData(null);
     }
-
-    setTokenData(null);
   }, [interviewId]);
 
-  // Auto-navigate after completion
   useEffect(() => {
-    if (!completed) return;
-    if (countdown <= 0) { navigate('/candidate/applications'); return; }
+    if (completed) setCountdown(10);
+  }, [completed]);
+
+  // Auto-navigate only after finalize (upload) so we do not unmount mid-request
+  useEffect(() => {
+    if (!completed || !finalizeDone) return;
+    if (countdown <= 0) {
+      navigate('/candidate/applications');
+      return;
+    }
     const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(id);
-  }, [completed, countdown, navigate]);
+  }, [completed, finalizeDone, countdown, navigate]);
 
   // Completion screen
   if (completed) {

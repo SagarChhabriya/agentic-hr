@@ -14,7 +14,11 @@ from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.storage import INTERVIEW_RECORDING_MAX_BYTES, upload_interview_recording_bytes
+from app.core.storage import (
+    INTERVIEW_RECORDING_MAX_BYTES,
+    create_interview_recording_signed_upload,
+    upload_interview_recording_bytes,
+)
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.application import Application
@@ -685,6 +689,72 @@ def _sanitize_recording_filename_part(name: str) -> str:
     return s or "candidate"
 
 
+def _recording_storage_relative_path(interview_id: str, current_user: User) -> str:
+    safe_name = _sanitize_recording_filename_part(
+        " ".join(p for p in [current_user.first_name, current_user.last_name] if p).strip()
+        or current_user.email
+        or "candidate"
+    )
+    ts = time.strftime("%Y-%m-%dT%H-%M-%SZ", time.gmtime())
+    return f"{interview_id}/{safe_name}_{ts}.webm"
+
+
+async def _require_candidate_interview_for_recording(
+    interview_id: str, db: AsyncSession, current_user: User
+) -> Interview:
+    result = await db.execute(
+        select(Interview)
+        .options(
+            selectinload(Interview.application),
+            selectinload(Interview.session),
+        )
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    if interview.application.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return interview
+
+
+@router.post("/{interview_id}/recording/signed-upload")
+async def create_interview_recording_signed_upload_url(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns a short-lived signed URL + token so the browser can upload the WebM directly to Supabase.
+    Large recordings often fail when proxied through the API (body size / timeout limits).
+    """
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Recording storage is not configured on the server.",
+        )
+
+    await _require_candidate_interview_for_recording(interview_id, db, current_user)
+
+    path = _recording_storage_relative_path(interview_id, current_user)
+    try:
+        payload = await asyncio.to_thread(create_interview_recording_signed_upload, path)
+    except RuntimeError as e:
+        _log.warning("Signed upload URL not available: %s", e)
+        raise HTTPException(status_code=501, detail=str(e)) from e
+    except Exception as exc:
+        _log.exception("create_signed_upload_url failed for interview %s", interview_id)
+        raise HTTPException(status_code=500, detail="Could not create upload URL") from exc
+
+    _log.info("Issued signed recording upload for interview %s path=%s", interview_id, path)
+    return {
+        "storage_path": path,
+        "token": payload["token"],
+        "signed_url": payload["signed_url"],
+    }
+
+
 @router.post("/{interview_id}/recording/upload")
 async def upload_interview_recording(
     interview_id: str,
@@ -703,20 +773,7 @@ async def upload_interview_recording(
             detail="Recording storage is not configured on the server.",
         )
 
-    result = await db.execute(
-        select(Interview)
-        .options(
-            selectinload(Interview.application),
-            selectinload(Interview.session),
-        )
-        .where(Interview.id == interview_id)
-    )
-    interview = result.scalar_one_or_none()
-    if not interview:
-        raise HTTPException(status_code=404, detail="Interview not found")
-
-    if interview.application.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    interview = await _require_candidate_interview_for_recording(interview_id, db, current_user)
 
     body = await file.read()
     if not body:
@@ -724,15 +781,7 @@ async def upload_interview_recording(
     if len(body) > INTERVIEW_RECORDING_MAX_BYTES:
         raise HTTPException(status_code=413, detail="Recording file is too large")
 
-    safe_name = _sanitize_recording_filename_part(
-        " ".join(
-            p for p in [current_user.first_name, current_user.last_name] if p
-        ).strip()
-        or current_user.email
-        or "candidate"
-    )
-    ts = time.strftime("%Y-%m-%dT%H-%M-%SZ", time.gmtime())
-    path = f"{interview_id}/{safe_name}_{ts}.webm"
+    path = _recording_storage_relative_path(interview_id, current_user)
 
     try:
         await asyncio.to_thread(upload_interview_recording_bytes, path, body)

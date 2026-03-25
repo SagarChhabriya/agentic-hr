@@ -75,6 +75,29 @@ def upload_interview_recording_bytes(storage_path: str, file_bytes: bytes) -> No
     logger.info("Uploaded interview recording: %s (%s bytes)", storage_path, len(file_bytes))
 
 
+def create_interview_recording_signed_upload(storage_path: str) -> dict[str, str]:
+    """
+    Create a time-limited signed upload URL so the browser can PUT the WebM directly to Storage.
+    Avoids routing large files through the API (hosting body limits / timeouts).
+    """
+    client = _get_supabase()
+    bucket_api = client.storage.from_(INTERVIEW_RECORDINGS_BUCKET)
+    if not hasattr(bucket_api, "create_signed_upload_url"):
+        raise RuntimeError("Supabase client does not support create_signed_upload_url; upgrade supabase-py")
+    raw = bucket_api.create_signed_upload_url(storage_path)
+    if isinstance(raw, dict):
+        token = raw.get("token")
+        signed = raw.get("signed_url") or raw.get("signedUrl") or ""
+        path = raw.get("path", storage_path)
+    else:
+        token = getattr(raw, "token", None)
+        signed = getattr(raw, "signed_url", None) or getattr(raw, "signedUrl", None) or ""
+        path = getattr(raw, "path", storage_path) or storage_path
+    if not token:
+        raise RuntimeError("create_signed_upload_url returned no token")
+    return {"signed_url": str(signed), "token": str(token), "path": str(path)}
+
+
 LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 _LOGO_EXT_TO_CT = {
     ".png": "image/png",

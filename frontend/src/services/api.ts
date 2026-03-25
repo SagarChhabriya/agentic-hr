@@ -134,14 +134,22 @@ export const interviewsApi = {
     apiClient.post(`/interviews/${interviewId}/cancel`).then((r) => r.data),
   reschedule: (interviewId: string, body: { scheduled_at: string; duration_minutes?: number }) =>
     apiClient.post(`/interviews/${interviewId}/reschedule`, body).then((r) => r.data),
-  /** Candidate: upload recording via backend (Supabase service role); preferred over direct client upload */
-  uploadRecordingBlob: (interviewId: string, blob: Blob) => {
+  /** Candidate: get signed upload token (small JSON) — browser uploads WebM directly to Supabase */
+  createRecordingSignedUpload: (interviewId: string) =>
+    apiClient
+      .post<{ storage_path: string; token: string; signed_url: string }>(
+        `/interviews/${interviewId}/recording/signed-upload`
+      )
+      .then((r) => r.data),
+  /** Candidate: upload recording via backend (multipart); may hit hosting body limits on long interviews */
+  uploadRecordingBlob: (interviewId: string, blob: Blob, options?: { timeout?: number }) => {
     const form = new FormData();
     form.append('file', blob, 'recording.webm');
     return apiClient
       .post<{ status: string; interview_id: string; storage_path: string }>(
         `/interviews/${interviewId}/recording/upload`,
-        form
+        form,
+        { timeout: options?.timeout }
       )
       .then((r) => r.data);
   },
