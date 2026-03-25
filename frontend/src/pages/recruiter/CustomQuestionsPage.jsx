@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { customQuestionsApi } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const TYPE_LABELS = {
   TEXT: 'Short text',
@@ -59,6 +60,7 @@ export default function CustomQuestionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ question: '', type: 'TEXT', required: false });
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const resetForm = () => {
     setFormData({ question: '', type: 'TEXT', required: false });
@@ -218,7 +220,7 @@ export default function CustomQuestionsPage() {
                         Edit
                       </button>
                       <span className={`${isDark ? 'text-slate-600' : 'text-gray-300'}`}>·</span>
-                      <button onClick={() => { if (confirm('Delete this question?')) deleteMutation.mutate(q.id); }}
+                      <button type="button" onClick={() => setDeleteTargetId(q.id)}
                         className="text-xs font-medium text-red-500 hover:text-red-600">
                         Delete
                       </button>
@@ -230,6 +232,23 @@ export default function CustomQuestionsPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        title="Delete this question?"
+        message="This removes the question from your library. Jobs that already reference it may be affected."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        pending={deleteMutation.isPending}
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={() => {
+          if (!deleteTargetId) return;
+          deleteMutation.mutate(deleteTargetId, {
+            onSettled: () => setDeleteTargetId(null),
+          });
+        }}
+      />
     </div>
   );
 }

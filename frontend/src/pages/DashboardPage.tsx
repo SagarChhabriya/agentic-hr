@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
+import RecruiterHomeRedirect from './RecruiterHomeRedirect';
 
 export default function DashboardPage() {
   const { isLoaded } = useAuth();
@@ -13,13 +14,16 @@ export default function DashboardPage() {
     );
   }
 
-  // Check both publicMetadata and unsafeMetadata for role
-  const userRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const rawRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const userRole = String(rawRole || '').trim().toUpperCase();
 
-  // Redirect based on role
-  if (userRole === 'RECRUITER' || userRole === 'ADMIN') {
+  if (userRole === 'ADMIN') {
     return <Navigate to="/recruiter/dashboard" replace />;
-  } else if (userRole === 'CANDIDATE') {
+  }
+  if (userRole === 'RECRUITER') {
+    return <RecruiterHomeRedirect />;
+  }
+  if (userRole === 'CANDIDATE') {
     return <Navigate to="/candidate/dashboard" replace />;
   }
 
@@ -38,21 +42,15 @@ export default function DashboardPage() {
           </p>
           <div className="flex flex-wrap gap-4 mt-6">
             <a
-              href="/recruiter/dashboard"
+              href="/recruiter/company"
               className="px-6 py-3 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
             >
-              Access Recruiter Dashboard
-            </a>
-            <a
-              href="/recruiter/jobs/new"
-              className="px-6 py-3 rounded-lg font-medium border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
-            >
-              Create Job
+              Set up company profile
             </a>
           </div>
           <p className="text-gray-600 dark:text-slate-300 mt-4 text-sm">
-            If you signed up as a recruiter, you can access the recruiter features above. 
-            Your role will be set automatically once your account is verified.
+            Recruiters must create a company profile before posting jobs. If your role is not set yet,
+            complete company setup and your role will sync when you sign in again.
           </p>
         </div>
       </div>

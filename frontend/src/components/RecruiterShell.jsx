@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useUser, UserButton } from '@clerk/clerk-react';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../contexts/ThemeContext';
 import { ToastContainer } from './Toast';
 import RecruiterTour from './RecruiterTour';
+import RecruiterCompanyGate from './RecruiterCompanyGate';
+import { companiesApi } from '../services/api';
 
 const NAV_ITEMS = [
   {
@@ -90,6 +93,12 @@ const ADMIN_COMPANIES_NAV = {
   ),
 };
 
+/** Normalize Clerk role (metadata can be any casing). */
+function recruiterRoleFromUser(user) {
+  const r = user?.publicMetadata?.role ?? user?.unsafeMetadata?.role;
+  return String(r || '').trim().toUpperCase();
+}
+
 export default function RecruiterShell() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useUser();
@@ -103,13 +112,40 @@ export default function RecruiterShell() {
       ? location.pathname === path
       : location.pathname.startsWith(path);
 
-  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
-  const navItems = [
-    ...NAV_ITEMS.slice(0, 1),
-    ...(role === 'RECRUITER' ? [COMPANY_NAV_ITEM] : []),
-    ...(role === 'ADMIN' ? [ADMIN_COMPANIES_NAV] : []),
-    ...NAV_ITEMS.slice(1),
-  ];
+  const r = recruiterRoleFromUser(user);
+  const isAdmin = r === 'ADMIN';
+  const isRecruiter = r === 'RECRUITER';
+
+  const ownerEmail = (import.meta.env.VITE_ADMIN_OWNER_EMAIL || '').trim().toLowerCase();
+  const userEmail = user?.primaryEmailAddress?.emailAddress?.trim().toLowerCase() || '';
+  const showPlatformAdminNav = isAdmin && (!ownerEmail || userEmail === ownerEmail);
+
+  const { data: company } = useQuery({
+    queryKey: ['company', 'me'],
+    queryFn: companiesApi.me,
+    enabled: isRecruiter,
+  });
+
+  const recruiterHasCompany = !isRecruiter || !!company;
+
+  const pageTitle =
+    location.pathname.startsWith('/recruiter/company')
+      ? 'Company'
+      : location.pathname.startsWith('/recruiter/admin/companies')
+        ? 'Verify companies'
+        : NAV_ITEMS.find((n) => isActive(n.to))?.label ?? 'Recruiter';
+
+  const secondaryNav = [];
+  if (showPlatformAdminNav) secondaryNav.push(ADMIN_COMPANIES_NAV);
+  else if (!isAdmin) secondaryNav.push(COMPANY_NAV_ITEM);
+
+  const fullNavItems = [...NAV_ITEMS.slice(0, 1), ...secondaryNav, ...NAV_ITEMS.slice(1)];
+
+  /** Until company profile exists, recruiters only see Company */
+  const navItems =
+    isRecruiter && !recruiterHasCompany
+      ? [COMPANY_NAV_ITEM]
+      : fullNavItems;
 
   const sidebarBg = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200';
   const activeCls = isDark
@@ -156,23 +192,33 @@ export default function RecruiterShell() {
           ))}
         </ul>
 
-        <div className={`mx-4 my-4 h-px ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
+        {isRecruiter && !recruiterHasCompany && (
+          <p className={`px-5 mt-3 text-xs leading-relaxed ${isDark ? 'text-amber-400/90' : 'text-amber-800'}`}>
+            Save your company profile below to unlock jobs, candidates, and the rest of the menu.
+          </p>
+        )}
 
-        <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-          Quick Create
-        </p>
-        <div className="px-4">
-          <Link
-            to="/recruiter/jobs/new"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-            </svg>
-            New Job
-          </Link>
-        </div>
+        {recruiterHasCompany && (
+          <>
+            <div className={`mx-4 my-4 h-px ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
+
+            <p className={`px-5 mb-2 text-xs font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              Quick Create
+            </p>
+            <div className="px-4">
+              <Link
+                to="/recruiter/jobs/new"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                New Job
+              </Link>
+            </div>
+          </>
+        )}
       </nav>
 
       {/* Bottom user section */}
@@ -262,7 +308,7 @@ export default function RecruiterShell() {
 
             {/* Current page label */}
             <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-              {NAV_ITEMS.find((n) => isActive(n.to))?.label ?? 'Recruiter'}
+              {pageTitle}
             </span>
           </div>
 
@@ -271,7 +317,7 @@ export default function RecruiterShell() {
             <span className={`hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
               isDark ? 'bg-indigo-900/40 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
             }`}>
-              {user?.publicMetadata?.role === 'ADMIN' ? 'Admin' : 'Recruiter'}
+              {isAdmin ? 'Admin' : 'Recruiter'}
             </span>
             <Link
               to="/"
@@ -285,7 +331,9 @@ export default function RecruiterShell() {
         {/* Page content — scrolls with the browser, no nested scrollbar */}
         <main className={`flex-1 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <Outlet />
+            <RecruiterCompanyGate>
+              <Outlet />
+            </RecruiterCompanyGate>
           </div>
         </main>
       </div>

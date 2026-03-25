@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_platform_admin
 from app.models.user import User
 from app.models.company import Company
 from app.schemas.company import CompanyUpsert, CompanyResponse, CompanyRejectRequest
@@ -96,10 +96,8 @@ async def upsert_my_company(
 @router.get("/pending", response_model=list[CompanyResponse])
 async def list_pending_companies(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_platform_admin),
 ):
-    if current_user.role != "ADMIN":
-        raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(
         select(Company).where(Company.verification_status == "pending").order_by(Company.created_at.asc())
     )
@@ -110,10 +108,8 @@ async def list_pending_companies(
 async def verify_company(
     company_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_platform_admin),
 ):
-    if current_user.role != "ADMIN":
-        raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(Company).where(Company.id == company_id))
     company = result.scalar_one_or_none()
     if not company:
@@ -134,10 +130,8 @@ async def reject_company(
     company_id: str,
     body: CompanyRejectRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_platform_admin),
 ):
-    if current_user.role != "ADMIN":
-        raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(Company).where(Company.id == company_id))
     company = result.scalar_one_or_none()
     if not company:

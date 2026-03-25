@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { assessmentsApi, aiApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const DIFF_CLS = {
   hard:   'bg-red-50    text-red-600   dark:bg-red-900/20   dark:text-red-400',
@@ -61,6 +62,7 @@ export default function AssessmentDetailPage() {
   const [replacingIdx, setReplacingIdx] = useState(null);
   const [showCountPrompt, setShowCountPrompt] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   const handleGenerateAi = async () => {
     setShowCountPrompt(false);
@@ -183,7 +185,8 @@ export default function AssessmentDetailPage() {
           </div>
         </div>
         <button
-          onClick={() => { if (confirm('Clear ALL questions from this assessment? This cannot be undone.')) clearMutation.mutate(); }}
+          type="button"
+          onClick={() => setClearConfirmOpen(true)}
           disabled={clearMutation.isPending || !(assessment.questions?.length)}
           className={`shrink-0 self-start px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 ${
             isDark ? 'border-red-700 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'
@@ -191,6 +194,22 @@ export default function AssessmentDetailPage() {
           {clearMutation.isPending ? 'Clearing…' : 'Clear all questions'}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        title="Clear all questions?"
+        message="This removes every question from this assessment. This cannot be undone."
+        confirmLabel="Clear all"
+        cancelLabel="Cancel"
+        danger
+        pending={clearMutation.isPending}
+        onCancel={() => setClearConfirmOpen(false)}
+        onConfirm={() => {
+          clearMutation.mutate(undefined, {
+            onSettled: () => setClearConfirmOpen(false),
+          });
+        }}
+      />
 
       {/* Tabs */}
       <div className={`flex items-center gap-0.5 border-b mb-6 ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>

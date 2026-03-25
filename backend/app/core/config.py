@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Clerk - JWKS URL for verifying session tokens (e.g. https://xxx.clerk.accounts.dev/.well-known/jwks.json)
     clerk_jwks_url: str = Field("", validation_alias="CLERK_JWKS_URL")
 
+    # Only this user's email may call platform-admin APIs (company verify/reject, etc.) when set.
+    admin_owner_email: str = Field("", validation_alias="ADMIN_OWNER_EMAIL")
+
     # Supabase Storage (for resumes/CVs)
     supabase_url: str = Field("", validation_alias="SUPABASE_URL")
     supabase_service_key: str = Field("", validation_alias="SUPABASE_SERVICE_KEY")

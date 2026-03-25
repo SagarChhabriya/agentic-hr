@@ -89,15 +89,17 @@ export default function RecruiterCompanyPage() {
 
   return (
     <div className={`max-w-3xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
-      <Link
-        to="/recruiter/dashboard"
-        className={`inline-flex items-center gap-1 text-xs mb-5 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'}`}
-      >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Dashboard
-      </Link>
+      {company && (
+        <Link
+          to="/recruiter/dashboard"
+          className={`inline-flex items-center gap-1 text-xs mb-5 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Dashboard
+        </Link>
+      )}
 
       <div className="rounded-xl border overflow-hidden mb-6">
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />

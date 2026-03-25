@@ -31,7 +31,7 @@ export default function SignupRecruiterPage() {
           routing="path"
           path="/register/recruiter"
           signInUrl="/login"
-          afterSignUpUrl="/recruiter/dashboard"
+          afterSignUpUrl="/recruiter/company"
           unsafeMetadata={{
             role: 'RECRUITER',
           }}

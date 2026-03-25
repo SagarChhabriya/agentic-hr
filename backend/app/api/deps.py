@@ -196,3 +196,24 @@ async def get_current_user(
         detail="Invalid or expired token",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+async def require_platform_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Platform-level admin (verify companies, etc.).
+    Requires role ADMIN. If ADMIN_OWNER_EMAIL is set in env, only that email may act.
+    """
+    settings = get_settings()
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=status.HTTP_403, detail="Admin only")
+    owner = (settings.admin_owner_email or "").strip().lower()
+    if owner:
+        email = (current_user.email or "").strip().lower()
+        if not email or email != owner:
+            raise HTTPException(
+                status_code=status.HTTP_403,
+                detail="Not authorized for platform administration",
+            )
+    return current_user

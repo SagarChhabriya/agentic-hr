@@ -8,7 +8,11 @@ import { showToast } from '../../components/Toast';
 
 export default function AdminCompanyVerificationsPage() {
   const { user } = useUser();
-  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const rawRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const role = String(rawRole || '').trim().toUpperCase();
+  const ownerEmail = (import.meta.env.VITE_ADMIN_OWNER_EMAIL || '').trim().toLowerCase();
+  const userEmail = user?.primaryEmailAddress?.emailAddress?.trim().toLowerCase() || '';
+  const canVerifyCompanies = role === 'ADMIN' && (!ownerEmail || userEmail === ownerEmail);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
@@ -18,7 +22,7 @@ export default function AdminCompanyVerificationsPage() {
   const { data: pending = [], isLoading } = useQuery({
     queryKey: ['companies', 'pending'],
     queryFn: () => companiesApi.listPending(),
-    enabled: role === 'ADMIN',
+    enabled: canVerifyCompanies,
   });
 
   const verifyMutation = useMutation({
@@ -47,6 +51,17 @@ export default function AdminCompanyVerificationsPage() {
         <p>Admin access only.</p>
         <Link to="/recruiter/dashboard" className="text-indigo-500 hover:underline text-sm mt-2 inline-block">
           Back
+        </Link>
+      </div>
+    );
+  }
+
+  if (!canVerifyCompanies) {
+    return (
+      <div className="text-center py-16 text-slate-500 max-w-md mx-auto">
+        <p className="mb-2">Only the platform owner can verify companies.</p>
+        <Link to="/recruiter/dashboard" className="text-indigo-500 hover:underline text-sm inline-block">
+          Back to dashboard
         </Link>
       </div>
     );
