@@ -86,6 +86,11 @@ export const jobsApi = {
 export const companiesApi = {
   me: () => apiClient.get('/companies/me').then((r) => r.data),
   upsert: (body: Record<string, unknown>) => apiClient.put('/companies/me', body).then((r) => r.data),
+  uploadLogo: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return apiClient.post('/companies/me/logo', fd).then((r) => r.data);
+  },
   listPending: () => apiClient.get('/companies/pending').then((r) => r.data),
   verify: (companyId: string) => apiClient.post(`/companies/${companyId}/verify`).then((r) => r.data),
   reject: (companyId: string, reason: string) =>

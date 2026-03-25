@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     supabase_url: str = Field("", validation_alias="SUPABASE_URL")
     supabase_service_key: str = Field("", validation_alias="SUPABASE_SERVICE_KEY")
     supabase_bucket: str = "resumes"
+    supabase_company_logos_bucket: str = Field("company-logos", validation_alias="SUPABASE_COMPANY_LOGOS_BUCKET")
 
     # Email (Resend)
     resend_api_key: str = Field("", validation_alias="RESEND_API_KEY")

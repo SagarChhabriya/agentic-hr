@@ -23,6 +23,7 @@ interface PublicJob {
   required_skills: string[];
   application_deadline?: string;
   company_name?: string;
+  company_logo_url?: string | null;
 }
 
 function SkeletonCard() {
@@ -67,13 +68,22 @@ function JobCard({ job, isApplied }: { job: PublicJob; isApplied: boolean }) {
     >
       {/* Title row */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className={`font-semibold leading-snug line-clamp-2 ${
-          isApplied || isExpired
-            ? 'text-gray-700 dark:text-slate-300'
-            : 'text-gray-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors'
-        }`}>
-          {job.title}
-        </h3>
+        <div className="flex items-start gap-3 min-w-0">
+          {job.company_logo_url && job.company_name && job.company_name !== 'Hirebase' && (
+            <img
+              src={job.company_logo_url}
+              alt=""
+              className="w-10 h-10 rounded-lg object-cover border border-gray-100 dark:border-slate-600 shrink-0 bg-white mt-0.5"
+            />
+          )}
+          <h3 className={`font-semibold leading-snug line-clamp-2 ${
+            isApplied || isExpired
+              ? 'text-gray-700 dark:text-slate-300'
+              : 'text-gray-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors'
+          }`}>
+            {job.title}
+          </h3>
+        </div>
         {isApplied && (
           <span className="shrink-0 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,6 +87,62 @@ async def upsert_my_company(
             verification_status="pending",
         )
         db.add(company)
+
+    await db.commit()
+    await db.refresh(company)
+    return _to_response(company)
+
+
+def _maybe_reverify_company(company: Company) -> None:
+    if company.verification_status == "verified":
+        company.verification_status = "pending"
+        company.verified_at = None
+        company.verified_by_user_id = None
+        company.rejection_reason = None
+    elif company.verification_status == "rejected":
+        company.verification_status = "pending"
+        company.rejection_reason = None
+
+
+@router.post("/me/logo", response_model=CompanyResponse)
+async def upload_my_company_logo(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a logo image to storage; shown on public job pages when the company is verified."""
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if current_user.role == "ADMIN":
+        raise HTTPException(status_code=400, detail="Admins do not maintain employer company profiles here")
+
+    result = await db.execute(select(Company).where(Company.owner_user_id == current_user.id))
+    company = result.scalar_one_or_none()
+    if not company or not (company.name or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Save your company name in the company profile first, then upload a logo.",
+        )
+
+    contents = await file.read()
+    from app.core.storage import upload_company_logo, delete_company_logo, LOGO_MAX_BYTES
+
+    if len(contents) > LOGO_MAX_BYTES:
+        raise HTTPException(status_code=400, detail=f"Logo must be {LOGO_MAX_BYTES // (1024 * 1024)} MB or smaller")
+
+    try:
+        url = upload_company_logo(contents, company.id, file.filename or "logo.png")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if company.logo_url:
+        try:
+            delete_company_logo(company.logo_url)
+        except Exception:
+            pass
+
+    company.logo_url = url
+    _maybe_reverify_company(company)
 
     await db.commit()
     await db.refresh(company)

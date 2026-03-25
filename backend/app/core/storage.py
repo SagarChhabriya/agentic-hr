@@ -56,3 +56,55 @@ def delete_resume(url: str) -> None:
     path = url[idx + len(marker):]
     client.storage.from_(bucket).remove([path])
     logger.info("Deleted resume: %s", path)
+
+
+LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+_LOGO_EXT_TO_CT = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
+def upload_company_logo(file_bytes: bytes, company_id: str, filename: str) -> str:
+    """Upload a company logo to Supabase Storage; returns public URL."""
+    settings = get_settings()
+    if len(file_bytes) > LOGO_MAX_BYTES:
+        raise ValueError("Logo exceeds size limit")
+    name = (filename or "logo").replace(" ", "_")
+    ext = ""
+    if "." in name:
+        ext = name[name.rfind(".") :].lower()
+    if ext not in _LOGO_EXT_TO_CT:
+        raise ValueError("Use PNG, JPG, WebP, GIF, SVG, or ICO")
+    client = _get_supabase()
+    bucket = settings.supabase_company_logos_bucket
+    _ensure_bucket(client, bucket)
+    ts = int(time.time())
+    path = f"{company_id}/{ts}_{name}"
+    ct = _LOGO_EXT_TO_CT[ext]
+    client.storage.from_(bucket).upload(path, file_bytes, {"content-type": ct, "upsert": "true"})
+    result = client.storage.from_(bucket).get_public_url(path)
+    logger.info("Uploaded company logo %s: %s", company_id, path)
+    return result
+
+
+def delete_company_logo(url: str) -> None:
+    """Remove a company logo object from Supabase when URL points at our logos bucket."""
+    settings = get_settings()
+    bucket = settings.supabase_company_logos_bucket
+    marker = f"/object/public/{bucket}/"
+    idx = url.find(marker)
+    if idx < 0:
+        return
+    path = url[idx + len(marker) :]
+    try:
+        client = _get_supabase()
+        client.storage.from_(bucket).remove([path])
+        logger.info("Deleted company logo: %s", path)
+    except Exception as e:
+        logger.warning("Could not delete company logo: %s", e)

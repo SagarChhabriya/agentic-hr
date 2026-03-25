@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -20,6 +20,7 @@ export default function RecruiterCompanyPage() {
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
+  const logoFileRef = useRef(null);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ['company', 'me'],
@@ -57,6 +58,18 @@ export default function RecruiterCompanyPage() {
     },
     onError: (err) => {
       showToast(err?.response?.data?.detail || 'Failed to save', 'error');
+    },
+  });
+
+  const logoUploadMutation = useMutation({
+    mutationFn: (file) => companiesApi.uploadLogo(file),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['company', 'me'] });
+      if (data?.logo_url) setForm((f) => ({ ...f, logo_url: data.logo_url }));
+      showToast('Logo uploaded. If your company was verified, it will need approval again.', 'success');
+    },
+    onError: (err) => {
+      showToast(err?.response?.data?.detail || 'Logo upload failed', 'error');
     },
   });
 
@@ -215,13 +228,67 @@ export default function RecruiterCompanyPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400 mb-1">
-                Logo URL
+                Company logo
+              </label>
+              <p className={`text-xs mb-3 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
+                Shown on public job pages when your company is verified. PNG, JPG, WebP, GIF, or SVG — max 2 MB.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 mb-3">
+                {form.logo_url ? (
+                  <img
+                    src={form.logo_url}
+                    alt=""
+                    className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-slate-600 bg-white"
+                  />
+                ) : (
+                  <div
+                    className={`w-16 h-16 rounded-xl border border-dashed flex items-center justify-center text-xs text-center px-1 ${
+                      isDark ? 'border-slate-600 text-slate-500' : 'border-gray-300 text-gray-400'
+                    }`}
+                  >
+                    No logo
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={logoFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.ico"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) {
+                        showToast('Image must be 2 MB or smaller', 'error');
+                        return;
+                      }
+                      logoUploadMutation.mutate(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={logoUploadMutation.isPending || !form.name.trim()}
+                    onClick={() => logoFileRef.current?.click()}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
+                  >
+                    {logoUploadMutation.isPending ? 'Uploading…' : 'Upload image'}
+                  </button>
+                  {!form.name.trim() && (
+                    <span className={`text-xs ${isDark ? 'text-amber-400/90' : 'text-amber-800'}`}>
+                      Enter company name above before uploading.
+                    </span>
+                  )}
+                </div>
+              </div>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400 mb-1">
+                Or logo image URL
               </label>
               <input
                 className={inputCls}
                 value={form.logo_url}
                 onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))}
-                placeholder="https://…"
+                placeholder="https://… (optional if you upload a file)"
               />
             </div>
             <div>

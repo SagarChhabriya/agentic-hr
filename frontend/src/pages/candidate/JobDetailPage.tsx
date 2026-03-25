@@ -155,7 +155,18 @@ export default function JobDetailPage() {
             <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden mb-5 shadow-sm">
               <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-4">{typedJob.title}</h1>
+                <div className="flex items-start gap-4 mb-4">
+                  {typedJob.company_logo_url && typedJob.company_name && typedJob.company_name !== 'Hirebase' && (
+                    <img
+                      src={typedJob.company_logo_url}
+                      alt=""
+                      className="w-14 h-14 rounded-xl object-cover border border-gray-100 dark:border-slate-600 shrink-0 bg-white"
+                    />
+                  )}
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100 flex-1 min-w-0">
+                    {typedJob.title}
+                  </h1>
+                </div>
 
                 {/* Meta chips */}
                 <div className="flex flex-wrap gap-2 mb-5">

@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.core.security import decode_access_token
 from app.models.user import User
+from app.models.candidate_profile import CandidateProfile
 
 _bearer = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -139,6 +140,24 @@ async def _get_or_create_clerk_user(
     result = await db.execute(select(User).where(User.email == email))
     existing = result.scalar_one_or_none()
     if existing:
+        # New Clerk account reusing an email: same DB user row, new clerk_id. Drop stale candidate
+        # profile + resume so a recreated account does not inherit the previous person's data.
+        if existing.clerk_id and existing.clerk_id != clerk_id:
+            prof_result = await db.execute(
+                select(CandidateProfile).where(CandidateProfile.user_id == existing.id)
+            )
+            prof = prof_result.scalar_one_or_none()
+            if prof:
+                if prof.resume_url:
+                    try:
+                        from app.core.storage import delete_resume
+
+                        delete_resume(prof.resume_url)
+                    except Exception:
+                        pass
+                await db.delete(prof)
+                await db.flush()
+
         existing.clerk_id = clerk_id
         existing.role = role
         if first_name:
