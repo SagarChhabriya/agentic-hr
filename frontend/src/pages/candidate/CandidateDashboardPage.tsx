@@ -90,7 +90,10 @@ export default function CandidateDashboardPage() {
     return acc;
   }, {});
 
-  const upcomingInterviews = interviews.filter((iv: any) => iv.status === 'scheduled');
+  // Only show scheduled (not yet attended) interviews — completed/no_show are excluded
+  const upcomingInterviews = interviews.filter(
+    (iv: any) => iv.status === 'scheduled' && !['completed', 'no_show', 'cancelled'].includes(iv.status)
+  );
   const pendingOffers = apps.filter((a: any) => a.status === 'selected' && a.offer_sent_at);
   const inPersonScheduled = apps.filter((a: any) => a.in_person_scheduled_at);
   const recentApps = apps.slice(0, 6);

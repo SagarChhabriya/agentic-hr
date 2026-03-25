@@ -118,6 +118,12 @@ export const interviewsApi = {
     apiClient.post(`/interviews/${interviewId}/cancel`).then((r) => r.data),
   reschedule: (interviewId: string, body: { scheduled_at: string; duration_minutes?: number }) =>
     apiClient.post(`/interviews/${interviewId}/reschedule`, body).then((r) => r.data),
+  /** Candidate: save Supabase storage path after upload completes */
+  saveRecordingPath: (interviewId: string, storagePath: string) =>
+    apiClient.patch(`/interviews/${interviewId}/recording`, { storage_path: storagePath }).then((r) => r.data),
+  /** Recruiter: get a 1-hour signed URL to stream/download the recording */
+  getRecordingSignedUrl: (interviewId: string) =>
+    apiClient.get(`/interviews/${interviewId}/recording-url`).then((r) => r.data),
 };
 
 export const profileApi = {

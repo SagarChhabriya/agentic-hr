@@ -8,6 +8,7 @@ import {
   RoomAudioRenderer,
   useLocalParticipant,
   useRemoteParticipants,
+  useRoomContext,
   useTracks,
   VideoTrack,
   ControlBar,
@@ -16,6 +17,7 @@ import {
 import { Track, ParticipantEvent } from 'livekit-client';
 import { useTheme } from '../../contexts/ThemeContext';
 import { interviewsApi } from '../../services/api';
+import type { UploadResult } from '../../lib/supabaseStorage';
 
 // ---------------------------------------------------------------------------
 // Supabase Storage upload helper — silently disabled if env vars are absent
@@ -24,7 +26,7 @@ async function uploadRecordingToSupabase(
   blob: Blob,
   interviewId: string,
   candidateName?: string,
-): Promise<string | null> {
+): Promise<import('../../lib/supabaseStorage').UploadResult | null> {
   const { uploadRecording } = await import('../../lib/supabaseStorage');
   return uploadRecording(blob, interviewId, candidateName ?? 'candidate');
 }
@@ -210,9 +212,36 @@ function CandidateTile({ participantName }: { participantName: string }) {
 // Custom room view — renders inside LiveKitRoom context
 // ---------------------------------------------------------------------------
 function CustomRoomView({ candidateName }: { candidateName: string }) {
+  const room = useRoomContext();
   const remoteParticipants = useRemoteParticipants();
   const agent = remoteParticipants[0] ?? null;
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [agentLeft, setAgentLeft] = useState(false);
+  const [leaveIn, setLeaveIn] = useState(6);
+  const hadAgentRef = useRef(false);
+
+  // Track that agent was connected at least once
+  useEffect(() => {
+    if (agent) hadAgentRef.current = true;
+  }, [agent]);
+
+  // Detect agent departing after joining
+  useEffect(() => {
+    if (hadAgentRef.current && !agent) {
+      setAgentLeft(true);
+    }
+  }, [agent]);
+
+  // Countdown then force-disconnect so onDisconnected fires → recording upload
+  useEffect(() => {
+    if (!agentLeft) return;
+    if (leaveIn <= 0) {
+      room.disconnect();
+      return;
+    }
+    const id = setTimeout(() => setLeaveIn((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [agentLeft, leaveIn, room]);
 
   useEffect(() => {
     if (!agent) { setAgentSpeaking(false); return; }
@@ -223,15 +252,35 @@ function CustomRoomView({ candidateName }: { candidateName: string }) {
 
   return (
     <div
-      className="h-screen flex flex-col"
+      className="h-screen flex flex-col relative"
       style={{ background: 'linear-gradient(180deg, #09090f 0%, #0d0d1a 100%)' }}
     >
+      {/* Agent-left overlay */}
+      {agentLeft && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+          <div className="text-center px-8 py-10 rounded-2xl bg-slate-900/90 border border-white/10 shadow-2xl max-w-sm">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Interview Complete</h2>
+            <p className="text-sm text-white/60 mb-6">
+              The AI interviewer has finished. Your responses have been recorded.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+              <p className="text-indigo-300 font-medium">
+                Ending session in <span className="tabular-nums font-bold text-white">{leaveIn}s</span>…
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main area */}
       <div className="flex-1 grid grid-cols-2 gap-3 p-4 min-h-0">
-        {/* Candidate */}
         <CandidateTile participantName={candidateName} />
-
-        {/* AI Agent */}
         <div
           className="rounded-2xl overflow-hidden border relative"
           style={{
@@ -252,6 +301,65 @@ function CustomRoomView({ candidateName }: { candidateName: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Browser detection helper for permission fix instructions
+// ---------------------------------------------------------------------------
+function detectBrowser(): 'chrome' | 'firefox' | 'safari' | 'edge' | 'other' {
+  if (typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent;
+  if (ua.includes('Edg/')) return 'edge';
+  if (ua.includes('Chrome/')) return 'chrome';
+  if (ua.includes('Firefox/')) return 'firefox';
+  if (ua.includes('Safari/') && !ua.includes('Chrome')) return 'safari';
+  return 'other';
+}
+
+const BROWSER_STEPS: Record<string, { name: string; steps: string[] }> = {
+  chrome: {
+    name: 'Chrome',
+    steps: [
+      'Click the 🔒 lock icon or camera icon in the address bar (top-left of the URL).',
+      'Find "Camera" and "Microphone" and change both to "Allow".',
+      'Click "Reload" or press Ctrl + R (Cmd + R on Mac) to refresh.',
+    ],
+  },
+  edge: {
+    name: 'Edge',
+    steps: [
+      'Click the 🔒 lock icon in the address bar.',
+      'Select "Permissions for this site".',
+      'Set Camera and Microphone to "Allow".',
+      'Refresh the page with Ctrl + R.',
+    ],
+  },
+  firefox: {
+    name: 'Firefox',
+    steps: [
+      'Click the camera/microphone icon that appeared in the address bar when permission was requested.',
+      'Or click the 🔒 lock icon → "Connection Secure" → "More Information" → "Permissions" tab.',
+      'Allow Camera and Microphone access.',
+      'Refresh the page with Ctrl + R.',
+    ],
+  },
+  safari: {
+    name: 'Safari',
+    steps: [
+      'Open Safari → Settings (or Preferences) → Websites.',
+      'Select "Camera" from the left sidebar — find this site and set to "Allow".',
+      'Do the same for "Microphone".',
+      'Reload this page.',
+    ],
+  },
+  other: {
+    name: 'your browser',
+    steps: [
+      'Look for a camera or lock icon in the address bar.',
+      'Click it and set Camera and Microphone to "Allow".',
+      'Refresh this page.',
+    ],
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Pre-join screen
 // ---------------------------------------------------------------------------
 function PreJoinScreen({
@@ -266,45 +374,94 @@ function PreJoinScreen({
   isDark: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [camOk, setCamOk] = useState<boolean | null>(null);
   const [micOk, setMicOk] = useState<boolean | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
+  const browser = detectBrowser();
+  const guide = BROWSER_STEPS[browser];
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((s) => {
-        stream = s;
-        setCamOk(true);
-        setMicOk(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-          videoRef.current.muted = true;
-        }
-      })
-      .catch(() => {
-        setCamOk(false);
-        setMicOk(false);
-      });
-    return () => { stream?.getTracks().forEach((t) => t.stop()); };
+  const checkDevices = useCallback(async () => {
+    setCamOk(null);
+    setMicOk(null);
+
+    // Camera
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      setCamOk(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = camStream;
+        videoRef.current.muted = true;
+      }
+      streamRef.current = camStream;
+    } catch {
+      setCamOk(false);
+      setShowGuide(true);
+    }
+
+    // Microphone (separate check for granular feedback)
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      setMicOk(true);
+      micStream.getTracks().forEach((t) => t.stop());
+    } catch {
+      setMicOk(false);
+      setShowGuide(true);
+    }
   }, []);
 
-  const CheckIcon = ({ ok }: { ok: boolean | null }) =>
-    ok === null ? (
-      <span className="w-5 h-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin inline-block" />
-    ) : ok ? (
-      <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-      </svg>
-    ) : (
-      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    );
+  useEffect(() => {
+    checkDevices();
+    return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const permissionsReady = camOk === true && micOk === true;
+  const stillChecking = camOk === null || micOk === null;
+  const anyBlocked = camOk === false || micOk === false;
+  const canJoin = permissionsReady && !isPending;
+
+  const DeviceRow = ({ ok, label, icon }: { ok: boolean | null; label: string; icon: React.ReactNode }) => (
+    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+      ok === true
+        ? isDark ? 'bg-emerald-900/20 border-emerald-700/50' : 'bg-emerald-50 border-emerald-200'
+        : ok === false
+        ? isDark ? 'bg-red-900/20 border-red-700/50' : 'bg-red-50 border-red-200'
+        : isDark ? 'bg-slate-700/40 border-slate-600' : 'bg-gray-50 border-gray-200'
+    }`}>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+        ok === true ? isDark ? 'bg-emerald-800/40' : 'bg-emerald-100'
+        : ok === false ? isDark ? 'bg-red-800/40' : 'bg-red-100'
+        : isDark ? 'bg-slate-600' : 'bg-gray-200'
+      }`}>
+        <span className={ok === true ? 'text-emerald-500' : ok === false ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-gray-500'}>
+          {icon}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold ${
+          ok === true ? 'text-emerald-700 dark:text-emerald-300'
+          : ok === false ? 'text-red-700 dark:text-red-300'
+          : isDark ? 'text-slate-300' : 'text-gray-700'
+        }`}>{label}</p>
+        <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+          {ok === null ? 'Requesting access…' : ok ? 'Access granted' : 'Access blocked — see fix below'}
+        </p>
+      </div>
+      <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
+        ok === true ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+        : ok === false ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'
+        : isDark ? 'bg-slate-600 text-slate-400' : 'bg-gray-200 text-gray-500'
+      }`}>
+        {ok === null ? '…' : ok ? '✓ Ready' : '✗ Blocked'}
+      </span>
+    </div>
+  );
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-6 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-gray-50 text-gray-900'}`}>
       <div className={`w-full max-w-2xl rounded-2xl border shadow-xl overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
+
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
@@ -316,7 +473,7 @@ function PreJoinScreen({
             </div>
             <div>
               <h1 className="text-xl font-bold">AI Interview Room</h1>
-              <p className="text-sm opacity-80">Check your setup before joining</p>
+              <p className="text-sm opacity-80">Camera &amp; microphone required before you can join</p>
             </div>
           </div>
         </div>
@@ -324,90 +481,166 @@ function PreJoinScreen({
         <div className="p-6 grid md:grid-cols-2 gap-6">
           {/* Camera preview */}
           <div className="space-y-3">
-            <h2 className="font-semibold text-sm uppercase tracking-wide opacity-60">Camera Preview</h2>
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Camera Preview</p>
+            <div className="relative rounded-xl overflow-hidden bg-black aspect-video ring-1 ring-white/5">
               <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+              {camOk === null && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white gap-3">
+                  <span className="w-8 h-8 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  <p className="text-sm opacity-60">Requesting camera…</p>
+                </div>
+              )}
               {camOk === false && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white text-center px-4">
-                  <svg className="w-10 h-10 text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  <p className="text-sm">Camera not detected.<br />Please allow access in your browser.</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 text-white text-center px-5 gap-3">
+                  <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
+                    <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Camera Blocked</p>
+                    <p className="text-xs opacity-60 mt-1 leading-tight">Follow the fix guide and click "Retry"</p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Checklist + instructions */}
-          <div className="space-y-5">
-            <div>
-              <h2 className="font-semibold text-sm uppercase tracking-wide opacity-60 mb-3">Device Check</h2>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <CheckIcon ok={camOk} />
-                  <span className="text-sm">Camera {camOk === false ? '— not detected' : 'ready'}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckIcon ok={micOk} />
-                  <span className="text-sm">Microphone {micOk === false ? '— not detected' : 'ready'}</span>
-                </div>
-              </div>
-              {(camOk === false || micOk === false) && (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Allow camera/microphone in browser settings and refresh this page.
-                </p>
-              )}
+          {/* Device check */}
+          <div className="space-y-4">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Device Check</p>
+            <div className="space-y-2">
+              <DeviceRow ok={camOk} label="Camera" icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              } />
+              <DeviceRow ok={micOk} label="Microphone" icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              } />
             </div>
 
-            <div>
-              <h2 className="font-semibold text-sm uppercase tracking-wide opacity-60 mb-3">Before you start</h2>
-              <ul className={`space-y-2 text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-indigo-500">•</span>
-                  An AI agent will conduct the interview — speak clearly and naturally.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-indigo-500">•</span>
-                  Your session is recorded for recruiter review.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-indigo-500">•</span>
-                  Stay in a quiet, well-lit environment.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-indigo-500">•</span>
-                  Close other tabs and apps to avoid audio interference.
-                </li>
-              </ul>
-            </div>
+            {/* Fix guide — shown when blocked */}
+            {anyBlocked && (
+              <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-amber-700/50' : 'border-amber-200'}`}>
+                <button
+                  type="button"
+                  onClick={() => setShowGuide((v) => !v)}
+                  className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors ${isDark ? 'bg-amber-900/30 text-amber-300 hover:bg-amber-900/40' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    How to allow camera &amp; mic in {guide.name}
+                  </span>
+                  <svg className={`w-4 h-4 transition-transform ${showGuide ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showGuide && (
+                  <div className={`px-4 py-3 text-xs leading-relaxed space-y-2 ${isDark ? 'bg-amber-900/10 text-amber-200' : 'bg-amber-50/60 text-amber-900'}`}>
+                    <ol className="space-y-2">
+                      {guide.steps.map((step, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${isDark ? 'bg-amber-700/60 text-amber-200' : 'bg-amber-200 text-amber-800'}`}>
+                            {i + 1}
+                          </span>
+                          <span dangerouslySetInnerHTML={{ __html: step.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                        </li>
+                      ))}
+                    </ol>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setShowGuide(false); checkDevices(); }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-amber-700/40 hover:bg-amber-700/60 text-amber-200' : 'bg-amber-200 hover:bg-amber-300 text-amber-900'}`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry device check
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tips — only shown when all good */}
+            {permissionsReady && (
+              <div className={`rounded-xl border p-3 space-y-1.5 ${isDark ? 'border-slate-700 bg-slate-700/30' : 'border-gray-100 bg-gray-50'}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Before you start</p>
+                {[
+                  'Speak clearly — an AI agent conducts the interview.',
+                  'Session is recorded and reviewed by the recruiter.',
+                  'Stay in a quiet, well-lit space.',
+                  'Close other tabs to avoid audio interference.',
+                ].map((tip) => (
+                  <p key={tip} className={`flex items-start gap-1.5 text-xs ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                    <svg className="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {tip}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {error && (
-          <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 text-sm">
+          <div className="mx-6 mb-4 px-4 py-3 rounded-xl border bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
 
-        <div className={`px-6 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-          <Link to="/candidate/applications" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            ← Back to Applications
+        {/* Footer */}
+        <div className={`px-6 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+          <Link to="/candidate/applications" className={`text-sm ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'} transition-colors`}>
+            ← Back
           </Link>
-          <button
-            onClick={onJoin}
-            disabled={isPending}
-            className="px-7 py-2.5 rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 transition-colors flex items-center gap-2"
-          >
-            {isPending ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                Connecting…
-              </>
-            ) : (
-              'Join Interview'
+
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              onClick={onJoin}
+              disabled={!canJoin}
+              title={stillChecking ? 'Checking devices…' : !permissionsReady ? 'Allow camera and microphone to join' : ''}
+              className={`px-7 py-2.5 rounded-xl font-semibold text-white transition-all flex items-center gap-2 text-sm ${
+                canJoin
+                  ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-lg hover:shadow-indigo-500/25'
+                  : 'bg-gray-300 dark:bg-slate-600 cursor-not-allowed'
+              }`}
+            >
+              {isPending ? (
+                <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Connecting…</>
+              ) : stillChecking ? (
+                <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Checking…</>
+              ) : !permissionsReady ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Locked
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Join Interview
+                </>
+              )}
+            </button>
+            {anyBlocked && (
+              <p className="text-xs text-red-500 dark:text-red-400 font-medium">
+                Allow {camOk === false && micOk === false ? 'camera & mic' : camOk === false ? 'camera' : 'microphone'} to continue
+              </p>
             )}
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -443,7 +676,7 @@ export default function InterviewRoomPage() {
   } | null>(null);
   const [completed, setCompleted] = useState(false);
   const [countdown, setCountdown] = useState(10);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'failed'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'saving' | 'done' | 'failed'>('idle');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -483,15 +716,35 @@ export default function InterviewRoomPage() {
     if (recorder && recorder.state !== 'inactive') {
       recorder.stop();
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
-      await new Promise((r) => setTimeout(r, 500));
+      // Give the recorder a moment to flush the final chunk
+      await new Promise((r) => setTimeout(r, 800));
       const chunks = recordedChunksRef.current;
       if (chunks.length > 0 && interviewId) {
         setUploadStatus('uploading');
         const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = await uploadRecordingToSupabase(blob, interviewId);
-        setUploadStatus(url ? 'done' : 'failed');
+        const result: UploadResult | null = await uploadRecordingToSupabase(
+          blob,
+          interviewId,
+          tokenData?.candidate_name,
+        );
+        if (result) {
+          // Persist the storage path to the backend so the recruiter can view it
+          setUploadStatus('saving');
+          try {
+            await interviewsApi.saveRecordingPath(interviewId, result.path);
+            setUploadStatus('done');
+          } catch (err) {
+            console.warn('[InterviewRoom] Failed to save recording path to backend:', err);
+            // Don't fail — the recording was uploaded, backend save is best-effort
+            setUploadStatus('done');
+          }
+        } else {
+          setUploadStatus('failed');
+        }
       }
     }
+  // tokenData is used only for the candidate name; keep stable ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
 
   // Auto-navigate after completion
@@ -521,14 +774,24 @@ export default function InterviewRoomPage() {
           <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
             You will be notified by email once the recruiter reviews your results.
           </p>
-          {uploadStatus === 'uploading' && (
+          {(uploadStatus === 'uploading' || uploadStatus === 'saving') && (
             <div className="flex items-center justify-center gap-2 text-sm text-blue-600 dark:text-blue-400 mb-4">
               <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              Saving recording…
+              {uploadStatus === 'uploading' ? 'Uploading recording…' : 'Saving recording reference…'}
             </div>
           )}
           {uploadStatus === 'done' && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-4">Recording saved successfully.</p>
+            <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-4">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Recording saved successfully.
+            </div>
+          )}
+          {uploadStatus === 'failed' && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">
+              Recording could not be saved (storage not configured). Your interview responses were still recorded.
+            </p>
           )}
           <Link to="/candidate/applications"
             className="inline-flex items-center justify-center w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-3 font-semibold transition-colors mb-3">

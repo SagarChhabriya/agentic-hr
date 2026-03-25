@@ -172,6 +172,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
   const parsed = parseSummary(interview.session_summary);
   const isCompleted = interview.status === 'completed';
   const isNoShow = interview.status === 'no_show';
+  const isScheduled = interview.status === 'scheduled';
 
   if (isNoShow) {
     return (
@@ -181,13 +182,61 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
     );
   }
 
+  if (isScheduled) {
+    const { text: timeText, urgent } = (() => {
+      const ms = new Date(interview.scheduled_at).getTime() - Date.now();
+      if (ms <= 0) return { text: 'Started — join now', urgent: true };
+      const min = Math.floor(ms / 60000);
+      const hr = Math.floor(min / 60);
+      const day = Math.floor(hr / 24);
+      if (day >= 1) return { text: `in ${day}d ${hr % 24}h`, urgent: false };
+      if (hr >= 1) return { text: `in ${hr}h ${min % 60}m`, urgent: hr < 2 };
+      return { text: `in ${min}m`, urgent: true };
+    })();
+
+    return (
+      <div className={`mt-3 rounded-lg border p-3 flex items-center justify-between gap-3 ${
+        urgent
+          ? 'border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/20'
+          : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/30'
+      }`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <svg className={`w-4 h-4 shrink-0 ${urgent ? 'text-violet-500' : 'text-gray-400 dark:text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.868V15.13a1 1 0 01-1.447.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <div>
+            <p className={`text-sm font-medium ${urgent ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-slate-300'}`}>
+              AI Interview <span className="font-semibold">{timeText}</span>
+            </p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+              {formatDateTime(interview.scheduled_at)} · {interview.duration_minutes} min
+            </p>
+          </div>
+        </div>
+        <Link
+          to={`/interview/room/${interview.id}`}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            urgent
+              ? 'bg-violet-600 hover:bg-violet-700 text-white'
+              : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600'
+          }`}
+        >
+          Join Interview
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+    );
+  }
+
   if (!isCompleted || !parsed) {
     return (
       <div className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
-        <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.868V15.13a1 1 0 01-1.447.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
-        Interview scheduled for {formatDateTime(interview.scheduled_at)} ({interview.duration_minutes} min)
+        Interview processing…
       </div>
     );
   }

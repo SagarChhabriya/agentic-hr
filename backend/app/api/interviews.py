@@ -623,3 +623,126 @@ async def my_interviews(
             for i, app, job in rows
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Candidate: save recording path after Supabase upload
+# ---------------------------------------------------------------------------
+
+class RecordingPathRequest(BaseModel):
+    storage_path: str  # relative path within the bucket, e.g. "uuid/name_ts.webm"
+
+
+@router.patch("/{interview_id}/recording")
+async def save_recording_path(
+    interview_id: str,
+    body: RecordingPathRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Called by the candidate's browser after a successful upload to Supabase Storage.
+    Saves the storage path to the InterviewSession so recruiters can view it later.
+
+    Security:
+    - Only the candidate who owns the interview's application may call this.
+    - The path is validated to prevent path traversal.
+    """
+    # Validate path: must not contain ".." or start with "/"
+    path = body.storage_path.strip().lstrip("/")
+    if not path or ".." in path or path.startswith("/") or len(path) > 500:
+        raise HTTPException(status_code=400, detail="Invalid storage path")
+
+    result = await db.execute(
+        select(Interview)
+        .options(
+            selectinload(Interview.application),
+            selectinload(Interview.session),
+        )
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Only the candidate who owns this application may submit a recording
+    if interview.application.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if interview.session:
+        interview.session.video_url = path
+    else:
+        # Session may not exist yet (agent hasn't finished processing)
+        # Create a stub so the path is persisted; agent will fill in the rest
+        stub = InterviewSession(
+            interview_id=interview.id,
+            video_url=path,
+        )
+        db.add(stub)
+
+    await db.commit()
+    _log.info("Recording path saved for interview %s by user %s", interview_id, current_user.id)
+    return {"status": "saved", "interview_id": interview_id}
+
+
+# ---------------------------------------------------------------------------
+# Recruiter: get a signed URL to view the interview recording
+# ---------------------------------------------------------------------------
+
+@router.get("/{interview_id}/recording-url")
+async def get_recording_signed_url(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns a short-lived signed URL (1 hour) for the interview recording.
+    Only the recruiter who owns the job for this application may access it.
+    """
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Recruiter access required")
+
+    # Load interview with its application/job for ownership check
+    result = await db.execute(
+        select(Interview, Application, Job)
+        .join(Application, Interview.application_id == Application.id)
+        .join(Job, Application.job_id == Job.id)
+        .options(selectinload(Interview.session))
+        .where(Interview.id == interview_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    interview, _app, job = row
+
+    # Ownership: only the recruiter who created the job
+    if job.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not interview.session or not interview.session.video_url:
+        raise HTTPException(status_code=404, detail="No recording available for this interview")
+
+    storage_path = interview.session.video_url
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_key:
+        raise HTTPException(status_code=503, detail="Storage not configured on server")
+
+    try:
+        from supabase import create_client
+        client = create_client(settings.supabase_url, settings.supabase_service_key)
+        signed = client.storage.from_("interview-recordings").create_signed_url(
+            storage_path, expires_in=3600
+        )
+        # supabase-py v2 returns a dict with key "signedURL" (full URL)
+        signed_url = signed.get("signedURL") or signed.get("signed_url") or signed.get("data", {}).get("signedURL")
+        if not signed_url:
+            raise ValueError(f"Unexpected signed URL response: {signed}")
+    except Exception as exc:
+        _log.error("Failed to generate signed URL for interview %s: %s", interview_id, exc)
+        raise HTTPException(status_code=500, detail="Could not generate recording URL") from exc
+
+    return {
+        "signed_url": signed_url,
+        "expires_in": 3600,
+        "interview_id": interview_id,
+    }

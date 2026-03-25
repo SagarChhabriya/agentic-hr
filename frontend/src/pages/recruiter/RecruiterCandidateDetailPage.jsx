@@ -5,6 +5,96 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
 
 // ---------------------------------------------------------------------------
+// Recording video player (modal)
+// ---------------------------------------------------------------------------
+function RecordingPlayer({ interviewId, isDark }) {
+  const [signedUrl, setSignedUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const fetchAndOpen = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await interviewsApi.getRecordingSignedUrl(interviewId);
+      setSignedUrl(data.signed_url);
+      setOpen(true);
+    } catch (err) {
+      const msg = err?.response?.data?.detail ?? err?.message ?? 'Failed to load recording';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={fetchAndOpen}
+        disabled={loading}
+        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+          isDark
+            ? 'bg-violet-900/30 border border-violet-700/60 text-violet-300 hover:bg-violet-900/50'
+            : 'bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100'
+        }`}
+      >
+        {loading ? (
+          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )}
+        Watch Recording
+      </button>
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+
+      {open && signedUrl && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setOpen(false)}
+          >
+            <div
+              className={`relative w-full max-w-4xl rounded-2xl overflow-hidden border shadow-2xl ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-black border-gray-700'}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-slate-700' : 'border-gray-800'}`}>
+                <p className="text-sm font-semibold text-white">Interview Recording</p>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <video
+                src={signedUrl}
+                controls
+                autoPlay
+                className="w-full aspect-video bg-black"
+                style={{ maxHeight: '70vh' }}
+              >
+                Your browser does not support the video element.
+              </video>
+              <div className="px-4 py-2 text-xs text-white/40 text-center">
+                Signed URL valid for 1 hour · Click outside or close to dismiss
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Interview Result Panel — transcript + AI summary for a completed session
 // ---------------------------------------------------------------------------
 function InterviewResultPanel({ interviews, application, isDark }) {
@@ -45,6 +135,22 @@ function InterviewResultPanel({ interviews, application, isDark }) {
           </span>
         )}
       </div>
+
+      {/* Recording player — available for both completed and no_show */}
+      {session.video_url && (
+        <div className={`flex items-center gap-3 p-3 rounded-lg border mb-4 ${isDark ? 'border-slate-600 bg-slate-900/40' : 'border-gray-200 bg-gray-50'}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-900/40' : 'bg-violet-100'}`}>
+            <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>Interview Recording Available</p>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Stored securely · Signed URL generated on request</p>
+          </div>
+          <RecordingPlayer interviewId={completedInterview.id} isDark={isDark} />
+        </div>
+      )}
 
       {isNoShow ? (
         <p className="text-sm opacity-75">The candidate did not complete the interview (fewer than 3 responses recorded).</p>
