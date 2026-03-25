@@ -56,7 +56,10 @@ export function canJoinAiInterview(interview: {
   status: string;
   scheduled_at: string;
   session_summary?: string | null;
+  /** From GET /interviews/mine — recording already uploaded */
+  has_recording?: boolean;
 }): boolean {
+  if (interview.has_recording) return false;
   if (interview.session_summary) return false;
   if (['completed', 'cancelled', 'no_show'].includes(interview.status)) return false;
   if (interview.status !== 'scheduled') return false;
@@ -68,7 +71,9 @@ export function canJoinAiInterviewNow(interview: {
   status: string;
   scheduled_at: string;
   session_summary?: string | null;
+  has_recording?: boolean;
 }): boolean {
+  if (interview.has_recording) return false;
   if (interview.session_summary) return false;
   if (['completed', 'cancelled', 'no_show'].includes(interview.status)) return false;
   if (interview.status !== 'scheduled') return false;

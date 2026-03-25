@@ -82,9 +82,12 @@ function RecordingPlayer({ interviewId, isDark }) {
 // ---------------------------------------------------------------------------
 function InterviewResultPanel({ interviews, application, isDark }) {
   const [showTranscript, setShowTranscript] = useState(true);
-  const completedInterview = interviews?.find(
-    (i) => (i.status === 'completed' || i.status === 'no_show') && i.session
-  );
+  const completedInterview = interviews?.find((i) => {
+    if (!i.session) return false;
+    if (i.status === 'completed' || i.status === 'no_show') return true;
+    if (i.status === 'scheduled' && i.session.video_url) return true;
+    return false;
+  });
   if (!completedInterview) return null;
 
   const session = completedInterview.session;
@@ -297,18 +300,27 @@ function ScoreCard({ label, score, isDark, highlight }) {
 const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://hire-base.vercel.app';
 
 /** Placeholder readiness for in-person (assessment + interview); backend can replace with real score later. */
-function getReadyForInPersonLabel(application, assessmentResult) {
+function getReadyForInPersonLabel(application, assessmentResult, interviews) {
   const assessmentScore = application.assessment_score ?? assessmentResult?.score_percent;
   const interviewScore = application.interview_score;
+  const hasAiInterviewDone = (interviews || []).some(
+    (i) => i.status === 'completed' || i.status === 'no_show' || Boolean(i.session?.video_url)
+  );
   if (assessmentScore != null && interviewScore != null) {
     const combined = Math.round((Number(assessmentScore) + Number(interviewScore)) / 2);
     return combined >= 60 ? { label: 'Recommended for in-person', score: combined } : { label: 'Review before inviting', score: combined };
+  }
+  if (assessmentScore != null && hasAiInterviewDone && interviewScore == null) {
+    return {
+      label: 'AI interview complete — review recording and summary below (score may appear after agent sync)',
+      score: Number(assessmentScore),
+    };
   }
   if (assessmentScore != null) return { label: 'Assessment done — invite after AI interview', score: Number(assessmentScore) };
   return { label: 'Complete assessment and AI interview first', score: null };
 }
 
-function HiringNextStepsSection({ application, applicationId, assessmentResult, isDark, queryClient }) {
+function HiringNextStepsSection({ application, applicationId, assessmentResult, interviews, isDark, queryClient }) {
   const [inPersonDateTime, setInPersonDateTime] = useState('');
   const [inPersonNotes, setInPersonNotes] = useState('');
   const [showOfferConfirm, setShowOfferConfirm] = useState(false);
@@ -364,7 +376,7 @@ function HiringNextStepsSection({ application, applicationId, assessmentResult, 
     },
   });
 
-  const readiness = getReadyForInPersonLabel(application, assessmentResult);
+  const readiness = getReadyForInPersonLabel(application, assessmentResult, interviews);
   const showSection = application.status === 'interview' || application.status === 'selected';
   if (!showSection) return null;
 
@@ -604,7 +616,7 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
     if (!scheduleMutation.isPending && !rescheduleMutation.isPending) setScheduleDateTime('');
   };
   const interviews = interviewsData?.interviews || [];
-  const hasScheduled = interviews.some((i) => i.status === 'scheduled');
+  const hasScheduled = interviews.some((i) => i.status === 'scheduled' && !i.session?.video_url);
   return (
     <div>
       <button
@@ -633,12 +645,13 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
           {interviews.map((i) => (
             <div key={i.id} className={`p-3 rounded border ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
               <p className="text-sm">
-                {formatDateTimeKarachi(i.scheduled_at)} · {i.duration_minutes} min · {i.status}
+                {formatDateTimeKarachi(i.scheduled_at)} · {i.duration_minutes} min ·{' '}
+                {i.status === 'scheduled' && i.session?.video_url ? 'completed' : i.status}
               </p>
               <p className="text-xs mt-1 opacity-75">
                 Candidate link: {FRONTEND_URL}/interview/room/{i.id}
               </p>
-              {i.status === 'scheduled' && (
+              {i.status === 'scheduled' && !i.session?.video_url && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1133,8 +1146,13 @@ export default function RecruiterCandidateDetailPage() {
       {/* AI Interviews — only shown when no completed interview and candidate is not rejected */}
       {(() => {
         const interviews = interviewsData?.interviews || [];
-        const hasCompleted = interviews.some((i) => i.status === 'completed' || i.status === 'no_show');
-        if (hasCompleted || application.status === 'rejected') return null;
+        const hasCompletedLike = interviews.some(
+          (i) =>
+            i.status === 'completed' ||
+            i.status === 'no_show' ||
+            Boolean(i.session?.video_url)
+        );
+        if (hasCompletedLike || application.status === 'rejected') return null;
         return (
           <div className={`rounded-xl border p-5 mb-5 ${cardBg}`}>
             <h2 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>AI Interview</h2>
@@ -1161,7 +1179,14 @@ export default function RecruiterCandidateDetailPage() {
       />
 
       {/* Hiring next steps: rate for in-person, schedule in-person, offer letter */}
-      <HiringNextStepsSection application={application} applicationId={id} assessmentResult={assessmentResult} isDark={isDark} queryClient={queryClient} />
+      <HiringNextStepsSection
+        application={application}
+        applicationId={id}
+        assessmentResult={assessmentResult}
+        interviews={interviewsData?.interviews}
+        isDark={isDark}
+        queryClient={queryClient}
+      />
 
       {/* Reject confirmation modal */}
       {showRejectConfirm && (

@@ -94,6 +94,7 @@ type Interview = {
   duration_minutes: number;
   status: string;
   session_summary?: string | null;
+  has_recording?: boolean;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -160,7 +161,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
   /** Treat as finished when status is completed or we already have a summary (status may lag). */
   const isCompleted =
     interview.status === 'completed' ||
-    (interview.status === 'scheduled' && !!interview.session_summary);
+    (interview.status === 'scheduled' && (!!interview.session_summary || !!interview.has_recording));
   const isNoShow = interview.status === 'no_show';
   const isScheduled = interview.status === 'scheduled';
 
@@ -460,11 +461,17 @@ export default function MyApplicationsPage() {
   const list = applications as Application[];
   const interviews = (interviewsData?.interviews ?? []) as Interview[];
 
+  const interviewDisplayRank = (iv: Interview) => {
+    if (iv.status === 'completed' || iv.status === 'no_show') return 3;
+    if (iv.has_recording) return 2;
+    if (iv.status === 'scheduled') return 1;
+    return 0;
+  };
+
   // Index interviews by application_id for fast lookup
   const interviewByApp = interviews.reduce<Record<string, Interview>>((acc, iv) => {
-    // Prefer completed/no_show over scheduled for display
     const existing = acc[iv.application_id];
-    if (!existing || iv.status === 'completed' || iv.status === 'no_show') {
+    if (!existing || interviewDisplayRank(iv) > interviewDisplayRank(existing)) {
       acc[iv.application_id] = iv;
     }
     return acc;

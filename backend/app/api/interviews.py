@@ -30,6 +30,13 @@ _log = logging.getLogger(__name__)
 # Candidate may obtain a LiveKit token only from scheduled time until this many minutes after.
 INTERVIEW_JOIN_WINDOW_MINUTES = 30
 
+
+def _mark_interview_completed_when_recording_saved(interview: Interview) -> None:
+    """If agent never called /sessions/complete, status would stay scheduled forever — close it once we have a recording."""
+    if interview.status != InterviewStatus.SCHEDULED.value:
+        return
+    interview.status = InterviewStatus.COMPLETED.value
+
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
 
@@ -361,6 +368,7 @@ async def get_interview_token(
     result = await db.execute(
         select(Interview, Application)
         .join(Application, Interview.application_id == Application.id)
+        .options(selectinload(Interview.session))
         .where(Interview.id == interview_id)
     )
     row = result.one_or_none()
@@ -373,6 +381,15 @@ async def get_interview_token(
 
     if interview.status == InterviewStatus.CANCELLED.value:
         raise HTTPException(status_code=400, detail="Interview was cancelled")
+
+    if interview.status in (InterviewStatus.COMPLETED.value, InterviewStatus.NO_SHOW.value):
+        raise HTTPException(status_code=400, detail="This interview has already been completed.")
+
+    if interview.session and interview.session.video_url:
+        raise HTTPException(
+            status_code=400,
+            detail="A recording for this interview was already submitted. Contact the recruiter if you need a new interview slot.",
+        )
 
     # Check join time using Karachi local time:
     # - No early join: must be at or after scheduled time
@@ -670,6 +687,7 @@ async def my_interviews(
                 "duration_minutes": i.duration_minutes,
                 "status": i.status,
                 "session_summary": i.session.llm_summary if i.session else None,
+                "has_recording": bool(i.session and i.session.video_url),
             }
             for i, app, job in rows
         ],
@@ -800,6 +818,7 @@ async def upload_interview_recording(
         )
         db.add(stub)
 
+    _mark_interview_completed_when_recording_saved(interview)
     await db.commit()
     _log.info("Interview recording stored for %s by user %s", interview_id, current_user.id)
     return {"status": "saved", "interview_id": interview_id, "storage_path": path}
@@ -852,6 +871,7 @@ async def save_recording_path(
         )
         db.add(stub)
 
+    _mark_interview_completed_when_recording_saved(interview)
     await db.commit()
     _log.info("Recording path saved for interview %s by user %s", interview_id, current_user.id)
     return {"status": "saved", "interview_id": interview_id}
