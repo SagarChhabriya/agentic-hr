@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { isAssessmentPendingAndOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
+import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STEPS = [
   { key: 'applied',    label: 'Applied' },
@@ -110,32 +111,6 @@ const STATUS_LABELS: Record<string, string> = {
   withdrawn: 'Withdrawn',
 };
 
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatDateTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function StatusBadge({ status }: { status: string }) {
   const cls = STATUS_COLORS[status?.toLowerCase()] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   const label = STATUS_LABELS[status?.toLowerCase()] ?? status;
@@ -216,7 +191,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
               AI Interview <span className="font-semibold">{timeText}</span>
             </p>
             <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
-              {formatDateTime(interview.scheduled_at)} · {interview.duration_minutes} min
+              {formatDateTimeKarachi(interview.scheduled_at)} · {interview.duration_minutes} min
             </p>
           </div>
         </div>
@@ -301,8 +276,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
 }
 
 function InPersonCard({ scheduledAt, notes }: { scheduledAt: string; notes?: string | null }) {
-  const dt = new Date(scheduledAt);
-  const isPast = dt < new Date();
+  const isPast = new Date(scheduledAt) < new Date();
   return (
     <div className={`mt-3 rounded-lg border p-3 ${
       isPast
@@ -316,7 +290,7 @@ function InPersonCard({ scheduledAt, notes }: { scheduledAt: string; notes?: str
         <div className="text-sm">
           <p className={`font-medium ${isPast ? 'text-gray-600 dark:text-slate-400' : 'text-blue-800 dark:text-blue-300'}`}>
             {isPast ? 'In-person interview was' : 'In-person interview scheduled for'}{' '}
-            <span className="font-semibold">{formatDateTime(scheduledAt)}</span>
+            <span className="font-semibold">{formatDateTimeKarachi(scheduledAt)}</span>
           </p>
           {notes && <p className="mt-1 text-gray-600 dark:text-slate-400">{notes}</p>}
         </div>
@@ -373,12 +347,12 @@ function OfferActions({
       <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mb-3">
         You have received an offer letter for this position!
         <span className="ml-2 text-xs font-normal text-gray-500 dark:text-slate-400">
-          Sent {formatDate(app.offer_sent_at)}
+          Sent {formatDateKarachi(app.offer_sent_at)}
         </span>
       </p>
       {app.offer_response_deadline_at && (
         <p className="text-xs text-emerald-700/90 dark:text-emerald-400/90 mb-3">
-          Respond by {formatDateTime(app.offer_response_deadline_at)} (24 hours from sent).
+          Respond by {formatDateTimeKarachi(app.offer_response_deadline_at)} (24 hours from sent).
         </p>
       )}
 
@@ -568,7 +542,7 @@ export default function MyApplicationsPage() {
                         <StatusBadge status={app.status} />
                       </div>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                        {app.job_location && `${app.job_location} · `}Applied {formatDate(app.applied_at)}
+                        {app.job_location && `${app.job_location} · `}Applied {formatDateKarachi(app.applied_at)}
                       </p>
                     </div>
                     <div className="shrink-0 flex flex-wrap gap-3 justify-end">
@@ -605,7 +579,7 @@ export default function MyApplicationsPage() {
                       </Link>
                       {app.assessment_deadline_at && (
                         <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-2">
-                          Complete by {formatDateTime(app.assessment_deadline_at)} (24-hour window).
+                          Complete by {formatDateTimeKarachi(app.assessment_deadline_at)} (24-hour window).
                         </p>
                       )}
                     </div>

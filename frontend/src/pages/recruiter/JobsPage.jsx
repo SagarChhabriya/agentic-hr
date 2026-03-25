@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader';
 import TabFilter from '../../components/TabFilter';
 import { SkeletonCard } from '../../components/Skeleton';
 import { openGmailCompose } from '../../utils/gmailCompose';
+import { formatJobDeadlineDateKarachi } from '../../lib/datetimeKarachi';
 
 const SITE_URL = 'https://hire-base.vercel.app';
 
@@ -327,7 +328,7 @@ export default function JobsPage() {
                   </td>
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
                     {job.application_deadline
-                      ? new Date(job.application_deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      ? formatJobDeadlineDateKarachi(job.application_deadline)
                       : '—'}
                   </td>
                   <td className="px-4 py-3 relative">

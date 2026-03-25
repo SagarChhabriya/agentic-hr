@@ -3,6 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
+import {
+  datetimeLocalToKarachiIso,
+  formatDateTimeKarachi,
+  formatTimeKarachi,
+  minDatetimeLocalKarachiNow,
+  utcIsoToDatetimeLocalKarachi,
+} from '../../lib/datetimeKarachi';
 
 // ---------------------------------------------------------------------------
 // Recording video player (modal)
@@ -216,7 +223,7 @@ function InterviewResultPanel({ interviews, application, isDark }) {
                       >
                         <p>{msg.text}</p>
                         <p className="text-xs opacity-50 mt-1">
-                          {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}
+                          {msg.timestamp ? formatTimeKarachi(msg.timestamp) : ''}
                         </p>
                       </div>
                     </div>
@@ -392,13 +399,14 @@ function HiringNextStepsSection({ application, applicationId, assessmentResult, 
       setMessage({ type: 'error', text: 'Please select a date and time.' });
       return;
     }
-    const dt = new Date(inPersonDateTime);
+    const iso = datetimeLocalToKarachiIso(inPersonDateTime);
+    const dt = new Date(iso);
     if (isNaN(dt.getTime()) || dt <= new Date()) {
       setMessage({ type: 'error', text: 'Please select a future date and time.' });
       return;
     }
     setMessage(null);
-    scheduleInPersonMutation.mutate({ scheduled_at: inPersonDateTime, notes: inPersonNotes || undefined });
+    scheduleInPersonMutation.mutate({ scheduled_at: iso, notes: inPersonNotes || undefined });
   };
 
   const borderCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
@@ -449,7 +457,7 @@ function HiringNextStepsSection({ application, applicationId, assessmentResult, 
           <h3 className="font-medium mb-2">Schedule in-person interview</h3>
           {application.in_person_scheduled_at && (
             <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-2">
-              Scheduled for {new Date(application.in_person_scheduled_at).toLocaleString()}
+              Scheduled for {formatDateTimeKarachi(application.in_person_scheduled_at)}
               {application.in_person_notes && ` · ${application.in_person_notes}`}
             </p>
           )}
@@ -459,7 +467,8 @@ function HiringNextStepsSection({ application, applicationId, assessmentResult, 
               type="datetime-local"
               value={inPersonDateTime}
               onChange={(e) => setInPersonDateTime(e.target.value)}
-              min={new Date().toISOString().slice(0, 16)}
+              min={minDatetimeLocalKarachiNow()}
+              title="Date and time in Asia/Karachi (PKT)"
               className={inputCls}
               disabled={scheduleInPersonMutation.isPending}
             />
@@ -488,7 +497,7 @@ function HiringNextStepsSection({ application, applicationId, assessmentResult, 
           <h3 className="font-medium mb-2">Offer letter</h3>
           {application.offer_sent_at ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-              Offer sent on {new Date(application.offer_sent_at).toLocaleString()}
+              Offer sent on {formatDateTimeKarachi(application.offer_sent_at)}
             </p>
           ) : (
             <>
@@ -593,7 +602,8 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
       setError('Please select a date and time.');
       return;
     }
-    const dt = new Date(scheduleDateTime);
+    const iso = datetimeLocalToKarachiIso(scheduleDateTime);
+    const dt = new Date(iso);
     if (isNaN(dt.getTime()) || dt <= new Date()) {
       setError('Please select a future date and time.');
       return;
@@ -601,14 +611,13 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
     if (editingInterviewId) {
       rescheduleMutation.mutate({
         interviewId: editingInterviewId,
-        scheduled_at: scheduleDateTime,
+        scheduled_at: iso,
         duration_minutes: 30,
       });
     } else {
       scheduleMutation.mutate({
         application_id: applicationId,
-        // Send raw datetime-local string; backend normalizes safely
-        scheduled_at: scheduleDateTime,
+        scheduled_at: iso,
         duration_minutes: 30,
       });
     }
@@ -649,7 +658,7 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
           {interviews.map((i) => (
             <div key={i.id} className={`p-3 rounded border ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
               <p className="text-sm">
-                {new Date(i.scheduled_at).toLocaleString()} · {i.duration_minutes} min · {i.status}
+                {formatDateTimeKarachi(i.scheduled_at)} · {i.duration_minutes} min · {i.status}
               </p>
               <p className="text-xs mt-1 opacity-75">
                 Candidate link: {FRONTEND_URL}/interview/room/{i.id}
@@ -661,8 +670,7 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
                     onClick={() => {
                       setEditingInterviewId(i.id);
                       try {
-                        const iso = new Date(i.scheduled_at).toISOString().slice(0, 16);
-                        setScheduleDateTime(iso);
+                        setScheduleDateTime(utcIsoToDatetimeLocalKarachi(i.scheduled_at));
                       } catch {
                         setScheduleDateTime('');
                       }
@@ -712,7 +720,8 @@ function ScheduleInterviewSection({ applicationId, isDark }) {
               type="datetime-local"
               value={scheduleDateTime}
               onChange={(e) => { setScheduleDateTime(e.target.value); setError(null); }}
-              min={new Date().toISOString().slice(0, 16)}
+              min={minDatetimeLocalKarachiNow()}
+              title="Date and time in Asia/Karachi (PKT)"
               className={`w-full px-3 py-2 rounded border mb-4 ${isDark ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-gray-300 text-gray-900'}`}
               disabled={scheduleMutation.isPending}
               aria-invalid={!!error}
@@ -804,9 +813,11 @@ export default function RecruiterCandidateDetailPage() {
 
   const handleSchedule = () => {
     if (!scheduleDateTime) return;
+    const iso = datetimeLocalToKarachiIso(scheduleDateTime);
+    if (Number.isNaN(new Date(iso).getTime())) return;
     scheduleMutation.mutate({
       application_id: id,
-      scheduled_at: scheduleDateTime,
+      scheduled_at: iso,
       duration_minutes: 30,
     });
   };

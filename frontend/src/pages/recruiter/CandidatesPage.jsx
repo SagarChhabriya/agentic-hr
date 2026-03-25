@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, jobsApi } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
 import TabFilter from '../../components/TabFilter';
+import { formatDateKarachi } from '../../lib/datetimeKarachi';
 
 function combined(c) {
   const scores = [c.assessment_score, c.interview_score].filter((s) => s != null);
@@ -204,7 +205,7 @@ export default function CandidatesPage() {
                       })()}
                     </td>
                     <td className={`px-4 py-3 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                      {candidate.applied_at ? new Date(candidate.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      {candidate.applied_at ? formatDateKarachi(candidate.applied_at) : '—'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Link

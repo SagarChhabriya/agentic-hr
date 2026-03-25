@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { isAssessmentPendingAndOpen, isInterviewJoinWindowOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
+import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STAGES = [
   { key: 'applied',    label: 'Applied',    color: 'bg-sky-500' },
@@ -321,14 +322,13 @@ export default function CandidateDashboardPage() {
           </h2>
           <div className="space-y-2">
             {inPersonScheduled.map((app: any) => {
-              const dt = new Date(app.in_person_scheduled_at);
-              const isPast = dt < new Date();
+              const isPast = new Date(app.in_person_scheduled_at) < new Date();
               return (
                 <div key={app.id} className="flex items-start justify-between gap-2">
                   <div>
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{app.job_title}</p>
                     <p className={`text-xs mt-0.5 ${isPast ? 'opacity-50' : isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-                      {isPast ? 'Was ' : ''}{dt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {isPast ? 'Was ' : ''}{formatDateTimeKarachi(app.in_person_scheduled_at)}
                     </p>
                     {app.in_person_notes && <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{app.in_person_notes}</p>}
                   </div>
@@ -400,7 +400,7 @@ export default function CandidateDashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium truncate ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{app.job_title}</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-                      {new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formatDateKarachi(app.applied_at)}
                     </p>
                   </div>
                   <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[app.status] || 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-400'}`}>

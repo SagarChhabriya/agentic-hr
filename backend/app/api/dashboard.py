@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, time as dt_time
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.job import Job
 from app.models.application import Application
 from app.models.interview import Interview
+from app.core.datetime_wire import KARACHI_TZ, iso_karachi_naive_as_utc_z, iso_utc_z
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -73,7 +74,7 @@ async def recruiter_dashboard(
             "title": job.title,
             "candidates": cnt,
             "status": job.status,
-            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "created_at": iso_utc_z(job.created_at) if job.created_at else None,
         })
 
     recent_apps_result = await db.execute(
@@ -93,7 +94,7 @@ async def recruiter_dashboard(
             "job": job.title,
             "status": app.status.capitalize(),
             "score": app.assessment_score,
-            "applied_at": app.applied_at.isoformat() if app.applied_at else None,
+            "applied_at": iso_utc_z(app.applied_at) if app.applied_at else None,
         })
 
     # Pipeline: count applications by status across all recruiter's jobs
@@ -104,9 +105,11 @@ async def recruiter_dashboard(
     )
     pipeline = {row[0]: row[1] for row in pipeline_rows.all()}
 
-    # Today's scheduled interviews (Karachi naive time stored in DB; compare with today's date)
-    today_start = datetime.combine(date.today(), datetime.min.time())
-    today_end = datetime.combine(date.today(), datetime.max.time())
+    # Today's scheduled interviews (DB stores naive Asia/Karachi wall clock)
+    _now_k = datetime.now(KARACHI_TZ)
+    _today_k = _now_k.date()
+    today_start = datetime.combine(_today_k, dt_time.min)
+    today_end = datetime.combine(_today_k, dt_time.max)
     todays_result = await db.execute(
         select(Interview, Application, Job, User)
         .join(Application, Interview.application_id == Application.id)
@@ -128,7 +131,7 @@ async def recruiter_dashboard(
             "candidate_name": cname,
             "job_title": job.title,
             "application_id": app.id,
-            "scheduled_at": iv.scheduled_at.isoformat(),
+            "scheduled_at": iso_karachi_naive_as_utc_z(iv.scheduled_at),
             "status": iv.status,
         })
 

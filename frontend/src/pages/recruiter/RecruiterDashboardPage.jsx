@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '@clerk/clerk-react';
 import { dashboardApi } from '../../services/api';
 import { JobsIcon, CandidatesIcon, AssessmentIcon, InterviewIcon, CheckIcon, RocketIcon } from '../../components/icons/IconComponents';
+import { formatTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STAGES = [
   { key: 'applied', label: 'Applied', color: 'bg-blue-500' },
@@ -13,14 +14,6 @@ const PIPELINE_STAGES = [
   { key: 'selected', label: 'Offer Sent', color: 'bg-emerald-500' },
   { key: 'hired', label: 'Hired', color: 'bg-green-600' },
 ];
-
-function formatTime(iso) {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
-}
 
 function useGreeting() {
   const [greeting, setGreeting] = useState('');
@@ -260,7 +253,7 @@ export default function RecruiterDashboardPage() {
                   <p className="text-xs opacity-75 mt-0.5">{iv.job_title}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">{formatTime(iv.scheduled_at)}</p>
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">{formatTimeKarachi(iv.scheduled_at)}</p>
                   <p className="text-xs opacity-60 capitalize">{iv.status}</p>
                 </div>
               </Link>

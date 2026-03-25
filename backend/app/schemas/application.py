@@ -1,6 +1,7 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class ApplicationCreate(BaseModel):
@@ -41,6 +42,8 @@ class CandidateProfileForRecruiter(BaseModel):
 
 
 class ApplicationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     job_id: str
     job_title: Optional[str] = None
@@ -58,8 +61,11 @@ class ApplicationResponse(BaseModel):
     offer_sent_at: Optional[datetime] = None
     applied_at: datetime
 
-    class Config:
-        from_attributes = True
+    @field_serializer("applied_at", "in_person_scheduled_at", "offer_sent_at")
+    def _serialize_utc_fields(self, v: datetime | None, _info):
+        from app.core.datetime_wire import iso_utc_z
+
+        return iso_utc_z(v)
 
 
 class ApplicationDetailResponse(ApplicationResponse):
@@ -70,6 +76,8 @@ class ApplicationDetailResponse(ApplicationResponse):
 
 
 class CandidateApplicationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     job_id: str
     job_title: str = ""
@@ -87,5 +95,14 @@ class CandidateApplicationResponse(BaseModel):
     in_person_scheduled_at: Optional[datetime] = None
     in_person_notes: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    @field_serializer(
+        "applied_at",
+        "assessment_deadline_at",
+        "offer_response_deadline_at",
+        "offer_sent_at",
+        "in_person_scheduled_at",
+    )
+    def _serialize_utc_fields(self, v: datetime | None, _info):
+        from app.core.datetime_wire import iso_utc_z
+
+        return iso_utc_z(v)

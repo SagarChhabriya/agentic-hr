@@ -13,6 +13,7 @@ from app.models.application import Application
 from app.models.assessment import Assessment, AssessmentQuestion
 from app.models.assessment_attempt import AssessmentAttempt
 from app.core.deadlines import assessment_deadline_utc, is_assessment_window_expired
+from app.core.datetime_wire import iso_utc_z
 from app.schemas.assessment import AssessmentCreate, AssessmentResponse
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -194,7 +195,7 @@ async def get_assessment_for_attempt(
         "name": a.name,
         "duration_minutes": a.duration_minutes,
         "application_id": application_id,
-        "assessment_deadline_at": assessment_deadline_utc(app).isoformat(),
+        "assessment_deadline_at": iso_utc_z(assessment_deadline_utc(app)),
         "questions": [
             {
                 "id": q.id,

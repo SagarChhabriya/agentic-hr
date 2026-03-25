@@ -2,7 +2,6 @@
 import json
 import logging
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,8 +21,7 @@ _log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
-# Use Asia/Karachi as the canonical local timezone for recruiter & candidate flows.
-KARACHI_TZ = ZoneInfo("Asia/Karachi")
+from app.core.datetime_wire import KARACHI_TZ, iso_aware_as_utc_z, iso_karachi_naive_as_utc_z
 
 
 class ScheduleInterviewRequest(BaseModel):
@@ -310,7 +308,7 @@ async def schedule_interview(
     return ScheduleInterviewResponse(
         id=interview.id,
         application_id=interview.application_id,
-        scheduled_at=interview.scheduled_at.isoformat(),
+        scheduled_at=iso_karachi_naive_as_utc_z(interview.scheduled_at),
         duration_minutes=interview.duration_minutes,
         status=interview.status,
     )
@@ -498,7 +496,7 @@ async def reschedule_interview(
     return ScheduleInterviewResponse(
         id=interview.id,
         application_id=interview.application_id,
-        scheduled_at=local_aware.isoformat(),
+        scheduled_at=iso_aware_as_utc_z(local_aware),
         duration_minutes=interview.duration_minutes,
         status=interview.status,
     )
@@ -539,7 +537,7 @@ async def list_interviews_for_application(
         "interviews": [
             {
                 "id": i.id,
-                "scheduled_at": i.scheduled_at.isoformat(),
+                "scheduled_at": iso_karachi_naive_as_utc_z(i.scheduled_at),
                 "duration_minutes": i.duration_minutes,
                 "status": i.status,
                 "room_name": i.livekit_room_name,
@@ -633,7 +631,7 @@ async def my_interviews(
                 "id": i.id,
                 "application_id": app.id,
                 "job_title": job.title,
-                "scheduled_at": i.scheduled_at.isoformat(),
+                "scheduled_at": iso_karachi_naive_as_utc_z(i.scheduled_at),
                 "duration_minutes": i.duration_minutes,
                 "status": i.status,
                 "session_summary": i.session.llm_summary if i.session else None,

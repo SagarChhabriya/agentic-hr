@@ -452,13 +452,18 @@ async def resend_assessment_email(
 
 
 def _parse_scheduled_at(scheduled_at_str: str) -> datetime:
-    """Parse datetime-local or ISO string to naive UTC for storage."""
+    """Parse ISO string to naive UTC for storage. Offset-aware values convert to UTC."""
+    from app.core.datetime_wire import KARACHI_TZ
+
     try:
         parsed = datetime.fromisoformat(scheduled_at_str.replace("Z", "+00:00"))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid scheduled_at format. Use ISO 8601 or datetime-local.")
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    else:
+        # Naive string (legacy): wall clock in Asia/Karachi — prefer sending +05:00 from the client.
+        parsed = parsed.replace(tzinfo=KARACHI_TZ).astimezone(timezone.utc).replace(tzinfo=None)
     if parsed <= datetime.utcnow():
         raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
     return parsed
@@ -491,7 +496,9 @@ async def schedule_in_person_interview(
     try:
         import asyncio
         from app.core.email import notify_candidate_in_person_scheduled
-        scheduled_display = scheduled_at.strftime("%A, %B %d, %Y at %I:%M %p UTC")
+        from app.core.datetime_wire import format_utc_naive_in_karachi
+
+        scheduled_display = format_utc_naive_in_karachi(scheduled_at)
         asyncio.create_task(asyncio.to_thread(
             notify_candidate_in_person_scheduled,
             user.email,
