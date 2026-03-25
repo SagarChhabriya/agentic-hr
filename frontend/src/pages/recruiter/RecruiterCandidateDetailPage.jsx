@@ -98,7 +98,7 @@ function RecordingPlayer({ interviewId, isDark }) {
 // Interview Result Panel — transcript + AI summary for a completed session
 // ---------------------------------------------------------------------------
 function InterviewResultPanel({ interviews, application, isDark }) {
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const completedInterview = interviews?.find(
     (i) => (i.status === 'completed' || i.status === 'no_show') && i.session
   );
@@ -136,21 +136,28 @@ function InterviewResultPanel({ interviews, application, isDark }) {
         )}
       </div>
 
-      {/* Recording player — available for both completed and no_show */}
-      {session.video_url && (
-        <div className={`flex items-center gap-3 p-3 rounded-lg border mb-4 ${isDark ? 'border-slate-600 bg-slate-900/40' : 'border-gray-200 bg-gray-50'}`}>
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-900/40' : 'bg-violet-100'}`}>
-            <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>Interview Recording Available</p>
-            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Stored securely · Signed URL generated on request</p>
-          </div>
-          <RecordingPlayer interviewId={completedInterview.id} isDark={isDark} />
+      {/* Recording player */}
+      <div className={`flex items-center gap-3 p-3 rounded-lg border mb-4 ${isDark ? 'border-slate-600 bg-slate-900/40' : 'border-gray-200 bg-gray-50'}`}>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-900/40' : 'bg-violet-100'}`}>
+          <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
         </div>
-      )}
+        {session.video_url ? (
+          <>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>Interview Recording Available</p>
+              <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Candidate camera · Signed URL generated on request</p>
+            </div>
+            <RecordingPlayer interviewId={completedInterview.id} isDark={isDark} />
+          </>
+        ) : (
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No recording available</p>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-600' : 'text-gray-400'}`}>The candidate may not have completed the recording upload. Use the transcript below.</p>
+          </div>
+        )}
+      </div>
 
       {isNoShow ? (
         <p className="text-sm opacity-75">The candidate did not complete the interview (fewer than 3 responses recorded).</p>
@@ -1137,14 +1144,21 @@ export default function RecruiterCandidateDetailPage() {
         </div>
       )}
 
-      {/* AI Interviews — schedule */}
-      <div className={`rounded-xl border p-5 mb-5 ${cardBg}`}>
-        <h2 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>AI Interview</h2>
-        <p className={`text-xs mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-          Schedule a video interview conducted by an AI agent. The candidate joins via a private link.
-        </p>
-        <ScheduleInterviewSection applicationId={id} isDark={isDark} />
-      </div>
+      {/* AI Interviews — only shown when no completed interview and candidate is not rejected */}
+      {(() => {
+        const interviews = interviewsData?.interviews || [];
+        const hasCompleted = interviews.some((i) => i.status === 'completed' || i.status === 'no_show');
+        if (hasCompleted || application.status === 'rejected') return null;
+        return (
+          <div className={`rounded-xl border p-5 mb-5 ${cardBg}`}>
+            <h2 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>AI Interview</h2>
+            <p className={`text-xs mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              Schedule a video interview conducted by an AI agent. The candidate joins via a private link.
+            </p>
+            <ScheduleInterviewSection applicationId={id} isDark={isDark} />
+          </div>
+        );
+      })()}
 
       {/* Interview Results — transcript + AI summary (shown after completion) */}
       <InterviewResultPanel

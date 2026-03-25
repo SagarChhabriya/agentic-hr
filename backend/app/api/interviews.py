@@ -133,7 +133,7 @@ async def complete_interview_session(
 
     result = await db.execute(
         select(Interview)
-        .options(selectinload(Interview.application))
+        .options(selectinload(Interview.application), selectinload(Interview.session))
         .where(Interview.livekit_room_name == body.room_name)
     )
     interview = result.scalar_one_or_none()
@@ -151,6 +151,17 @@ async def complete_interview_session(
     candidate_messages = [m for m in body.transcript if m.role == "candidate"]
     if len(candidate_messages) < 3:
         interview.status = InterviewStatus.NO_SHOW.value
+        # Preserve any existing session stub (e.g. video_url saved before agent finished)
+        if not interview.session:
+            session_obj = InterviewSession(
+                interview_id=interview.id,
+                chat_transcript=[m.model_dump() for m in body.transcript],
+                llm_summary="Candidate did not engage sufficiently.",
+            )
+            db.add(session_obj)
+        else:
+            interview.session.chat_transcript = [m.model_dump() for m in body.transcript]
+            interview.session.llm_summary = "Candidate did not engage sufficiently."
         await db.commit()
         _log.info("No-show detected for room=%s (%d candidate messages)", body.room_name, len(candidate_messages))
         return {
@@ -331,13 +342,20 @@ async def get_interview_token(
 
     # Check join time using Karachi local time:
     # - No early join: must be at or after scheduled time
-    # - No hard upper cap; late joins are allowed
+    # - 24-hour window: can only join within 24 hours of the scheduled time
     now_local = datetime.now(KARACHI_TZ)
     scheduled_local = interview.scheduled_at.replace(tzinfo=KARACHI_TZ)
+    from datetime import timedelta
+    window_end = scheduled_local + timedelta(hours=24)
     if now_local < scheduled_local:
         raise HTTPException(
             status_code=400,
             detail=f"Interview will be available at {scheduled_local.isoformat()} (Asia/Karachi).",
+        )
+    if now_local > window_end:
+        raise HTTPException(
+            status_code=400,
+            detail="The 24-hour join window for this interview has expired. Please contact the recruiter to reschedule.",
         )
 
     # Generate LiveKit token

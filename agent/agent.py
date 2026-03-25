@@ -7,6 +7,7 @@ created by the API (e.g. interview-{application_id}-{timestamp}).
 
 import logging
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timezone
@@ -119,25 +120,69 @@ ENDING THE INTERVIEW:
 """
 
 
+_JAILBREAK_TRIGGERS = [
+    "ignore previous instructions",
+    "ignore all instructions",
+    "ignore your instructions",
+    "forget your instructions",
+    "forget everything",
+    "you are now",
+    "pretend you are",
+    "pretend to be",
+    "act as if you are",
+    "act as a",
+    "disregard your",
+    "override your",
+    "new instructions:",
+    "your new role",
+    "system prompt",
+    "reveal your prompt",
+    "show me your prompt",
+    "what are your instructions",
+    "your real instructions",
+    "your true instructions",
+    "jailbreak",
+    "dan mode",
+    "developer mode",
+    "unlock your",
+    "bypass your",
+    "you have no restrictions",
+    "you can say anything",
+]
+
+# Topics clearly outside an interview context that warrant a firm redirect
+_OFF_TOPIC_PATTERNS = re.compile(
+    r"\b("
+    r"tell me a joke|sing a song|write a poem|write me a|generate code|"
+    r"what('s| is) the weather|stock price|bitcoin|crypto|recipe for|"
+    r"help me hack|how to hack|how to cheat|write my (resume|cv)|"
+    r"do my homework|write an essay|translate this|summarize this article|"
+    r"what('s| is) your name(?! .{0,30}(interview|position|role))|"
+    r"who (created|made|built|owns) you|which (company|organization) (made|owns|runs) you|"
+    r"are you (chatgpt|gpt|openai|claude|gemini|llama|groq)|"
+    r"what (llm|model|ai) are you"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Detect goodbye / session-ending phrases spoken by the AGENT
+_GOODBYE_PATTERN = re.compile(
+    r"\b(goodbye|good-bye|good bye|see you|take care|best of luck|"
+    r"our team will be in touch|we will be in touch|that concludes|"
+    r"that('s| is) all the questions|end of the interview|wrap(ping)? up)\b",
+    re.IGNORECASE,
+)
+
+
 def _is_jailbreak_attempt(text: str) -> bool:
     """Heuristic check for prompt injection / jailbreak attempts in candidate speech."""
     lower = text.lower()
-    triggers = [
-        "ignore previous instructions",
-        "ignore all instructions",
-        "forget your instructions",
-        "you are now",
-        "pretend you are",
-        "act as if you are",
-        "disregard your",
-        "new instructions:",
-        "system prompt",
-        "reveal your prompt",
-        "your real instructions",
-        "jailbreak",
-        "dan mode",
-    ]
-    return any(t in lower for t in triggers)
+    return any(t in lower for t in _JAILBREAK_TRIGGERS)
+
+
+def _is_off_topic(text: str) -> bool:
+    """Return True if candidate clearly asks something unrelated to an interview."""
+    return bool(_OFF_TOPIC_PATTERNS.search(text))
 
 
 async def _fetch_context(room_name: str) -> dict | None:
@@ -308,6 +353,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         started_at = datetime.now(timezone.utc)
         agent_instance = InterviewAgent(instructions=instructions)
 
+        _goodbye_sent = {"value": False}
+
         @session.on("user_speech_committed")
         def _on_user_speech(evt=None):
             text = getattr(evt, "user_transcript", "") if evt else ""
@@ -315,17 +362,45 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             if not text:
                 return
 
-            # Jailbreak / prompt-injection guard
+            # Jailbreak / prompt-injection guard — interrupt with a firm redirect
             if _is_jailbreak_attempt(text):
-                print(f"[agent] GUARDRAIL: jailbreak attempt detected: {text!r}", flush=True)
+                print(f"[agent] GUARDRAIL: jailbreak attempt: {text!r}", flush=True)
                 _log.warning("Jailbreak attempt detected: %r", text)
-                # Record it but don't act on it — the LLM instructions handle the response
                 transcript.append({
                     "role": "candidate",
                     "text": text,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "flagged": True,
+                    "flagged": "jailbreak",
                 })
+                import asyncio
+                asyncio.create_task(
+                    session.say(
+                        "I'm here strictly to conduct your job interview. "
+                        "Let's keep our conversation focused on that. "
+                        "Shall we continue with the interview?",
+                        allow_interruptions=False,
+                    )
+                )
+                return
+
+            # Off-topic guard — politely redirect without recording the off-topic content
+            if _is_off_topic(text):
+                print(f"[agent] GUARDRAIL: off-topic question: {text!r}", flush=True)
+                _log.info("Off-topic question detected: %r", text)
+                transcript.append({
+                    "role": "candidate",
+                    "text": text,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "flagged": "off_topic",
+                })
+                import asyncio
+                asyncio.create_task(
+                    session.say(
+                        "That's outside the scope of this interview. "
+                        "Let's stay focused — I'd like to continue with the next question.",
+                        allow_interruptions=False,
+                    )
+                )
                 return
 
             transcript.append({
@@ -334,16 +409,17 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-            # Time-limit guard: warn agent if approaching max duration
+            # Time-limit guard: end the interview gracefully at the limit
             elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
-            if elapsed >= MAX_INTERVIEW_SECONDS:
+            if elapsed >= MAX_INTERVIEW_SECONDS and not _goodbye_sent["value"]:
                 print("[agent] GUARDRAIL: max duration reached — ending interview", flush=True)
                 _log.info("Max interview duration reached (%ds)", MAX_INTERVIEW_SECONDS)
+                _goodbye_sent["value"] = True
                 import asyncio
                 asyncio.create_task(
                     session.say(
-                        "Thank you for your time. We've reached the end of our session. "
-                        "Our team will be in touch with next steps. Goodbye!",
+                        "We've reached the end of our scheduled time. "
+                        "Thank you for your time. Our team will be in touch with next steps. Goodbye!",
                         allow_interruptions=False,
                     )
                 )
@@ -362,6 +438,20 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                     "text": text,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
+
+                # Auto-disconnect room 4 seconds after the agent says goodbye
+                if _GOODBYE_PATTERN.search(text) and not _goodbye_sent["value"]:
+                    _goodbye_sent["value"] = True
+                    print("[agent] Goodbye detected — scheduling room disconnect in 4s", flush=True)
+                    import asyncio
+                    async def _leave_room():
+                        await asyncio.sleep(4)
+                        try:
+                            await ctx.room.disconnect()
+                            print("[agent] Room disconnected after goodbye", flush=True)
+                        except Exception as exc:
+                            print(f"[agent] Room disconnect error: {exc}", flush=True)
+                    asyncio.create_task(_leave_room())
 
         @session.on("user_speech_started")
         def _on_speech_started(_evt=None):

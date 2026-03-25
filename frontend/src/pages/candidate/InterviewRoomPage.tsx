@@ -211,7 +211,15 @@ function CandidateTile({ participantName }: { participantName: string }) {
 // ---------------------------------------------------------------------------
 // Custom room view — renders inside LiveKitRoom context
 // ---------------------------------------------------------------------------
-function CustomRoomView({ candidateName }: { candidateName: string }) {
+function CustomRoomView({
+  candidateName,
+  audioCtxRef,
+  destRef,
+}: {
+  candidateName: string;
+  audioCtxRef: React.MutableRefObject<AudioContext | null>;
+  destRef: React.MutableRefObject<MediaStreamAudioDestinationNode | null>;
+}) {
   const room = useRoomContext();
   const remoteParticipants = useRemoteParticipants();
   const agent = remoteParticipants[0] ?? null;
@@ -219,6 +227,7 @@ function CustomRoomView({ candidateName }: { candidateName: string }) {
   const [agentLeft, setAgentLeft] = useState(false);
   const [leaveIn, setLeaveIn] = useState(6);
   const hadAgentRef = useRef(false);
+  const agentMixedRef = useRef(false);
 
   // Track that agent was connected at least once
   useEffect(() => {
@@ -249,6 +258,38 @@ function CustomRoomView({ candidateName }: { candidateName: string }) {
     agent.on(ParticipantEvent.IsSpeakingChanged, update);
     return () => { agent.off(ParticipantEvent.IsSpeakingChanged, update); };
   }, [agent]);
+
+  // Mix agent audio into the recording when the agent connects
+  useEffect(() => {
+    if (!agent || agentMixedRef.current) return;
+    const audioCtx = audioCtxRef.current;
+    const dest = destRef.current;
+    if (!audioCtx || !dest) return;
+
+    const tryMix = () => {
+      for (const [, pub] of agent.audioTrackPublications) {
+        const mediaStream = pub.track?.mediaStream;
+        if (mediaStream) {
+          try {
+            const source = audioCtx.createMediaStreamSource(mediaStream);
+            source.connect(dest);
+            agentMixedRef.current = true;
+            console.log('[Recording] Agent audio mixed in');
+            return true;
+          } catch {
+            // ignore — may be suspended or already connected
+          }
+        }
+      }
+      return false;
+    };
+
+    if (!tryMix()) {
+      // Retry after tracks settle
+      const t = setTimeout(tryMix, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [agent, audioCtxRef, destRef]);
 
   return (
     <div
@@ -678,23 +719,53 @@ export default function InterviewRoomPage() {
   const [countdown, setCountdown] = useState(10);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'saving' | 'done' | 'failed'>('idle');
 
+  // Stable refs for recording — avoids stale-closure issues in callbacks
+  const candidateNameRef = useRef<string>('candidate');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
+  // Web Audio refs for mixing both candidate mic + agent audio
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   const tokenMutation = useMutation({
     mutationFn: () => interviewsApi.getToken(interviewId!),
-    onSuccess: (data) => setTokenData(data),
+    onSuccess: (data) => {
+      candidateNameRef.current = data.candidate_name || 'candidate';
+      setTokenData(data);
+    },
   });
 
-  // Start recording when interview begins
+  // Start recording when interview begins — mix candidate mic + video into an AudioContext
+  // so the agent audio track can be added dynamically once the agent joins
   useEffect(() => {
     if (!tokenData) return;
+    let active = true;
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
+        if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
         recordingStreamRef.current = stream;
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' });
+
+        // Set up Web Audio mixing node
+        const audioCtx = new AudioContext();
+        const dest = audioCtx.createMediaStreamDestination();
+        audioCtxRef.current = audioCtx;
+        destRef.current = dest;
+
+        const micSource = audioCtx.createMediaStreamSource(stream);
+        micSource.connect(dest);
+
+        // Combined stream: candidate video + mixed audio (agent audio is added by CustomRoomView)
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus'
+          : 'video/webm';
+        const recordingStream = new MediaStream([
+          ...stream.getVideoTracks(),
+          ...dest.stream.getAudioTracks(),
+        ]);
+        const recorder = new MediaRecorder(recordingStream, { mimeType });
         mediaRecorderRef.current = recorder;
         recordedChunksRef.current = [];
         recorder.ondataavailable = (e) => {
@@ -703,9 +774,14 @@ export default function InterviewRoomPage() {
         recorder.start(1000);
       })
       .catch(() => {});
+
     return () => {
+      active = false;
       mediaRecorderRef.current?.stop();
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+      audioCtxRef.current?.close();
+      audioCtxRef.current = null;
+      destRef.current = null;
     };
   }, [tokenData]);
 
@@ -716,6 +792,7 @@ export default function InterviewRoomPage() {
     if (recorder && recorder.state !== 'inactive') {
       recorder.stop();
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+      audioCtxRef.current?.close();
       // Give the recorder a moment to flush the final chunk
       await new Promise((r) => setTimeout(r, 800));
       const chunks = recordedChunksRef.current;
@@ -725,17 +802,15 @@ export default function InterviewRoomPage() {
         const result: UploadResult | null = await uploadRecordingToSupabase(
           blob,
           interviewId,
-          tokenData?.candidate_name,
+          candidateNameRef.current,
         );
         if (result) {
-          // Persist the storage path to the backend so the recruiter can view it
           setUploadStatus('saving');
           try {
             await interviewsApi.saveRecordingPath(interviewId, result.path);
             setUploadStatus('done');
           } catch (err) {
             console.warn('[InterviewRoom] Failed to save recording path to backend:', err);
-            // Don't fail — the recording was uploaded, backend save is best-effort
             setUploadStatus('done');
           }
         } else {
@@ -743,8 +818,6 @@ export default function InterviewRoomPage() {
         }
       }
     }
-  // tokenData is used only for the candidate name; keep stable ref
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
 
   // Auto-navigate after completion
@@ -850,7 +923,11 @@ export default function InterviewRoomPage() {
         data-lk-theme="default"
         style={{ height: '100%' }}
       >
-        <CustomRoomView candidateName={tokenData.candidate_name || 'You'} />
+        <CustomRoomView
+          candidateName={tokenData.candidate_name || 'You'}
+          audioCtxRef={audioCtxRef}
+          destRef={destRef}
+        />
         <RoomAudioRenderer />
       </LiveKitRoom>
     </div>
