@@ -77,6 +77,11 @@ class PublicJobResponse(BaseModel):
     created_at: datetime
     custom_questions: list[CustomQuestionBrief] = []
     company_name: str = "Hirebase"
+    company_description: Optional[str] = None
+    company_website: Optional[str] = None
+    company_logo_url: Optional[str] = None
+    company_industry: Optional[str] = None
+    company_headquarters: Optional[str] = None
 
     class Config:
         from_attributes = True

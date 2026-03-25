@@ -14,6 +14,7 @@ export default function RecruiterJobDetailPage() {
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { data: job, isLoading, error } = useQuery({
     queryKey: ['job', id],
@@ -25,6 +26,7 @@ export default function RecruiterJobDetailPage() {
     mutationFn: () => jobsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      setShowDeleteModal(false);
       navigate('/recruiter/jobs');
     },
   });
@@ -148,7 +150,9 @@ export default function RecruiterJobDetailPage() {
               </svg>
               View Candidates
             </Link>
-            <button onClick={() => { if (window.confirm('Delete this job?')) deleteMutation.mutate(); }}
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
               disabled={deleteMutation.isPending}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${isDark ? 'border-red-800 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'}`}>
               Delete
@@ -291,6 +295,51 @@ export default function RecruiterJobDetailPage() {
           </section>
         )}
       </div>
+
+      {showDeleteModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            onClick={() => !deleteMutation.isPending && setShowDeleteModal(false)}
+            aria-hidden="true"
+          />
+          <div
+            className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-xl w-full max-w-md shadow-2xl border ${
+              isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-job-title"
+          >
+            <h3 id="delete-job-title" className={`font-semibold text-lg mb-2 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+              Delete this job?
+            </h3>
+            <p className={`text-sm mb-6 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+              This will permanently remove <span className="font-medium text-inherit">{job.title}</span> and its listing. Candidates will no longer see it.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteMutation.isPending}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                } disabled:opacity-50`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? 'Deleting…' : 'Delete job'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

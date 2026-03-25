@@ -79,6 +79,17 @@ export const jobsApi = {
   listPublic: (params?: { search?: string; location?: string; job_type?: string }) =>
     apiClient.get('/jobs/public', { params }).then((r) => r.data),
   getPublic: (id: string) => apiClient.get(`/jobs/public/${id}`).then((r) => r.data),
+  /** Candidate apply flow: job + screening questions (auth). */
+  getApplyData: (id: string) => apiClient.get(`/jobs/${id}/apply-data`).then((r) => r.data),
+};
+
+export const companiesApi = {
+  me: () => apiClient.get('/companies/me').then((r) => r.data),
+  upsert: (body: Record<string, unknown>) => apiClient.put('/companies/me', body).then((r) => r.data),
+  listPending: () => apiClient.get('/companies/pending').then((r) => r.data),
+  verify: (companyId: string) => apiClient.post(`/companies/${companyId}/verify`).then((r) => r.data),
+  reject: (companyId: string, reason: string) =>
+    apiClient.post(`/companies/${companyId}/reject`, { reason }).then((r) => r.data),
 };
 
 export const applicationsApi = {

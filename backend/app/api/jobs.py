@@ -11,9 +11,44 @@ from app.models.job import Job
 from app.models.application import Application
 from app.models.custom_question import CustomQuestion
 from app.models.job_question import JobCustomQuestion
+from app.models.company import Company
 from app.schemas.job import JobCreate, JobUpdate, JobResponse, PublicJobResponse, CustomQuestionBrief
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+async def _custom_questions_for_job(db: AsyncSession, job_id: str) -> list[CustomQuestionBrief]:
+    cq_result = await db.execute(
+        select(CustomQuestion).join(
+            JobCustomQuestion, JobCustomQuestion.question_id == CustomQuestion.id
+        ).where(JobCustomQuestion.job_id == job_id)
+    )
+    return [
+        CustomQuestionBrief(id=cq.id, question=cq.question, type=cq.type, required=cq.required)
+        for cq in cq_result.scalars().all()
+    ]
+
+
+def _public_fields_from_job(job: Job) -> dict:
+    """Company display fields for API responses."""
+    c = job.company
+    if c and c.verification_status == "verified":
+        return {
+            "company_name": c.name,
+            "company_description": c.description,
+            "company_website": c.website,
+            "company_logo_url": c.logo_url,
+            "company_industry": c.industry,
+            "company_headquarters": c.headquarters,
+        }
+    return {
+        "company_name": "Hirebase",
+        "company_description": None,
+        "company_website": None,
+        "company_logo_url": None,
+        "company_industry": None,
+        "company_headquarters": None,
+    }
 
 
 # --- Public endpoints (no auth required) ---
@@ -32,19 +67,12 @@ async def list_public_jobs(
         q = q.where(Job.location.ilike(f"%{location}%"))
     if job_type:
         q = q.where(Job.job_type == job_type)
+    q = q.options(selectinload(Job.company))
     result = await db.execute(q)
     jobs = result.scalars().all()
     out = []
     for job in jobs:
-        cq_result = await db.execute(
-            select(CustomQuestion).join(
-                JobCustomQuestion, JobCustomQuestion.question_id == CustomQuestion.id
-            ).where(JobCustomQuestion.job_id == job.id)
-        )
-        questions = [
-            CustomQuestionBrief(id=cq.id, question=cq.question, type=cq.type, required=cq.required)
-            for cq in cq_result.scalars().all()
-        ]
+        pf = _public_fields_from_job(job)
         out.append(PublicJobResponse(
             id=job.id, title=job.title, description=job.description,
             salary=job.salary, location=job.location, job_type=job.job_type,
@@ -52,26 +80,48 @@ async def list_public_jobs(
             required_skills=job.required_skills or [], requirements=job.requirements,
             application_deadline=job.application_deadline,
             cover_letter_required=job.cover_letter_required,
-            created_at=job.created_at, custom_questions=questions,
+            created_at=job.created_at, custom_questions=[],
+            **pf,
         ))
     return out
 
 
 @router.get("/public/{job_id}", response_model=PublicJobResponse)
 async def get_public_job(job_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Job).where(Job.id == job_id))
+    result = await db.execute(select(Job).where(Job.id == job_id).options(selectinload(Job.company)))
     job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    cq_result = await db.execute(
-        select(CustomQuestion).join(
-            JobCustomQuestion, JobCustomQuestion.question_id == CustomQuestion.id
-        ).where(JobCustomQuestion.job_id == job.id)
+    pf = _public_fields_from_job(job)
+    return PublicJobResponse(
+        id=job.id, title=job.title, description=job.description,
+        salary=job.salary, location=job.location, job_type=job.job_type,
+        employment_type=job.employment_type, experience_required=job.experience_required,
+        required_skills=job.required_skills or [], requirements=job.requirements,
+        application_deadline=job.application_deadline,
+        cover_letter_required=job.cover_letter_required,
+        created_at=job.created_at, custom_questions=[],
+        **pf,
     )
-    questions = [
-        CustomQuestionBrief(id=cq.id, question=cq.question, type=cq.type, required=cq.required)
-        for cq in cq_result.scalars().all()
-    ]
+
+
+@router.get("/{job_id}/apply-data", response_model=PublicJobResponse)
+async def get_job_apply_data(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Full job + screening questions for candidate apply flow (authenticated)."""
+    if current_user.role != "CANDIDATE":
+        raise HTTPException(status_code=403, detail="Candidates only")
+    result = await db.execute(
+        select(Job).where(Job.id == job_id, Job.status == "active").options(selectinload(Job.company))
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or not accepting applications")
+    questions = await _custom_questions_for_job(db, job.id)
+    pf = _public_fields_from_job(job)
     return PublicJobResponse(
         id=job.id, title=job.title, description=job.description,
         salary=job.salary, location=job.location, job_type=job.job_type,
@@ -80,6 +130,7 @@ async def get_public_job(job_id: str, db: AsyncSession = Depends(get_db)):
         application_deadline=job.application_deadline,
         cover_letter_required=job.cover_letter_required,
         created_at=job.created_at, custom_questions=questions,
+        **pf,
     )
 
 
@@ -136,6 +187,18 @@ async def create_job(
 ):
     if current_user.role not in ("RECRUITER", "ADMIN"):
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    company_id: str | None = None
+    if current_user.role == "RECRUITER":
+        co_result = await db.execute(select(Company).where(Company.owner_user_id == current_user.id))
+        company = co_result.scalar_one_or_none()
+        if not company or company.verification_status != "verified":
+            raise HTTPException(
+                status_code=403,
+                detail="Create and submit your company profile for admin verification before posting jobs.",
+            )
+        company_id = company.id
+
     job = Job(
         title=body.title,
         description=body.description,
@@ -150,6 +213,7 @@ async def create_job(
         cover_letter_required=body.cover_letter_required,
         status=body.status,
         created_by_id=current_user.id,
+        company_id=company_id,
     )
     db.add(job)
     await db.flush()

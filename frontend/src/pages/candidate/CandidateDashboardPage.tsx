@@ -94,6 +94,14 @@ export default function CandidateDashboardPage() {
   const upcomingInterviews = interviews.filter(
     (iv: any) => iv.status === 'scheduled' && !['completed', 'no_show', 'cancelled'].includes(iv.status)
   );
+  /** Jobs with an assessment the candidate has not completed yet */
+  const pendingAssessments = apps.filter(
+    (a: any) =>
+      a.job_has_assessment &&
+      a.assessment_id &&
+      (a.assessment_score == null || a.assessment_score === undefined) &&
+      !['rejected', 'withdrawn', 'hired', 'interview', 'selected'].includes(a.status)
+  );
   const pendingOffers = apps.filter((a: any) => a.status === 'selected' && a.offer_sent_at);
   const inPersonScheduled = apps.filter((a: any) => a.in_person_scheduled_at);
   const recentApps = apps.slice(0, 6);
@@ -181,6 +189,63 @@ export default function CandidateDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Pending job assessments — same urgency pattern as interview */}
+      {pendingAssessments.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {pendingAssessments.map((a: any) => (
+            <div
+              key={a.id}
+              className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
+                isDark ? 'border-amber-700 bg-amber-900/20' : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isDark ? 'bg-amber-600' : 'bg-amber-500'
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+                    {a.job_title}
+                  </p>
+                  <p
+                    className={`text-xs mt-0.5 font-medium ${
+                      isDark ? 'text-amber-300' : 'text-amber-800'
+                    }`}
+                  >
+                    Assessment required — complete to move forward
+                  </p>
+                </div>
+              </div>
+              <Link
+                to={`/assessment/attempt/${a.assessment_id}?application_id=${encodeURIComponent(a.id)}`}
+                className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              >
+                Start
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Upcoming AI interviews — urgent banner */}
       {upcomingInterviews.length > 0 && (

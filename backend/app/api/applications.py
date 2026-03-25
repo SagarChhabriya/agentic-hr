@@ -78,6 +78,15 @@ async def apply_to_job(
     await db.flush()
     await db.refresh(application)
 
+    assessment_result = await db.execute(
+        select(Assessment).where(Assessment.job_id == job.id)
+    )
+    assessment = assessment_result.scalar_one_or_none()
+    if assessment:
+        application.status = "assessment"
+        await db.flush()
+        await db.refresh(application)
+
     # Send email notifications (non-blocking via asyncio.to_thread)
     try:
         import asyncio
@@ -93,11 +102,6 @@ async def apply_to_job(
             name = _full_name(current_user)
             asyncio.create_task(asyncio.to_thread(notify_recruiter_new_application, recruiter.email, name, job.title))
 
-        # If the job has an assessment attached, email it to the candidate
-        assessment_result = await db.execute(
-            select(Assessment).where(Assessment.job_id == job.id)
-        )
-        assessment = assessment_result.scalar_one_or_none()
         if assessment:
             asyncio.create_task(asyncio.to_thread(
                 notify_candidate_assessment,
@@ -119,6 +123,9 @@ async def apply_to_job(
         job_location=job.location,
         status=application.status,
         applied_at=application.applied_at,
+        job_has_assessment=assessment is not None,
+        assessment_id=str(assessment.id) if assessment else None,
+        assessment_score=application.assessment_score,
     )
 
 
@@ -129,8 +136,9 @@ async def my_applications(
 ):
     """Candidate views their own applications."""
     q = (
-        select(Application, Job)
+        select(Application, Job, Assessment)
         .join(Job, Application.job_id == Job.id)
+        .outerjoin(Assessment, Assessment.job_id == Job.id)
         .where(Application.user_id == current_user.id)
         .order_by(Application.applied_at.desc())
     )
@@ -143,12 +151,15 @@ async def my_applications(
             job_location=job.location,
             status=app.status,
             applied_at=app.applied_at,
+            job_has_assessment=assessment is not None,
+            assessment_id=str(assessment.id) if assessment else None,
+            assessment_score=app.assessment_score,
             interview_score=app.interview_score,
             offer_sent_at=app.offer_sent_at,
             in_person_scheduled_at=app.in_person_scheduled_at,
             in_person_notes=app.in_person_notes,
         )
-        for app, job in result.all()
+        for app, job, assessment in result.all()
     ]
 
 

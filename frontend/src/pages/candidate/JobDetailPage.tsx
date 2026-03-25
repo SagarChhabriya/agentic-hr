@@ -24,6 +24,11 @@ interface PublicJob {
   application_deadline?: string;
   cover_letter_required: boolean;
   company_name?: string;
+  company_description?: string | null;
+  company_website?: string | null;
+  company_logo_url?: string | null;
+  company_industry?: string | null;
+  company_headquarters?: string | null;
   custom_questions: CustomQuestion[];
 }
 
@@ -223,22 +228,50 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {/* Application questions preview */}
-            {typedJob.custom_questions?.length > 0 && (
+            {/* Company — verified employer info only (no screening questions on this page) */}
+            {typedJob.company_name && typedJob.company_name !== 'Hirebase' && (
               <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 mb-5 shadow-sm">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400 mb-3">
-                  Application Questions
+                  About the company
                 </h2>
-                <ul className="space-y-2">
-                  {typedJob.custom_questions.map((q) => (
-                    <li key={q.id} className="flex items-start gap-2 text-sm text-gray-700 dark:text-slate-300">
-                      <svg className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                      <span>{q.question}{q.required && <span className="text-red-400 ml-1 text-xs">*required</span>}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {typedJob.company_logo_url && (
+                    <img
+                      src={typedJob.company_logo_url}
+                      alt=""
+                      className="w-16 h-16 rounded-xl object-cover border border-gray-100 dark:border-slate-600 shrink-0 bg-white"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-slate-100">{typedJob.company_name}</p>
+                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500 dark:text-slate-400">
+                      {typedJob.company_industry && <span>{typedJob.company_industry}</span>}
+                      {typedJob.company_headquarters && (
+                        <>
+                          {typedJob.company_industry && <span>·</span>}
+                          <span>{typedJob.company_headquarters}</span>
+                        </>
+                      )}
+                    </div>
+                    {typedJob.company_description && (
+                      <p className="text-sm text-gray-600 dark:text-slate-300 mt-4 leading-relaxed whitespace-pre-wrap">
+                        {typedJob.company_description}
+                      </p>
+                    )}
+                    {typedJob.company_website && (
+                      <a
+                        href={typedJob.company_website.startsWith('http') ? typedJob.company_website : `https://${typedJob.company_website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Visit website
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -297,7 +330,7 @@ export default function JobDetailPage() {
                   {[
                     'Profile + resume required',
                     typedJob.cover_letter_required ? 'Cover letter required' : 'Cover letter optional',
-                    typedJob.custom_questions?.length > 0 ? `${typedJob.custom_questions.length} application question${typedJob.custom_questions.length > 1 ? 's' : ''}` : null,
+                    'Screening questions appear only after you start the application',
                   ].filter(Boolean).map((item, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
                       <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -26,6 +26,8 @@ import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
 import RecruiterCandidateDetailPage from './pages/recruiter/RecruiterCandidateDetailPage';
 import AssessmentDetailPage from './pages/recruiter/AssessmentDetailPage';
 import RecruiterAnalyticsPage from './pages/recruiter/RecruiterAnalyticsPage';
+import RecruiterCompanyPage from './pages/recruiter/RecruiterCompanyPage';
+import AdminCompanyVerificationsPage from './pages/recruiter/AdminCompanyVerificationsPage';
 import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
 import JobDetailPage from './pages/candidate/JobDetailPage';
 import ApplyJobPage from './pages/candidate/ApplyJobPage';
@@ -142,6 +144,8 @@ function App() {
           <Route path="candidates" element={<CandidatesPage />} />
           <Route path="candidates/:id" element={<RecruiterCandidateDetailPage />} />
           <Route path="analytics" element={<RecruiterAnalyticsPage />} />
+          <Route path="company" element={<RecruiterCompanyPage />} />
+          <Route path="admin/companies" element={<AdminCompanyVerificationsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useUser } from '@clerk/clerk-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { jobsApi, customQuestionsApi, assessmentsApi, aiApi } from '../../services/api';
+import { jobsApi, customQuestionsApi, assessmentsApi, aiApi, companiesApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import DatePicker from '../../components/DatePicker';
 
@@ -9,6 +11,14 @@ export default function CreateJobPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const isDark = theme === 'dark';
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+
+  const { data: company, isLoading: companyLoading } = useQuery({
+    queryKey: ['company', 'me'],
+    queryFn: () => companiesApi.me(),
+    enabled: role === 'RECRUITER',
+  });
 
   const STORAGE_KEY = 'createJobFormDraft';
 
@@ -204,6 +214,38 @@ export default function CreateJobPage() {
   const sectionCls = `rounded-xl border ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`;
   const labelCls = `block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`;
   const sectionHeadingCls = `text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`;
+
+  if (role === 'RECRUITER') {
+    if (companyLoading) {
+      return (
+        <div className="flex justify-center py-20">
+          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+    if (!company || company.verification_status !== 'verified') {
+      const msg =
+        !company
+          ? 'Add your employer company profile and submit it for admin review before you can create jobs.'
+          : company.verification_status === 'rejected'
+          ? 'Your company profile was rejected. Update it and save again to resubmit for review.'
+          : 'Your company profile is pending admin verification. You can create jobs once it is approved.';
+      return (
+        <div className={`max-w-lg mx-auto px-4 py-12 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-amber-800 bg-amber-950/20' : 'border-amber-200 bg-amber-50'}`}>
+            <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">Company verification required</h2>
+            <p className="text-sm text-amber-900/90 dark:text-amber-100/90 mb-4">{msg}</p>
+            <Link
+              to="/recruiter/company"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {company ? 'Edit company profile' : 'Set up company profile'}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className={`max-w-3xl mx-auto ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>

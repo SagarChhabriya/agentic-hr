@@ -43,10 +43,14 @@ class Job(Base):
     cover_letter_required: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default=JobStatus.DRAFT.value, nullable=False, index=True)
     created_by_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    company_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     created_by = relationship("User", back_populates="jobs")
+    company = relationship("Company", back_populates="jobs")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
     assessments = relationship("Assessment", back_populates="job", cascade="all, delete-orphan")
     custom_questions = relationship(

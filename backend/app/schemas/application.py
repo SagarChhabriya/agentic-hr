@@ -77,6 +77,9 @@ class CandidateApplicationResponse(BaseModel):
     job_location: str = ""
     status: str
     applied_at: datetime
+    job_has_assessment: bool = False
+    assessment_id: Optional[str] = None
+    assessment_score: Optional[int] = None
     interview_score: Optional[int] = None
     offer_sent_at: Optional[datetime] = None
     in_person_scheduled_at: Optional[datetime] = None

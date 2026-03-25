@@ -79,8 +79,8 @@ export default function ApplyJobPage() {
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
   const { data: job, isLoading: jobLoading, error: jobError } = useQuery({
-    queryKey: ['job-public', job_id],
-    queryFn: () => jobsApi.getPublic(job_id!),
+    queryKey: ['job-apply-data', job_id],
+    queryFn: () => jobsApi.getApplyData(job_id!),
     enabled: !!job_id,
   });
 

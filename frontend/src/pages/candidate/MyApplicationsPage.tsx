@@ -67,6 +67,9 @@ type Application = {
   job_location: string;
   status: string;
   applied_at: string;
+  job_has_assessment?: boolean;
+  assessment_id?: string | null;
+  assessment_score?: number | null;
   interview_score?: number | null;
   offer_sent_at?: string | null;
   in_person_scheduled_at?: string | null;
@@ -519,6 +522,7 @@ export default function MyApplicationsPage() {
                   app.status === 'hired'      ? 'bg-green-500'
                   : app.status === 'selected' ? 'bg-emerald-500'
                   : app.status === 'interview'? 'bg-violet-500'
+                  : app.status === 'assessment'? 'bg-amber-500'
                   : app.status === 'rejected' ? 'bg-red-400'
                   : app.status === 'withdrawn'? 'bg-gray-400'
                   : 'bg-gradient-to-r from-indigo-500 to-violet-500'
@@ -540,16 +544,42 @@ export default function MyApplicationsPage() {
                         {app.job_location && `${app.job_location} · `}Applied {formatDate(app.applied_at)}
                       </p>
                     </div>
-                    {/* Interview score badge */}
-                    {app.interview_score != null && (
-                      <div className="shrink-0 text-right">
-                        <span className={`text-lg font-bold tabular-nums ${app.interview_score >= 70 ? 'text-emerald-500' : app.interview_score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                          {app.interview_score}%
-                        </span>
-                        <p className="text-xs text-gray-400 dark:text-slate-500">Interview</p>
-                      </div>
-                    )}
+                    <div className="shrink-0 flex flex-wrap gap-3 justify-end">
+                      {app.assessment_score != null && app.assessment_score !== undefined && (
+                        <div className="text-right">
+                          <span className={`text-lg font-bold tabular-nums ${app.assessment_score >= 70 ? 'text-emerald-500' : app.assessment_score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {app.assessment_score}%
+                          </span>
+                          <p className="text-xs text-gray-400 dark:text-slate-500">Assessment</p>
+                        </div>
+                      )}
+                      {app.interview_score != null && (
+                        <div className="text-right">
+                          <span className={`text-lg font-bold tabular-nums ${app.interview_score >= 70 ? 'text-emerald-500' : app.interview_score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {app.interview_score}%
+                          </span>
+                          <p className="text-xs text-gray-400 dark:text-slate-500">Interview</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {app.job_has_assessment &&
+                    app.assessment_id &&
+                    (app.assessment_score == null || app.assessment_score === undefined) &&
+                    !['rejected', 'withdrawn', 'hired', 'interview', 'selected'].includes(app.status) && (
+                    <div className="mt-3">
+                      <Link
+                        to={`/assessment/attempt/${app.assessment_id}?application_id=${encodeURIComponent(app.id)}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                      >
+                        Complete assessment
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  )}
 
                   {/* Pipeline tracker */}
                   {!['rejected', 'withdrawn'].includes(app.status) && (

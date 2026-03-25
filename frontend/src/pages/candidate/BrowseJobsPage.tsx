@@ -22,6 +22,7 @@ interface PublicJob {
   employment_type: string;
   required_skills: string[];
   application_deadline?: string;
+  company_name?: string;
 }
 
 function SkeletonCard() {
@@ -87,6 +88,10 @@ function JobCard({ job, isApplied }: { job: PublicJob; isApplied: boolean }) {
           </span>
         )}
       </div>
+
+      {job.company_name && job.company_name !== 'Hirebase' && (
+        <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-2">{job.company_name}</p>
+      )}
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-3 text-xs text-gray-500 dark:text-slate-400">

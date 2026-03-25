@@ -1,9 +1,14 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 import enum
+
+if TYPE_CHECKING:
+    from app.models.company import Company
 
 
 class UserRole(str, enum.Enum):
@@ -36,6 +41,9 @@ class User(Base):
     )
     jobs: Mapped[list["Job"]] = relationship(
         "Job", back_populates="created_by", foreign_keys="Job.created_by_id", cascade="all, delete-orphan"
+    )
+    company: Mapped["Company | None"] = relationship(
+        "Company", back_populates="owner", foreign_keys="Company.owner_user_id", uselist=False
     )
     applications: Mapped[list["Application"]] = relationship(
         "Application", back_populates="user", cascade="all, delete-orphan"

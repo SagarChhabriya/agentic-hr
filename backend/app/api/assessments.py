@@ -256,6 +256,14 @@ async def submit_assessment_attempt(
     a = a_result.scalar_one_or_none()
     if not a:
         raise HTTPException(status_code=404, detail="Assessment not found")
+    existing_attempt = await db.execute(
+        select(AssessmentAttempt).where(
+            AssessmentAttempt.application_id == app.id,
+            AssessmentAttempt.assessment_id == a.id,
+        )
+    )
+    if existing_attempt.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Assessment already submitted")
     q_map = {str(q.id): q for q in a.questions}
     correct = 0
     wrong = 0
@@ -291,6 +299,7 @@ async def submit_assessment_attempt(
     )
     db.add(attempt)
     app.assessment_score = int(round(score_pct))
+    app.status = "applied"
     await db.flush()
     await db.refresh(attempt)
     return {

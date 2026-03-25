@@ -9,9 +9,11 @@ from app.models.assessment_attempt import AssessmentAttempt
 from app.models.candidate_profile import CandidateProfile
 from app.models.job_question import JobCustomQuestion
 from app.models.interview import Interview, InterviewSession
+from app.models.company import Company
 
 __all__ = [
     "Base", "User", "RefreshToken", "Job", "Application",
     "CustomQuestion", "Assessment", "AssessmentQuestion", "AssessmentAttempt",
     "CandidateProfile", "JobCustomQuestion", "Interview", "InterviewSession",
+    "Company",
 ]
