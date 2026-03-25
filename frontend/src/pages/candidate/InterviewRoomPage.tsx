@@ -230,6 +230,15 @@ function CustomRoomView({
   const hadAgentRef = useRef(false);
   const agentMixedRef = useRef(false);
 
+  /** Hard cap aligned with agent MAX_INTERVIEW_SECONDS (10 min default) — disconnect if agent fails to. */
+  const MAX_INTERVIEW_MS = 10 * 60 * 1000;
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      room.disconnect().catch(() => {});
+    }, MAX_INTERVIEW_MS);
+    return () => window.clearTimeout(id);
+  }, [room]);
+
   // Track that agent was connected at least once
   useEffect(() => {
     if (agent) hadAgentRef.current = true;
@@ -728,9 +737,15 @@ export default function InterviewRoomPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
+  /** Prevents double onDisconnected; avoids recording effect cleanup racing upload */
+  const interviewFinalizeStartedRef = useRef(false);
   // Web Audio refs for mixing both candidate mic + agent audio
   const audioCtxRef = useRef<AudioContext | null>(null);
   const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+
+  useEffect(() => {
+    interviewFinalizeStartedRef.current = false;
+  }, [interviewId]);
 
   const tokenMutation = useMutation({
     mutationFn: () => interviewsApi.getToken(interviewId!),
@@ -781,6 +796,10 @@ export default function InterviewRoomPage() {
 
     return () => {
       active = false;
+      // If we're in handleInterviewComplete, it stops the recorder and uploads — don't race it.
+      if (interviewFinalizeStartedRef.current) {
+        return;
+      }
       mediaRecorderRef.current?.stop();
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
       audioCtxRef.current?.close();
@@ -790,15 +809,29 @@ export default function InterviewRoomPage() {
   }, [tokenData]);
 
   const handleInterviewComplete = useCallback(async () => {
-    setTokenData(null);
+    if (interviewFinalizeStartedRef.current) return;
+    interviewFinalizeStartedRef.current = true;
+
+    // Show completion UI first, but keep tokenData until upload finishes so the recording
+    // effect does not run cleanup and destroy the MediaRecorder before we flush chunks.
     setCompleted(true);
+
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
+      try {
+        if (typeof recorder.requestData === 'function') {
+          recorder.requestData();
+        }
+      } catch {
+        /* ignore */
+      }
       recorder.stop();
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
       audioCtxRef.current?.close();
-      // Give the recorder a moment to flush the final chunk
-      await new Promise((r) => setTimeout(r, 800));
+      audioCtxRef.current = null;
+      destRef.current = null;
+      // Wait for ondataavailable / final chunk after stop
+      await new Promise((r) => setTimeout(r, 1200));
       const chunks = recordedChunksRef.current;
       if (chunks.length > 0 && interviewId) {
         setUploadStatus('uploading');
@@ -820,8 +853,17 @@ export default function InterviewRoomPage() {
         } else {
           setUploadStatus('failed');
         }
+      } else if (interviewId) {
+        setUploadStatus('failed');
       }
+    } else {
+      recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+      audioCtxRef.current?.close();
+      audioCtxRef.current = null;
+      destRef.current = null;
     }
+
+    setTokenData(null);
   }, [interviewId]);
 
   // Auto-navigate after completion

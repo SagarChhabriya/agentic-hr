@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
-import { isAssessmentPendingAndOpen, isInterviewJoinWindowOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
+import { isAssessmentPendingAndOpen, canJoinAiInterview, isOfferResponseOpen } from '../../lib/candidateDeadlines';
 import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STAGES = [
@@ -94,12 +94,7 @@ export default function CandidateDashboardPage() {
   }, {});
 
   /** Scheduled AI interviews within the 24h join window after start time */
-  const upcomingInterviews = interviews.filter(
-    (iv: any) =>
-      iv.status === 'scheduled' &&
-      !['completed', 'no_show', 'cancelled'].includes(iv.status) &&
-      isInterviewJoinWindowOpen(iv.scheduled_at)
-  );
+  const upcomingInterviews = interviews.filter((iv: any) => canJoinAiInterview(iv));
   /** Assessment required, within 24h window, not yet completed */
   const pendingAssessments = apps.filter((a: any) => isAssessmentPendingAndOpen(a));
   const pendingOffers = apps.filter(

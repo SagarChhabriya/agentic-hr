@@ -39,3 +39,15 @@ export function isInterviewJoinWindowOpen(scheduledAtIso: string): boolean {
   const end = new Date(scheduledAtIso).getTime() + 24 * 60 * 60 * 1000;
   return Date.now() <= end;
 }
+
+/** Hide Join once the interview is finished or a session summary exists (race while status updates). */
+export function canJoinAiInterview(interview: {
+  status: string;
+  scheduled_at: string;
+  session_summary?: string | null;
+}): boolean {
+  if (interview.session_summary) return false;
+  if (['completed', 'cancelled', 'no_show'].includes(interview.status)) return false;
+  if (interview.status !== 'scheduled') return false;
+  return isInterviewJoinWindowOpen(interview.scheduled_at);
+}

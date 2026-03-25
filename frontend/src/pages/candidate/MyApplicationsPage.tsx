@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
-import { isAssessmentPendingAndOpen, isOfferResponseOpen } from '../../lib/candidateDeadlines';
+import { isAssessmentPendingAndOpen, isOfferResponseOpen, canJoinAiInterview } from '../../lib/candidateDeadlines';
 import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STEPS = [
@@ -152,7 +152,10 @@ function parseSummary(raw: string | null | undefined) {
 function InterviewSummaryCard({ interview }: { interview: Interview }) {
   const [expanded, setExpanded] = useState(false);
   const parsed = parseSummary(interview.session_summary);
-  const isCompleted = interview.status === 'completed';
+  /** Treat as finished when status is completed or we already have a summary (status may lag). */
+  const isCompleted =
+    interview.status === 'completed' ||
+    (interview.status === 'scheduled' && !!interview.session_summary);
   const isNoShow = interview.status === 'no_show';
   const isScheduled = interview.status === 'scheduled';
 
@@ -164,7 +167,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
     );
   }
 
-  if (isScheduled) {
+  if (isScheduled && canJoinAiInterview(interview)) {
     const { text: timeText, urgent } = (() => {
       const ms = new Date(interview.scheduled_at).getTime() - Date.now();
       if (ms <= 0) return { text: 'Started — join now', urgent: true };

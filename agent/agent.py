@@ -5,6 +5,7 @@ uses the same LIVEKIT_* credentials as the backend so it joins rooms
 created by the API (e.g. interview-{application_id}-{timestamp}).
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -86,8 +87,21 @@ DEEPGRAM_TTS_MODEL = "aura-2-athena-en"
 BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
 AGENT_SECRET = os.getenv("AGENT_SECRET", "")
 
-# Maximum interview duration in seconds. Agent wraps up gracefully at this limit.
-MAX_INTERVIEW_SECONDS = int(os.getenv("MAX_INTERVIEW_SECONDS", "1800"))  # 30 min default
+# Maximum interview duration in seconds (hard cap: room disconnects after this).
+MAX_INTERVIEW_SECONDS = int(os.getenv("MAX_INTERVIEW_SECONDS", "600"))  # 10 minutes default
+
+# Spoken after closing; repeated every 30s until the hard time cap (see _leave_reminder_loop).
+LEAVE_BUTTON_REMINDER = (
+    "Kindly click the Leave button in the control bar to end the call. Thank you."
+)
+
+
+def _goodbye_with_leave_instruction(closing: str) -> str:
+    """Append Leave-button instruction once if not already present."""
+    lower = closing.lower()
+    if "leave" in lower and "button" in lower:
+        return closing
+    return f"{closing.rstrip()} {LEAVE_BUTTON_REMINDER}"
 
 AGENT_INSTRUCTIONS = """You are a professional AI interviewer for a hiring platform. Your role is strictly to conduct structured job interviews.
 
@@ -96,7 +110,7 @@ INTERVIEW CONDUCT:
 - Cover: introduction, relevant experience, technical/role skills, a situational question, and closing.
 - Keep your responses concise — this is voice, not text. No markdown, bullet points, or emojis.
 - Listen actively and ask relevant follow-up questions.
-- After 5-7 questions, thank the candidate and wrap up.
+- After 5-7 questions, thank the candidate and wrap up (the session also ends automatically at the platform time limit).
 
 LEGAL GUARDRAILS (strictly follow):
 - NEVER ask about age, date of birth, or graduation year as a proxy for age.
@@ -117,6 +131,8 @@ ENDING THE INTERVIEW:
 - If the candidate says they want to end, thank them and close professionally.
 - If the interview reaches the time limit, wrap up gracefully with: "We're coming up on time, so let me ask one final question."
 - Always end with: "Thank you for your time. Our team will be in touch with next steps. Goodbye!"
+  Then in the same turn, tell the candidate they must click the **Leave** button in the control bar to end the call.
+- After you say goodbye, if they have not left yet, every 30 seconds politely repeat: click the Leave button to end the call (until the session time limit).
 """
 
 
@@ -168,8 +184,9 @@ _OFF_TOPIC_PATTERNS = re.compile(
 # Detect goodbye / session-ending phrases spoken by the AGENT
 _GOODBYE_PATTERN = re.compile(
     r"\b(goodbye|good-bye|good bye|see you|take care|best of luck|"
+    r"thank you for your time|thanks for your time|thank you for interviewing|"
     r"our team will be in touch|we will be in touch|that concludes|"
-    r"that('s| is) all the questions|end of the interview|wrap(ping)? up)\b",
+    r"that('s| is) all (the |my )?questions|end of (the |our )?interview|wrap(ping)? up)\b",
     re.IGNORECASE,
 )
 
@@ -270,7 +287,8 @@ SECURITY GUARDRAILS:
 ENDING THE INTERVIEW:
 - If the candidate says they want to end, thank them and close professionally.
 - If the interview reaches the time limit, wrap up gracefully: "We're coming up on time, so let me ask one final question."
-- Always end with: "Thank you for your time. Our team will be in touch with next steps. Goodbye!"
+- Always end with: "Thank you for your time. Our team will be in touch with next steps. Goodbye!" and tell them to click the **Leave** button in the control bar to end the call.
+- If they remain in the room, every 30 seconds repeat the Leave-button reminder until the session time limit.
 """
 
 
@@ -354,6 +372,76 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         agent_instance = InterviewAgent(instructions=instructions)
 
         _goodbye_sent = {"value": False}
+        _session_ended = {"value": False}
+        _disconnect_scheduled = {"value": False}
+
+        def _schedule_disconnect(delay_sec: float) -> None:
+            """Ensure only one disconnect is scheduled (flag set synchronously)."""
+            if _disconnect_scheduled["value"]:
+                return
+            _disconnect_scheduled["value"] = True
+
+            async def _run() -> None:
+                await asyncio.sleep(delay_sec)
+                try:
+                    await ctx.room.disconnect()
+                    print("[agent] room disconnected", flush=True)
+                except Exception as exc:
+                    print(f"[agent] room disconnect error: {exc}", flush=True)
+
+            asyncio.create_task(_run())
+
+        reminder_started = {"value": False}
+        reminder_task_holder: dict = {"task": None}
+
+        async def _leave_reminder_loop() -> None:
+            """Every 30s remind candidate to click Leave, until hard time cap or session end."""
+            try:
+                while True:
+                    await asyncio.sleep(30)
+                    if _session_ended["value"]:
+                        return
+                    elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+                    if elapsed >= MAX_INTERVIEW_SECONDS:
+                        return
+                    try:
+                        await session.say(LEAVE_BUTTON_REMINDER, allow_interruptions=False)
+                    except Exception as exc:
+                        print(f"[agent] leave reminder say failed: {exc}", flush=True)
+                        return
+            except asyncio.CancelledError:
+                pass
+
+        def _start_leave_reminders_if_needed() -> None:
+            if reminder_started["value"]:
+                return
+            reminder_started["value"] = True
+            reminder_task_holder["task"] = asyncio.create_task(_leave_reminder_loop())
+
+        async def _hard_duration_watchdog() -> None:
+            """Ends the call at MAX_INTERVIEW_SECONDS even if the candidate is silent."""
+            await asyncio.sleep(MAX_INTERVIEW_SECONDS)
+            if _session_ended["value"]:
+                return
+            if _goodbye_sent["value"]:
+                _schedule_disconnect(0.5)
+                return
+            _goodbye_sent["value"] = True
+            print("[agent] hard time cap — saying goodbye and disconnecting", flush=True)
+            try:
+                await session.say(
+                    _goodbye_with_leave_instruction(
+                        "We've reached the maximum time for this interview. "
+                        "Thank you for your time. Our team will be in touch with next steps. Goodbye!"
+                    ),
+                    allow_interruptions=False,
+                )
+            except Exception as exc:
+                print(f"[agent] time-cap say failed: {exc}", flush=True)
+            _start_leave_reminders_if_needed()
+            _schedule_disconnect(7)
+
+        watchdog_task = asyncio.create_task(_hard_duration_watchdog())
 
         @session.on("user_speech_committed")
         def _on_user_speech(evt=None):
@@ -372,7 +460,6 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "flagged": "jailbreak",
                 })
-                import asyncio
                 asyncio.create_task(
                     session.say(
                         "I'm here strictly to conduct your job interview. "
@@ -393,7 +480,6 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "flagged": "off_topic",
                 })
-                import asyncio
                 asyncio.create_task(
                     session.say(
                         "That's outside the scope of this interview. "
@@ -415,14 +501,21 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                 print("[agent] GUARDRAIL: max duration reached — ending interview", flush=True)
                 _log.info("Max interview duration reached (%ds)", MAX_INTERVIEW_SECONDS)
                 _goodbye_sent["value"] = True
-                import asyncio
-                asyncio.create_task(
-                    session.say(
-                        "We've reached the end of our scheduled time. "
-                        "Thank you for your time. Our team will be in touch with next steps. Goodbye!",
-                        allow_interruptions=False,
-                    )
-                )
+
+                async def _say_time_limit_goodbye() -> None:
+                    try:
+                        await session.say(
+                            _goodbye_with_leave_instruction(
+                                "We've reached the end of our scheduled time. "
+                                "Thank you for your time. Our team will be in touch with next steps. Goodbye!"
+                            ),
+                            allow_interruptions=False,
+                        )
+                    finally:
+                        _start_leave_reminders_if_needed()
+
+                asyncio.create_task(_say_time_limit_goodbye())
+                _schedule_disconnect(8)
 
         @session.on("agent_speech_committed")
         def _on_agent_speech(evt=None):
@@ -439,19 +532,13 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
 
-                # Auto-disconnect room 4 seconds after the agent says goodbye
-                if _GOODBYE_PATTERN.search(text) and not _goodbye_sent["value"]:
-                    _goodbye_sent["value"] = True
-                    print("[agent] Goodbye detected — scheduling room disconnect in 4s", flush=True)
-                    import asyncio
-                    async def _leave_room():
-                        await asyncio.sleep(4)
-                        try:
-                            await ctx.room.disconnect()
-                            print("[agent] Room disconnected after goodbye", flush=True)
-                        except Exception as exc:
-                            print(f"[agent] Room disconnect error: {exc}", flush=True)
-                    asyncio.create_task(_leave_room())
+                # Auto-disconnect shortly after the agent finishes closing (questions done or natural end)
+                if _GOODBYE_PATTERN.search(text):
+                    if not _goodbye_sent["value"]:
+                        _goodbye_sent["value"] = True
+                    print("[agent] Goodbye / closing phrase detected — scheduling room disconnect in 4s", flush=True)
+                    _start_leave_reminders_if_needed()
+                    _schedule_disconnect(4)
 
         @session.on("user_speech_started")
         def _on_speech_started(_evt=None):
@@ -459,7 +546,22 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             print(f"[agent] >>> user speech started (elapsed {elapsed:.0f}s)", flush=True)
 
         print("[agent] starting session...", flush=True)
-        await session.start(room=ctx.room, agent=agent_instance)
+        try:
+            await session.start(room=ctx.room, agent=agent_instance)
+        finally:
+            _session_ended["value"] = True
+            rt = reminder_task_holder.get("task")
+            if rt and not rt.done():
+                rt.cancel()
+                try:
+                    await rt
+                except asyncio.CancelledError:
+                    pass
+            watchdog_task.cancel()
+            try:
+                await watchdog_task
+            except asyncio.CancelledError:
+                pass
 
         ended_at = datetime.now(timezone.utc)
         print(f"[agent] session ended — {len(transcript)} messages collected", flush=True)

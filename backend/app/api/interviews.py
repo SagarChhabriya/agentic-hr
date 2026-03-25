@@ -21,6 +21,31 @@ _log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
+
+def _extract_supabase_signed_url(signed: object) -> str | None:
+    """Normalize supabase-py / storage signed URL responses across versions."""
+    if signed is None:
+        return None
+    if isinstance(signed, str) and signed.startswith("http"):
+        return signed
+    if isinstance(signed, dict):
+        data = signed.get("data")
+        if isinstance(data, dict):
+            inner = (
+                data.get("signedURL")
+                or data.get("signedUrl")
+                or data.get("signed_url")
+            )
+            if inner:
+                return str(inner)
+        return (
+            signed.get("signedURL")
+            or signed.get("signedUrl")
+            or signed.get("signed_url")
+        ) or None
+    su = getattr(signed, "signed_url", None) or getattr(signed, "signedURL", None)
+    return str(su) if su else None
+
 from app.core.datetime_wire import KARACHI_TZ, iso_aware_as_utc_z, iso_karachi_naive_as_utc_z
 
 
@@ -749,10 +774,10 @@ async def get_recording_signed_url(
         signed = client.storage.from_("interview-recordings").create_signed_url(
             storage_path, expires_in=3600
         )
-        # supabase-py v2 returns a dict with key "signedURL" (full URL)
-        signed_url = signed.get("signedURL") or signed.get("signed_url") or signed.get("data", {}).get("signedURL")
+        signed_url = _extract_supabase_signed_url(signed)
         if not signed_url:
-            raise ValueError(f"Unexpected signed URL response: {signed}")
+            _log.error("Unexpected signed URL payload: %r", signed)
+            raise ValueError(f"Unexpected signed URL response: {signed!r}")
     except Exception as exc:
         _log.error("Failed to generate signed URL for interview %s: %s", interview_id, exc)
         raise HTTPException(status_code=500, detail="Could not generate recording URL") from exc
