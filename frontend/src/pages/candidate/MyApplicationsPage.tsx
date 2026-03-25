@@ -3,7 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
-import { isAssessmentPendingAndOpen, isOfferResponseOpen, canJoinAiInterview } from '../../lib/candidateDeadlines';
+import {
+  isAssessmentPendingAndOpen,
+  isOfferResponseOpen,
+  canJoinAiInterview,
+  canJoinAiInterviewNow,
+} from '../../lib/candidateDeadlines';
 import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STEPS = [
@@ -198,19 +203,28 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
             </p>
           </div>
         </div>
-        <Link
-          to={`/interview/room/${interview.id}`}
-          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            urgent
-              ? 'bg-violet-600 hover:bg-violet-700 text-white'
-              : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600'
-          }`}
-        >
-          Join Interview
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
+        {canJoinAiInterviewNow(interview) ? (
+          <Link
+            to={`/interview/room/${interview.id}`}
+            className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              urgent
+                ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600'
+            }`}
+          >
+            Join Interview
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        ) : (
+          <span
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors bg-gray-100 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 cursor-not-allowed border border-gray-200 dark:border-slate-600"
+            title="The interview room opens at the scheduled time and stays open for 30 minutes."
+          >
+            Not yet open
+          </span>
+        )}
       </div>
     );
   }

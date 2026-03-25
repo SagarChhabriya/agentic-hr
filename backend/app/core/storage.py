@@ -58,6 +58,23 @@ def delete_resume(url: str) -> None:
     logger.info("Deleted resume: %s", path)
 
 
+INTERVIEW_RECORDINGS_BUCKET = "interview-recordings"
+INTERVIEW_RECORDING_MAX_BYTES = 512 * 1024 * 1024  # 512 MB
+
+
+def upload_interview_recording_bytes(storage_path: str, file_bytes: bytes) -> None:
+    """Upload a WebM recording to the interview-recordings bucket (service role)."""
+    if len(file_bytes) > INTERVIEW_RECORDING_MAX_BYTES:
+        raise ValueError("Recording exceeds size limit")
+    client = _get_supabase()
+    client.storage.from_(INTERVIEW_RECORDINGS_BUCKET).upload(
+        storage_path,
+        file_bytes,
+        {"content-type": "video/webm", "upsert": "true"},
+    )
+    logger.info("Uploaded interview recording: %s (%s bytes)", storage_path, len(file_bytes))
+
+
 LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 _LOGO_EXT_TO_CT = {
     ".png": "image/png",

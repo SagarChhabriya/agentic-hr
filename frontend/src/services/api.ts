@@ -134,7 +134,18 @@ export const interviewsApi = {
     apiClient.post(`/interviews/${interviewId}/cancel`).then((r) => r.data),
   reschedule: (interviewId: string, body: { scheduled_at: string; duration_minutes?: number }) =>
     apiClient.post(`/interviews/${interviewId}/reschedule`, body).then((r) => r.data),
-  /** Candidate: save Supabase storage path after upload completes */
+  /** Candidate: upload recording via backend (Supabase service role); preferred over direct client upload */
+  uploadRecordingBlob: (interviewId: string, blob: Blob) => {
+    const form = new FormData();
+    form.append('file', blob, 'recording.webm');
+    return apiClient
+      .post<{ status: string; interview_id: string; storage_path: string }>(
+        `/interviews/${interviewId}/recording/upload`,
+        form
+      )
+      .then((r) => r.data);
+  },
+  /** Candidate: save Supabase storage path after a direct browser upload (fallback) */
   saveRecordingPath: (interviewId: string, storagePath: string) =>
     apiClient.patch(`/interviews/${interviewId}/recording`, { storage_path: storagePath }).then((r) => r.data),
   /** Recruiter: get a 1-hour signed URL to stream/download the recording */

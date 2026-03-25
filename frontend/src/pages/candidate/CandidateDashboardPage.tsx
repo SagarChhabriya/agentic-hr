@@ -5,7 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
 import { showToast } from '../../components/Toast';
-import { isAssessmentPendingAndOpen, canJoinAiInterview, isOfferResponseOpen } from '../../lib/candidateDeadlines';
+import {
+  isAssessmentPendingAndOpen,
+  canJoinAiInterview,
+  canJoinAiInterviewNow,
+  isOfferResponseOpen,
+} from '../../lib/candidateDeadlines';
 import { formatDateKarachi, formatDateTimeKarachi } from '../../lib/datetimeKarachi';
 
 const PIPELINE_STAGES = [
@@ -93,7 +98,7 @@ export default function CandidateDashboardPage() {
     return acc;
   }, {});
 
-  /** Scheduled AI interviews within the 24h join window after start time */
+  /** Scheduled AI interviews before the 30-minute join window has expired */
   const upcomingInterviews = interviews.filter((iv: any) => canJoinAiInterview(iv));
   /** Assessment required, within 24h window, not yet completed */
   const pendingAssessments = apps.filter((a: any) => isAssessmentPendingAndOpen(a));
@@ -271,14 +276,25 @@ export default function CandidateDashboardPage() {
                     </p>
                   </div>
                 </div>
-                <Link to={`/interview/room/${iv.id}`}
-                  onClick={() => showToast('Opening interview room', 'info')}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">
-                  Join
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-                  </svg>
-                </Link>
+                {canJoinAiInterviewNow(iv) ? (
+                  <Link
+                    to={`/interview/room/${iv.id}`}
+                    onClick={() => showToast('Opening interview room', 'info')}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors"
+                  >
+                    Join
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <span
+                    className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 cursor-not-allowed border border-gray-200 dark:border-slate-600"
+                    title="Opens at the scheduled time (30-minute window after start)."
+                  >
+                    Not yet open
+                  </span>
+                )}
               </div>
             );
           })}

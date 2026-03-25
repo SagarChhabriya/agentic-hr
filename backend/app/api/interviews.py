@@ -1,9 +1,12 @@
 """API for AI interview scheduling and LiveKit token generation."""
+import asyncio
 import json
 import logging
+import re
+import time
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -11,6 +14,7 @@ from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.storage import INTERVIEW_RECORDING_MAX_BYTES, upload_interview_recording_bytes
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.application import Application
@@ -18,6 +22,9 @@ from app.models.interview import Interview, InterviewSession, InterviewStatus
 from app.models.job import Job
 
 _log = logging.getLogger(__name__)
+
+# Candidate may obtain a LiveKit token only from scheduled time until this many minutes after.
+INTERVIEW_JOIN_WINDOW_MINUTES = 30
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
@@ -365,11 +372,10 @@ async def get_interview_token(
 
     # Check join time using Karachi local time:
     # - No early join: must be at or after scheduled time
-    # - 24-hour window: can only join within 24 hours of the scheduled time
+    # - Short window: join only within INTERVIEW_JOIN_WINDOW_MINUTES after scheduled start
     now_local = datetime.now(KARACHI_TZ)
     scheduled_local = interview.scheduled_at.replace(tzinfo=KARACHI_TZ)
-    from datetime import timedelta
-    window_end = scheduled_local + timedelta(hours=24)
+    window_end = scheduled_local + timedelta(minutes=INTERVIEW_JOIN_WINDOW_MINUTES)
     if now_local < scheduled_local:
         raise HTTPException(
             status_code=400,
@@ -378,7 +384,7 @@ async def get_interview_token(
     if now_local > window_end:
         raise HTTPException(
             status_code=400,
-            detail="The 24-hour join window for this interview has expired. Please contact the recruiter to reschedule.",
+            detail="The interview join window has expired (30 minutes after the scheduled start). Please contact the recruiter to reschedule.",
         )
 
     # Generate LiveKit token
@@ -667,11 +673,87 @@ async def my_interviews(
 
 
 # ---------------------------------------------------------------------------
-# Candidate: save recording path after Supabase upload
+# Candidate: upload recording (service role → Supabase) or save path after direct upload
 # ---------------------------------------------------------------------------
 
 class RecordingPathRequest(BaseModel):
     storage_path: str  # relative path within the bucket, e.g. "uuid/name_ts.webm"
+
+
+def _sanitize_recording_filename_part(name: str) -> str:
+    s = re.sub(r"[^a-zA-Z0-9_-]", "_", (name or "candidate").strip())[:40]
+    return s or "candidate"
+
+
+@router.post("/{interview_id}/recording/upload")
+async def upload_interview_recording(
+    interview_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Candidate uploads the WebM recording through the API; the backend stores it in Supabase
+    using the service key (avoids browser anon bucket policy issues).
+    """
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Recording storage is not configured on the server.",
+        )
+
+    result = await db.execute(
+        select(Interview)
+        .options(
+            selectinload(Interview.application),
+            selectinload(Interview.session),
+        )
+        .where(Interview.id == interview_id)
+    )
+    interview = result.scalar_one_or_none()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    if interview.application.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    body = await file.read()
+    if not body:
+        raise HTTPException(status_code=400, detail="Recording file is empty")
+    if len(body) > INTERVIEW_RECORDING_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Recording file is too large")
+
+    safe_name = _sanitize_recording_filename_part(
+        " ".join(
+            p for p in [current_user.first_name, current_user.last_name] if p
+        ).strip()
+        or current_user.email
+        or "candidate"
+    )
+    ts = time.strftime("%Y-%m-%dT%H-%M-%SZ", time.gmtime())
+    path = f"{interview_id}/{safe_name}_{ts}.webm"
+
+    try:
+        await asyncio.to_thread(upload_interview_recording_bytes, path, body)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e)) from e
+    except Exception as exc:
+        _log.exception("Interview recording upload failed for %s", interview_id)
+        raise HTTPException(status_code=500, detail="Could not store recording") from exc
+
+    if interview.session:
+        interview.session.video_url = path
+    else:
+        stub = InterviewSession(
+            interview_id=interview.id,
+            video_url=path,
+        )
+        db.add(stub)
+
+    await db.commit()
+    _log.info("Interview recording stored for %s by user %s", interview_id, current_user.id)
+    return {"status": "saved", "interview_id": interview_id, "storage_path": path}
 
 
 @router.patch("/{interview_id}/recording")

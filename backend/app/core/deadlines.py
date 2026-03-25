@@ -1,4 +1,4 @@
-"""24-hour validity windows for candidate steps (assessment, offer). AI interviews enforce 24h in interviews API."""
+"""24-hour validity windows for candidate steps (assessment, offer). AI interview join windows are enforced in interviews API (30 minutes after scheduled start)."""
 
 from __future__ import annotations
 

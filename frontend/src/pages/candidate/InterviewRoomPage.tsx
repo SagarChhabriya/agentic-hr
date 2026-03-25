@@ -17,19 +17,27 @@ import {
 import { Track, ParticipantEvent } from 'livekit-client';
 import { useTheme } from '../../contexts/ThemeContext';
 import { interviewsApi } from '../../services/api';
-import type { UploadResult } from '../../lib/supabaseStorage';
 import { showToast } from '../../components/Toast';
 
-// ---------------------------------------------------------------------------
-// Supabase Storage upload helper — silently disabled if env vars are absent
-// ---------------------------------------------------------------------------
-async function uploadRecordingToSupabase(
+async function uploadRecordingBestEffort(
   blob: Blob,
   interviewId: string,
-  candidateName?: string,
-): Promise<import('../../lib/supabaseStorage').UploadResult | null> {
-  const { uploadRecording } = await import('../../lib/supabaseStorage');
-  return uploadRecording(blob, interviewId, candidateName ?? 'candidate');
+  candidateName: string,
+): Promise<void> {
+  try {
+    await interviewsApi.uploadRecordingBlob(interviewId, blob);
+  } catch (backendErr) {
+    console.warn('[InterviewRoom] Backend recording upload failed, trying direct storage:', backendErr);
+    const { uploadRecording } = await import('../../lib/supabaseStorage');
+    const direct = await uploadRecording(blob, interviewId, candidateName);
+    if (direct) {
+      try {
+        await interviewsApi.saveRecordingPath(interviewId, direct.path);
+      } catch (e) {
+        console.warn('[InterviewRoom] saveRecordingPath failed:', e);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -730,7 +738,6 @@ export default function InterviewRoomPage() {
   } | null>(null);
   const [completed, setCompleted] = useState(false);
   const [countdown, setCountdown] = useState(10);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'saving' | 'done' | 'failed'>('idle');
 
   // Stable refs for recording — avoids stale-closure issues in callbacks
   const candidateNameRef = useRef<string>('candidate');
@@ -834,27 +841,10 @@ export default function InterviewRoomPage() {
       await new Promise((r) => setTimeout(r, 1200));
       const chunks = recordedChunksRef.current;
       if (chunks.length > 0 && interviewId) {
-        setUploadStatus('uploading');
         const blob = new Blob(chunks, { type: 'video/webm' });
-        const result: UploadResult | null = await uploadRecordingToSupabase(
-          blob,
-          interviewId,
-          candidateNameRef.current,
-        );
-        if (result) {
-          setUploadStatus('saving');
-          try {
-            await interviewsApi.saveRecordingPath(interviewId, result.path);
-            setUploadStatus('done');
-          } catch (err) {
-            console.warn('[InterviewRoom] Failed to save recording path to backend:', err);
-            setUploadStatus('done');
-          }
-        } else {
-          setUploadStatus('failed');
-        }
+        await uploadRecordingBestEffort(blob, interviewId, candidateNameRef.current);
       } else if (interviewId) {
-        setUploadStatus('failed');
+        console.warn('[InterviewRoom] No recording chunks to upload');
       }
     } else {
       recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -893,25 +883,6 @@ export default function InterviewRoomPage() {
           <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
             You will be notified by email once the recruiter reviews your results.
           </p>
-          {(uploadStatus === 'uploading' || uploadStatus === 'saving') && (
-            <div className="flex items-center justify-center gap-2 text-sm text-blue-600 dark:text-blue-400 mb-4">
-              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              {uploadStatus === 'uploading' ? 'Uploading recording…' : 'Saving recording reference…'}
-            </div>
-          )}
-          {uploadStatus === 'done' && (
-            <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-4">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Recording saved successfully.
-            </div>
-          )}
-          {uploadStatus === 'failed' && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">
-              Recording could not be saved (storage not configured). Your interview responses were still recorded.
-            </p>
-          )}
           <Link to="/candidate/applications"
             onClick={() => showToast('Opening My Applications', 'info')}
             className="inline-flex items-center justify-center w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-3 font-semibold transition-colors mb-3">

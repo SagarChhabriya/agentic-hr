@@ -1,4 +1,4 @@
-/** Client-side checks aligned with backend 24h windows (assessment, offer). Interviews: join valid until scheduled_at + 24h. */
+/** Client-side checks aligned with backend 24h windows (assessment, offer). AI interviews: 30-minute join window after scheduled start (matches token API). */
 
 export type AppWithAssessmentDeadline = {
   job_has_assessment?: boolean;
@@ -34,10 +34,21 @@ export function isOfferResponseOpen(app: AppWithOfferDeadline): boolean {
   return Date.now() <= endMs;
 }
 
-/** AI interview join window ends 24h after scheduled start (matches backend). */
-export function isInterviewJoinWindowOpen(scheduledAtIso: string): boolean {
-  const end = new Date(scheduledAtIso).getTime() + 24 * 60 * 60 * 1000;
+/** 30 minutes after scheduled start — matches backend `INTERVIEW_JOIN_WINDOW_MINUTES`. */
+export const AI_INTERVIEW_JOIN_WINDOW_MS = 30 * 60 * 1000;
+
+/** True if the join window has not expired (shows upcoming card; includes times before scheduled start). */
+export function isAiInterviewJoinWindowNotExpired(scheduledAtIso: string): boolean {
+  const end = new Date(scheduledAtIso).getTime() + AI_INTERVIEW_JOIN_WINDOW_MS;
   return Date.now() <= end;
+}
+
+/** True when now is in [scheduled_at, scheduled_at + 30min] — candidate may join. */
+export function isAiInterviewJoinWindowActiveNow(scheduledAtIso: string): boolean {
+  const start = new Date(scheduledAtIso).getTime();
+  const end = start + AI_INTERVIEW_JOIN_WINDOW_MS;
+  const now = Date.now();
+  return now >= start && now <= end;
 }
 
 /** Hide Join once the interview is finished or a session summary exists (race while status updates). */
@@ -49,5 +60,17 @@ export function canJoinAiInterview(interview: {
   if (interview.session_summary) return false;
   if (['completed', 'cancelled', 'no_show'].includes(interview.status)) return false;
   if (interview.status !== 'scheduled') return false;
-  return isInterviewJoinWindowOpen(interview.scheduled_at);
+  return isAiInterviewJoinWindowNotExpired(interview.scheduled_at);
+}
+
+/** True when the Join button should navigate to the room (within window). */
+export function canJoinAiInterviewNow(interview: {
+  status: string;
+  scheduled_at: string;
+  session_summary?: string | null;
+}): boolean {
+  if (interview.session_summary) return false;
+  if (['completed', 'cancelled', 'no_show'].includes(interview.status)) return false;
+  if (interview.status !== 'scheduled') return false;
+  return isAiInterviewJoinWindowActiveNow(interview.scheduled_at);
 }
