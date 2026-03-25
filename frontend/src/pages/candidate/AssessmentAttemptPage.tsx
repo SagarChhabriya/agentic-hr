@@ -42,6 +42,7 @@ export default function AssessmentAttemptPage() {
     onSuccess: () => {
       setSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ['applications', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['myApplications'] });
       showToast('Assessment submitted successfully.', 'success');
     },
     onError: (err) => {

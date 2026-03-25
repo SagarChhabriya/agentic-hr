@@ -315,7 +315,8 @@ async def submit_assessment_attempt(
     )
     db.add(attempt)
     app.assessment_score = int(round(score_pct))
-    app.status = "applied"
+    # Keep pipeline on "assessment" after submit so candidate progress shows step 2 (not reset to "applied").
+    app.status = "assessment"
     await db.flush()
     await db.refresh(attempt)
     return {
