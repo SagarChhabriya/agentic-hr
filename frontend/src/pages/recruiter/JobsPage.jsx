@@ -184,6 +184,7 @@ export default function JobsPage() {
         actions={
           <Link
             to="/recruiter/jobs/new"
+            state={{ fresh: true }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,7 +252,7 @@ export default function JobsPage() {
                     <p className="text-sm text-gray-500 dark:text-slate-400 mb-3">
                       {filter === 'all' ? 'No job postings yet' : `No ${filter} jobs`}
                     </p>
-                    <Link to="/recruiter/jobs/new"
+                    <Link to="/recruiter/jobs/new" state={{ fresh: true }}
                       className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                       Create your first job →
                     </Link>

@@ -112,9 +112,24 @@ export default function RecruiterCompanyPage() {
               </span>
             )}
           </div>
-          <p className={`text-sm mb-6 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+          <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
             Complete your employer profile so it can be verified by an admin. Once verified, you can create and publish jobs.
           </p>
+
+          {company && (
+            <div
+              className={`mb-6 p-4 rounded-lg border text-sm ${
+                isDark ? 'border-amber-800/80 bg-amber-950/25 text-amber-100/95' : 'border-amber-200 bg-amber-50 text-amber-950'
+              }`}
+            >
+              <p className="font-semibold mb-1">Re-approval after changes</p>
+              <p className={`leading-relaxed ${isDark ? 'text-amber-100/85' : 'text-amber-950/90'}`}>
+                {status === 'verified'
+                  ? 'If you edit and save this profile, it must be approved again by an admin. Your verification status will return to pending until it is re-approved.'
+                  : 'After your profile is verified, any later edits you save will need admin approval again (status will show as pending until approved).'}
+              </p>
+            </div>
+          )}
 
           {status === 'rejected' && company?.rejection_reason && (
             <div

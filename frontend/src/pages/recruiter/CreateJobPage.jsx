@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -7,12 +7,51 @@ import { jobsApi, customQuestionsApi, assessmentsApi, aiApi, companiesApi } from
 import { showToast } from '../../components/Toast';
 import DatePicker from '../../components/DatePicker';
 
+const STORAGE_KEY = 'createJobFormDraft';
+
+const defaultForm = {
+  title: '',
+  description: '',
+  salary: '',
+  location: '',
+  jobType: 'FULL_TIME',
+  employmentType: 'PERMANENT',
+  experienceRequired: '',
+  requiredSkills: [],
+  requirements: '',
+  applicationDeadline: '',
+  coverLetterRequired: false,
+  customQuestions: [],
+  includeAssessment: false,
+  assessmentName: '',
+  assessmentDuration: 30,
+  assessmentQuestions: [],
+};
+
+function loadDraft() {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return null;
+}
+
+function loadDraftQuestionIds() {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY + '_questions');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
 export default function CreateJobPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const isDark = theme === 'dark';
   const { user } = useUser();
-  const role = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const rawRole = user?.publicMetadata?.role || user?.unsafeMetadata?.role;
+  const role = String(rawRole || '').trim().toUpperCase();
 
   const { data: company, isLoading: companyLoading } = useQuery({
     queryKey: ['company', 'me'],
@@ -20,36 +59,22 @@ export default function CreateJobPage() {
     enabled: role === 'RECRUITER',
   });
 
-  const STORAGE_KEY = 'createJobFormDraft';
+  const startFresh = location.state?.fresh === true;
 
-  const loadDraft = () => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return null;
-  };
+  const [formData, setFormData] = useState(() => {
+    if (startFresh) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY + '_questions');
+      return { ...defaultForm };
+    }
+    return { ...defaultForm, ...(loadDraft() || {}) };
+  });
 
-  const defaultForm = {
-    title: '',
-    description: '',
-    salary: '',
-    location: '',
-    jobType: 'FULL_TIME',
-    employmentType: 'PERMANENT',
-    experienceRequired: '',
-    requiredSkills: [],
-    requirements: '',
-    applicationDeadline: '',
-    coverLetterRequired: false,
-    customQuestions: [],
-    includeAssessment: false,
-    assessmentName: '',
-    assessmentDuration: 30,
-    assessmentQuestions: [],
-  };
-
-  const [formData, setFormData] = useState(() => loadDraft() || defaultForm);
+  useEffect(() => {
+    if (startFresh) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [startFresh, location.pathname, navigate]);
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
@@ -60,11 +85,8 @@ export default function CreateJobPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableQuestions, setAvailableQuestions] = useState([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY + '_questions');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [];
+    if (startFresh) return [];
+    return loadDraftQuestionIds();
   });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');

@@ -150,6 +150,7 @@ export default function RecruiterDashboardPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             to="/recruiter/jobs/new"
+            state={{ fresh: true }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-90 transition-opacity shadow-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +185,7 @@ export default function RecruiterDashboardPage() {
         {totalPipelineCount === 0 ? (
           <div className="py-8 text-center">
             <p className="text-sm opacity-60 mb-2">No candidates in the pipeline yet.</p>
-            <Link to="/recruiter/jobs/new" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            <Link to="/recruiter/jobs/new" state={{ fresh: true }} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               Post a job to get started →
             </Link>
           </div>
@@ -282,7 +283,7 @@ export default function RecruiterDashboardPage() {
             {recentJobs.length === 0 ? (
               <div className="py-10 text-center">
                 <p className="text-sm opacity-50 mb-2">No jobs yet</p>
-                <Link to="/recruiter/jobs/new" className={`text-xs font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:underline`}>
+                <Link to="/recruiter/jobs/new" state={{ fresh: true }} className={`text-xs font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:underline`}>
                   Post your first job →
                 </Link>
               </div>
