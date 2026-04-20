@@ -101,6 +101,48 @@ def _extract_clerk_details(udata: dict) -> tuple[str, str, str, str]:
     return email, first_name, last_name, role
 
 
+async def _pick_user_row(
+    db: AsyncSession,
+    *,
+    clerk_id: str | None = None,
+    email: str | None = None,
+    label: str = "user",
+) -> User | None:
+    """
+    Return at most one User for clerk_id or email. If the DB has duplicate rows
+    (e.g. legacy schema without UNIQUE on clerk_id), use the oldest row and log.
+    """
+    if clerk_id:
+        q = (
+            select(User)
+            .where(User.clerk_id == clerk_id)
+            .order_by(User.created_at.asc())
+            .limit(2)
+        )
+    elif email:
+        q = (
+            select(User)
+            .where(User.email == email)
+            .order_by(User.created_at.asc())
+            .limit(2)
+        )
+    else:
+        return None
+
+    result = await db.execute(q)
+    rows = result.scalars().all()
+    if len(rows) > 1:
+        logger.warning(
+            "Duplicate %s for %s=%r (showing 2 of N); using canonical id=%s. "
+            "Merge or delete extra rows in PostgreSQL and keep UNIQUE on clerk_id and email.",
+            label,
+            "clerk_id" if clerk_id else "email",
+            clerk_id or email,
+            rows[0].id,
+        )
+    return rows[0] if rows else None
+
+
 async def _get_or_create_clerk_user(
     clerk_payload: dict, db: AsyncSession
 ) -> User | None:
@@ -109,8 +151,7 @@ async def _get_or_create_clerk_user(
     if not clerk_id:
         return None
 
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
+    user = await _pick_user_row(db, clerk_id=clerk_id, label="users.clerk_id")
 
     # Always fetch from Clerk API to keep role in sync
     udata = _fetch_clerk_user(clerk_id)
@@ -137,8 +178,7 @@ async def _get_or_create_clerk_user(
         return None
 
     # Check if email already exists (link clerk_id)
-    result = await db.execute(select(User).where(User.email == email))
-    existing = result.scalar_one_or_none()
+    existing = await _pick_user_row(db, email=email, label="users.email")
     if existing:
         # New Clerk account reusing an email: same DB user row, new clerk_id. Drop stale candidate
         # profile + resume so a recreated account does not inherit the previous person's data.

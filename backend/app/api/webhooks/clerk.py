@@ -11,10 +11,10 @@ from typing import Optional
 from fastapi import APIRouter, Request, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.core.database import get_db
 from app.models.user import User
+from app.api.deps import _pick_user_row
 
 router = APIRouter(prefix="/webhooks/clerk", tags=["webhooks"])
 
@@ -92,12 +92,10 @@ async def handle_clerk_webhook(
             if role not in ("ADMIN", "RECRUITER", "CANDIDATE"):
                 role = "CANDIDATE"
 
-            existing = await db.execute(select(User).where(User.clerk_id == clerk_id))
-            if existing.scalar_one_or_none():
+            if await _pick_user_row(db, clerk_id=clerk_id, label="users.clerk_id"):
                 return JSONResponse({"status": "success", "message": "already_exists"})
 
-            existing_email = await db.execute(select(User).where(User.email == email))
-            u = existing_email.scalar_one_or_none()
+            u = await _pick_user_row(db, email=email, label="users.email")
             if u:
                 u.clerk_id = clerk_id
                 u.role = role
@@ -121,8 +119,7 @@ async def handle_clerk_webhook(
 
         elif event_type == "user.updated":
             clerk_id = user_data.get("id")
-            result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-            u = result.scalar_one_or_none()
+            u = await _pick_user_row(db, clerk_id=clerk_id, label="users.clerk_id")
             if u:
                 first_name, last_name = _name_from_clerk(user_data)
                 metadata = user_data.get("unsafe_metadata") or user_data.get("public_metadata") or {}
