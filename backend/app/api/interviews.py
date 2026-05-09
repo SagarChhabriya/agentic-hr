@@ -22,7 +22,7 @@ from app.core.storage import (
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.application import Application
-from app.models.interview import Interview, InterviewSession, InterviewStatus
+from app.models.interview import Interview, InterviewSession, InterviewStatus, InterviewAnalysis
 from app.models.job import Job
 
 _log = logging.getLogger(__name__)
@@ -38,6 +38,19 @@ def _mark_interview_completed_when_recording_saved(interview: Interview) -> None
     interview.status = InterviewStatus.COMPLETED.value
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
+
+
+def _schedule_video_analysis(session_id: str, video_path: str) -> None:
+    """Create a fire-and-forget asyncio task for video behaviour analysis.
+
+    Safe to call from any async context; errors are caught inside the task.
+    """
+    try:
+        from app.core.video_analysis import trigger_video_analysis_task
+        asyncio.create_task(trigger_video_analysis_task(session_id, video_path))
+        _log.info("Video analysis task queued for session=%s", session_id)
+    except Exception:
+        _log.exception("Could not create video analysis task for session=%s", session_id)
 
 
 def _extract_supabase_signed_url(signed: object) -> str | None:
@@ -811,16 +824,21 @@ async def upload_interview_recording(
 
     if interview.session:
         interview.session.video_url = path
+        session_obj = interview.session
     else:
-        stub = InterviewSession(
+        session_obj = InterviewSession(
             interview_id=interview.id,
             video_url=path,
         )
-        db.add(stub)
+        db.add(session_obj)
 
     _mark_interview_completed_when_recording_saved(interview)
     await db.commit()
     _log.info("Interview recording stored for %s by user %s", interview_id, current_user.id)
+
+    # Trigger video behaviour analysis in the background (non-blocking)
+    _schedule_video_analysis(session_obj.id, path)
+
     return {"status": "saved", "interview_id": interview_id, "storage_path": path}
 
 
@@ -862,18 +880,23 @@ async def save_recording_path(
 
     if interview.session:
         interview.session.video_url = path
+        session_obj = interview.session
     else:
         # Session may not exist yet (agent hasn't finished processing)
         # Create a stub so the path is persisted; agent will fill in the rest
-        stub = InterviewSession(
+        session_obj = InterviewSession(
             interview_id=interview.id,
             video_url=path,
         )
-        db.add(stub)
+        db.add(session_obj)
 
     _mark_interview_completed_when_recording_saved(interview)
     await db.commit()
     _log.info("Recording path saved for interview %s by user %s", interview_id, current_user.id)
+
+    # Trigger video behaviour analysis in the background (non-blocking)
+    _schedule_video_analysis(session_obj.id, path)
+
     return {"status": "saved", "interview_id": interview_id}
 
 
@@ -937,4 +960,72 @@ async def get_recording_signed_url(
         "signed_url": signed_url,
         "expires_in": 3600,
         "interview_id": interview_id,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Recruiter: get video behaviour analysis for an interview
+# ---------------------------------------------------------------------------
+
+@router.get("/{interview_id}/analysis")
+async def get_interview_analysis(
+    interview_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return stored video behaviour analysis for a completed interview.
+
+    Returns 404 if the interview has no recording or analysis has not yet
+    been computed (analysis runs as a background task after upload).
+    """
+    if current_user.role not in ("RECRUITER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Recruiter access required")
+
+    result = await db.execute(
+        select(Interview, Application, Job)
+        .join(Application, Interview.application_id == Application.id)
+        .join(Job, Application.job_id == Job.id)
+        .options(
+            selectinload(Interview.session).selectinload(InterviewSession.analysis)
+        )
+        .where(Interview.id == interview_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    interview, _app, job = row
+
+    if job.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    session = interview.session
+    if not session:
+        raise HTTPException(status_code=404, detail="No session found for this interview")
+
+    analysis = session.analysis
+    if not analysis:
+        # Analysis not yet computed — client may poll; not an error
+        return {
+            "interview_id": interview_id,
+            "status": "pending",
+            "analysis": None,
+        }
+
+    raw = analysis.raw_analysis or {}
+    return {
+        "interview_id": interview_id,
+        "status": "ready",
+        "analysis": {
+            "cheating_detected": analysis.cheating_detected,
+            "cheating_details": analysis.cheating_details,
+            "attention_score": analysis.confidence_score,
+            "behavior_notes": analysis.behavior_notes,
+            "face_detected_ratio": raw.get("face_detected_ratio"),
+            "multiple_faces_detected": raw.get("multiple_faces_detected", False),
+            "avg_yaw": raw.get("avg_yaw"),
+            "avg_pitch": raw.get("avg_pitch"),
+            "looking_away_ratio": raw.get("looking_away_ratio"),
+            "frames_analyzed": raw.get("frames_analyzed"),
+            "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+        },
     }

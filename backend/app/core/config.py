@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # The agent passes it via X-Agent-Secret header when posting session results.
     agent_secret: str = Field("", validation_alias="AGENT_SECRET")
 
+    # Azure Cognitive Services — Computer Vision (S1) and Face API (Standard)
+    # Used for post-interview video behaviour analysis.
+    # Both can share the same endpoint if they live in the same Cognitive Services resource.
+    azure_cv_endpoint: str = Field("", validation_alias="AZURE_CV_ENDPOINT")
+    azure_cv_key: str = Field("", validation_alias="AZURE_CV_KEY")
+    # If Face API lives in a separate resource set these; otherwise CV endpoint/key are reused.
+    azure_face_endpoint: str = Field("", validation_alias="AZURE_FACE_ENDPOINT")
+    azure_face_key: str = Field("", validation_alias="AZURE_FACE_KEY")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

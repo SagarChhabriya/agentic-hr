@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import { applicationsApi, interviewsApi } from '../../services/api';
+
 import {
   datetimeLocalToKarachiIso,
   formatDateTimeKarachi,
@@ -10,6 +11,163 @@ import {
   minDatetimeLocalKarachiNow,
   utcIsoToDatetimeLocalKarachi,
 } from '../../lib/datetimeKarachi';
+
+// ---------------------------------------------------------------------------
+// Behaviour Analysis Panel — Azure CV + Face API insights
+// ---------------------------------------------------------------------------
+function BehaviourAnalysisPanel({ interviewId, isDark }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['interview-analysis', interviewId],
+    queryFn: () => interviewsApi.getAnalysis(interviewId),
+    // Poll every 15 s while analysis is still pending (background task may take time)
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'pending' ? 15_000 : false;
+    },
+    retry: 2,
+  });
+
+  const cardCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
+  const innerCls = isDark ? 'border-slate-600 bg-slate-900/40 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700';
+
+  if (isLoading) {
+    return (
+      <div className={`rounded-xl border p-5 mb-5 ${cardCls}`}>
+        <h2 className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Behaviour Analysis
+        </h2>
+        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          Loading analysis…
+        </div>
+      </div>
+    );
+  }
+
+  if (error) return null; // Silently omit if Azure is not configured or interview has no recording yet
+
+  const status = data?.status;
+  const analysis = data?.analysis;
+
+  if (status === 'pending' || !analysis) {
+    return (
+      <div className={`rounded-xl border p-5 mb-5 ${cardCls}`}>
+        <h2 className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Behaviour Analysis
+        </h2>
+        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Video analysis is processing in the background. This page will refresh automatically.
+        </p>
+      </div>
+    );
+  }
+
+  const attention = analysis.attention_score;
+  const attColor =
+    attention == null ? 'text-gray-400'
+    : attention >= 75 ? 'text-emerald-500'
+    : attention >= 50 ? 'text-amber-500'
+    : 'text-red-500';
+  const attBarColor =
+    attention == null ? 'bg-gray-300'
+    : attention >= 75 ? 'bg-emerald-500'
+    : attention >= 50 ? 'bg-amber-500'
+    : 'bg-red-500';
+
+  const lookAwayPct = analysis.looking_away_ratio != null
+    ? Math.round(analysis.looking_away_ratio * 100)
+    : null;
+  const faceDetectedPct = analysis.face_detected_ratio != null
+    ? Math.round(analysis.face_detected_ratio * 100)
+    : null;
+
+  return (
+    <div className={`rounded-xl border p-5 mb-5 ${cardCls}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Behaviour Analysis
+        </h2>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+          Azure AI
+        </span>
+      </div>
+
+      {/* Attention score */}
+      {attention != null && (
+        <div className="flex items-center gap-4 mb-4">
+          <div className="text-center shrink-0">
+            <p className={`text-3xl font-bold tabular-nums ${attColor}`}>{attention}</p>
+            <p className="text-xs opacity-50">/ 100</p>
+          </div>
+          <div className="flex-1">
+            <p className={`text-xs font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Attention Score</p>
+            <div className={`w-full h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+              <div
+                className={`h-2 rounded-full transition-all ${attBarColor}`}
+                style={{ width: `${attention}%` }}
+              />
+            </div>
+            <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              Based on face presence and gaze direction across {analysis.frames_analyzed ?? '?'} sampled frames
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Cheating alert */}
+      {analysis.cheating_detected && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 mb-4">
+          <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="text-xs font-semibold text-red-700 dark:text-red-300">Potential integrity concern</p>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{analysis.cheating_details}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Metric grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        {faceDetectedPct != null && (
+          <div className={`p-3 rounded-lg border text-center ${innerCls}`}>
+            <p className={`text-lg font-bold ${faceDetectedPct >= 80 ? 'text-emerald-500' : faceDetectedPct >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+              {faceDetectedPct}%
+            </p>
+            <p className="text-xs opacity-70 mt-0.5">Face visible</p>
+          </div>
+        )}
+        {lookAwayPct != null && (
+          <div className={`p-3 rounded-lg border text-center ${innerCls}`}>
+            <p className={`text-lg font-bold ${lookAwayPct <= 20 ? 'text-emerald-500' : lookAwayPct <= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+              {lookAwayPct}%
+            </p>
+            <p className="text-xs opacity-70 mt-0.5">Looking away</p>
+          </div>
+        )}
+        {analysis.avg_yaw != null && (
+          <div className={`p-3 rounded-lg border text-center ${innerCls}`}>
+            <p className="text-lg font-bold">{analysis.avg_yaw}°</p>
+            <p className="text-xs opacity-70 mt-0.5">Avg. yaw (h)</p>
+          </div>
+        )}
+      </div>
+
+      {/* Notes */}
+      {analysis.behavior_notes && (
+        <div className={`rounded-lg border p-3 text-xs leading-5 ${innerCls}`}>
+          <p className="font-semibold mb-1">Analysis notes</p>
+          <p>{analysis.behavior_notes}</p>
+        </div>
+      )}
+
+      <p className={`text-xs mt-3 ${isDark ? 'text-slate-600' : 'text-gray-400'}`}>
+        Powered by Azure Face API + Computer Vision · {analysis.frames_analyzed ?? '?'} frames sampled
+        {analysis.created_at ? ` · Analyzed ${new Date(analysis.created_at).toLocaleDateString()}` : ''}
+      </p>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Recording video player (modal)
@@ -1237,6 +1395,20 @@ export default function RecruiterCandidateDetailPage() {
         application={application}
         isDark={isDark}
       />
+
+      {/* Behaviour Analysis — Azure CV + Face API (shown when recording exists) */}
+      {(() => {
+        const interviews = interviewsData?.interviews || [];
+        const completed = interviews.find(
+          (i) =>
+            i.status === 'completed' ||
+            i.status === 'no_show' ||
+            Boolean(i.session?.video_url),
+        );
+        return completed ? (
+          <BehaviourAnalysisPanel interviewId={completed.id} isDark={isDark} />
+        ) : null;
+      })()}
 
       {/* Candidate Rating — combined score + hire recommendation */}
       <CandidateRatingPanel

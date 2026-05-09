@@ -159,6 +159,9 @@ export const interviewsApi = {
   /** Recruiter: get a 1-hour signed URL to stream/download the recording */
   getRecordingSignedUrl: (interviewId: string) =>
     apiClient.get(`/interviews/${interviewId}/recording-url`).then((r) => r.data),
+  /** Recruiter: get video behaviour analysis (Azure CV + Face API). Returns {status, analysis} */
+  getAnalysis: (interviewId: string) =>
+    apiClient.get(`/interviews/${interviewId}/analysis`).then((r) => r.data),
 };
 
 export const profileApi = {
