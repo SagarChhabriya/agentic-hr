@@ -42,7 +42,7 @@ const GENERIC_SECTIONS: Section[] = [
     items: [
         { heading: 'Listen carefully before answering', body: "If you're unsure about a question, it's perfectly fine to say \"That's a great question, let me take a moment to think.\" Avoid rushing." },
       { heading: 'Be concise and specific', body: 'Avoid vague answers. Use concrete examples with numbers and outcomes when possible (e.g., "I reduced load time by 40%").' },
-      { heading: 'Maintain eye contact', body: 'Look at the camera, not the screen. Smile naturally. Sit up straight — body language communicates confidence.' },
+      { heading: 'Maintain eye contact', body: 'Look at the camera, not the screen. Smile naturally. Sit up straight. Body language communicates confidence.' },
       { heading: 'Show enthusiasm', body: 'Express genuine interest in the role and company. Interviewers hire people they believe are excited about the opportunity.' },
       { heading: 'Avoid negative talk', body: 'Never badmouth a previous employer. Reframe challenges as learning experiences.' },
     ],
@@ -95,7 +95,7 @@ const GENERIC_SECTIONS: Section[] = [
       { heading: 'Send a thank-you note', body: 'If you have the interviewer\'s contact, send a brief thank-you email within 24 hours. Reaffirm your interest in the role.' },
       { heading: 'Reflect and document', body: 'Write down questions you were asked and how you answered. This helps you improve for future interviews.' },
       { heading: 'Follow up if needed', body: 'If you haven\'t heard back within the stated timeline, a polite follow-up email is appropriate and shows initiative.' },
-      { heading: 'Stay positive', body: 'Every interview — good or bad — is a learning experience. Identify what went well and what to improve.' },
+      { heading: 'Stay positive', body: 'Every interview, good or bad, is a learning experience. Identify what went well and what to improve.' },
     ],
   },
 ];
@@ -178,7 +178,7 @@ export default function InterviewGuidePage() {
       {job && (
         <div className={`rounded-xl border p-4 mb-6 ${isDark ? 'border-indigo-800/50 bg-indigo-900/20' : 'border-indigo-200 bg-indigo-50'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
-            Job-Specific Tips — {job.title}
+            Job-Specific Tips | {job.title}
           </p>
           <div className="space-y-2">
             {(job.required_skills || []).length > 0 && (
@@ -189,12 +189,12 @@ export default function InterviewGuidePage() {
             )}
             {job.experience_required && (
               <p className={`text-sm ${isDark ? 'text-indigo-200' : 'text-indigo-800'}`}>
-                <span className="font-medium">Experience level:</span> {job.experience_required} — prepare examples that demonstrate this depth.
+                <span className="font-medium">Experience level:</span> {job.experience_required}. Prepare examples that demonstrate this depth.
               </p>
             )}
             {job.location && (
               <p className={`text-sm ${isDark ? 'text-indigo-200' : 'text-indigo-800'}`}>
-                <span className="font-medium">Location:</span> {job.location} — be ready to discuss your availability/remote work preferences.
+                <span className="font-medium">Location:</span> {job.location}. Be ready to discuss your availability or remote-work preferences.
               </p>
             )}
             {job.description && (
@@ -264,7 +264,7 @@ export default function InterviewGuidePage() {
       {/* STAR method card */}
       <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-violet-800/50 bg-violet-900/10' : 'border-violet-200 bg-violet-50'}`}>
         <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
-          The STAR Method — Quick Reference
+          The STAR Method: Quick Reference
         </p>
         <div className="grid sm:grid-cols-4 gap-3">
           {[

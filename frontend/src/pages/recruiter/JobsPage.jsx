@@ -69,7 +69,7 @@ function ShareMenu({ job, isDark }) {
         window.open(liUrl, 'linkedin_share', 'width=620,height=620,left=200,top=100,resizable=yes,scrollbars=yes');
         // Clipboard write is async — fire after popup is already launched
         navigator.clipboard.writeText(summary).catch(() => {});
-        showToast('Post text copied to clipboard — paste it into the LinkedIn post body!', 'info', 6000);
+        showToast('Post text copied to clipboard. Paste it into the LinkedIn post body.', 'info', 6000);
       },
     },
     {
@@ -315,7 +315,7 @@ export default function JobsPage() {
                     </Link>
                   </td>
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    {job.location || '—'}
+                    {job.location || 'N/A'}
                   </td>
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                     {(job.job_type || '').replace(/_/g, ' ')}
@@ -329,7 +329,7 @@ export default function JobsPage() {
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
                     {job.application_deadline
                       ? formatJobDeadlineDateKarachi(job.application_deadline)
-                      : '—'}
+                      : 'N/A'}
                   </td>
                   <td className="px-4 py-3 relative">
                     <div className="flex items-center gap-1 justify-end">

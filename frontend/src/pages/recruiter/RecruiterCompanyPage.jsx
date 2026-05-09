@@ -231,7 +231,7 @@ export default function RecruiterCompanyPage() {
                 Company logo
               </label>
               <p className={`text-xs mb-3 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-                Shown on public job pages when your company is verified. PNG, JPG, WebP, GIF, or SVG — max 2 MB.
+                Shown on public job pages when your company is verified. PNG, JPG, WebP, GIF, or SVG (max 2 MB).
               </p>
               <div className="flex flex-wrap items-center gap-4 mb-3">
                 {form.logo_url ? (

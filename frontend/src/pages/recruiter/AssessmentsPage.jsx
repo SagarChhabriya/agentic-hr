@@ -165,7 +165,7 @@ export default function AssessmentsPage() {
             {aiQuestions.length > 0 && (
               <div className={`rounded-lg border p-4 ${isDark ? 'border-slate-600 bg-slate-900' : 'border-gray-200 bg-gray-50'}`}>
                 <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  AI-Generated Questions — {aiQuestions.filter((q) => q.accepted).length} accepted
+                  AI-Generated Questions ({aiQuestions.filter((q) => q.accepted).length} accepted)
                 </p>
                 <div className="space-y-2">
                   {aiQuestions.map((q, idx) => (
@@ -288,7 +288,7 @@ export default function AssessmentsPage() {
                     {a.name}
                   </td>
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    {a.job_title ?? <span className="text-gray-300 dark:text-slate-600">—</span>}
+                    {a.job_title ?? <span className="text-gray-300 dark:text-slate-600">N/A</span>}
                   </td>
                   <td className={`px-4 py-3 tabular-nums ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                     {a.questions_count ?? 0}
@@ -297,7 +297,7 @@ export default function AssessmentsPage() {
                     {a.duration_minutes} min
                   </td>
                   <td className={`px-4 py-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                    {a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    {a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link to={`/recruiter/assessments/${a.id}`}

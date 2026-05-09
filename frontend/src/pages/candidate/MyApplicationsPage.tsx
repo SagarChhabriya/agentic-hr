@@ -176,7 +176,7 @@ function InterviewSummaryCard({ interview }: { interview: Interview }) {
   if (isScheduled && canJoinAiInterview(interview)) {
     const { text: timeText, urgent } = (() => {
       const ms = new Date(interview.scheduled_at).getTime() - Date.now();
-      if (ms <= 0) return { text: 'Started — join now', urgent: true };
+      if (ms <= 0) return { text: 'Started, join now', urgent: true };
       const min = Math.floor(ms / 60000);
       const hr = Math.floor(min / 60);
       const day = Math.floor(hr / 24);

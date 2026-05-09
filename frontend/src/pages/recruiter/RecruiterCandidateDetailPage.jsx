@@ -136,7 +136,7 @@ function InterviewResultPanel({ interviews, application, isDark }) {
             </p>
             <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
               {session.video_url
-                ? 'Plays below — served via a short-lived signed URL from storage.'
+                ? 'Plays below (served via a short-lived signed URL from storage).'
                 : 'The candidate may not have uploaded a recording, or storage is not configured.'}
             </p>
           </div>
@@ -230,8 +230,8 @@ function CandidateRatingPanel({ application, assessmentResult, isDark }) {
 
   const recommendation =
     combined == null ? null
-    : combined >= 75 ? { label: 'Recommended — Hire', color: 'emerald' }
-    : combined >= 55 ? { label: 'Borderline — Review', color: 'amber' }
+    : combined >= 75 ? { label: 'Recommended (Hire)', color: 'emerald' }
+    : combined >= 55 ? { label: 'Borderline (Review)', color: 'amber' }
     : { label: 'Not Recommended', color: 'red' };
 
   const colorMap = {
@@ -312,11 +312,11 @@ function getReadyForInPersonLabel(application, assessmentResult, interviews) {
   }
   if (assessmentScore != null && hasAiInterviewDone && interviewScore == null) {
     return {
-      label: 'AI interview complete — review recording and summary below (score may appear after agent sync)',
+      label: 'AI interview complete. Review recording and summary below (score may appear after agent sync).',
       score: Number(assessmentScore),
     };
   }
-  if (assessmentScore != null) return { label: 'Assessment done — invite after AI interview', score: Number(assessmentScore) };
+  if (assessmentScore != null) return { label: 'Assessment done, invite after AI interview', score: Number(assessmentScore) };
   return { label: 'Complete assessment and AI interview first', score: null };
 }
 
@@ -1195,7 +1195,7 @@ export default function RecruiterCandidateDetailPage() {
           <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 rounded-xl w-full max-w-sm shadow-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
             <h3 className={`font-semibold mb-1 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Reject this candidate?</h3>
             <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-              <span className="font-medium">{application.name}</span> — {application.job_title}
+              <span className="font-medium">{application.name}</span> | {application.job_title}
             </p>
             <p className={`text-xs mb-5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
               The candidate will be notified by email. This action can be undone by changing their status manually.

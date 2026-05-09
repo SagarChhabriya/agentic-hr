@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="url(#grad)"/>
-  <path d="M8 8h3.2v6.8h9.6V8H24v16h-3.2v-6.8h-9.6V24H8V8z" fill="white"/>
+  <rect width="32" height="32" rx="8" fill="url(#grad)">
+    <animate attributeName="opacity" values="1;0.88;1" dur="1.8s" repeatCount="indefinite" />
+  </rect>
+  <path d="M8 8h3.2v6.8h9.6V8H24v16h-3.2v-6.8h-9.6V24H8V8z" fill="white">
+    <animate attributeName="opacity" values="1;0.78;1" dur="1.8s" repeatCount="indefinite" />
+  </path>
   <defs>
     <linearGradient id="grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#6366f1"/>

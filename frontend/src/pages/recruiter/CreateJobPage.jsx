@@ -526,7 +526,7 @@ export default function CreateJobPage() {
           </div>
           <div className="px-5 py-4">
             <p className={`text-xs mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-              Attach an MCQ assessment — applicants receive an email link to complete it.
+              Attach an MCQ assessment; applicants receive an email link to complete it.
             </p>
 
             <div className={`flex items-center gap-3 p-3 rounded-lg border mb-4 ${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-gray-100 bg-gray-50'}`}>

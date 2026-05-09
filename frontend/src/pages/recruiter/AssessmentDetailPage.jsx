@@ -239,7 +239,7 @@ export default function AssessmentDetailPage() {
                   d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
               <span>
-                Some questions have placeholder text — they were saved before full question generation was available.
+                Some questions have placeholder text. They were saved before full question generation was available.
                 Use <strong>"Clear all questions"</strong> then regenerate with the <strong>AI Generate</strong> tab.
               </span>
             </div>
@@ -282,7 +282,7 @@ export default function AssessmentDetailPage() {
                       <td className={`px-4 py-3 font-medium max-w-sm ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
                         {q.question_text && q.question_text.toLowerCase() !== 'question'
                           ? q.question_text
-                          : <span className="italic text-amber-500 dark:text-amber-400 font-normal text-xs">⚠ Placeholder — clear &amp; regenerate</span>
+                          : <span className="italic text-amber-500 dark:text-amber-400 font-normal text-xs">⚠ Placeholder (clear and regenerate)</span>
                         }
                       </td>
                       <td className="px-4 py-3">

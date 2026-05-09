@@ -101,7 +101,7 @@ export default function JobDetailPage() {
   }
 
   const typedJob = job as PublicJob;
-  if (typedJob.title) document.title = `${typedJob.title} — Hirebase`;
+  if (typedJob.title) document.title = `${typedJob.title} | Hirebase`;
 
   const deadline = typedJob.application_deadline ? new Date(typedJob.application_deadline) : null;
   const isClosed = deadline ? deadline < new Date() : false;
@@ -294,7 +294,7 @@ export default function JobDetailPage() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                 LinkedIn
               </a>
-              <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}/jobs/${typedJob.id}`)}&text=${encodeURIComponent(`${typedJob.title} — Apply now!`)}`}
+              <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}/jobs/${typedJob.id}`)}&text=${encodeURIComponent(`${typedJob.title} - Apply now!`)}`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                 Twitter

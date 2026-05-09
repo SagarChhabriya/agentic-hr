@@ -37,7 +37,7 @@ export default function LandingPage() {
       icon: InterviewIcon,
       title: 'Live AI Interviews',
       description:
-        'LiveKit voice interviews conducted by a Groq LLM agent — job-specific questions, legal guardrails, and an AI-generated summary with score.',
+        'LiveKit voice interviews conducted by a Groq LLM agent with job-specific questions, legal guardrails, and an AI-generated summary with score.',
       color: 'blue',
     },
     {
@@ -78,6 +78,7 @@ export default function LandingPage() {
     { value: '500+', label: 'Companies Trust Us' },
     { value: '40%', label: 'Faster Hiring' },
   ];
+  const trustChips = ['FastAPI backend', 'LiveKit interviews', 'Groq AI scoring', 'Supabase storage'];
 
   const pricingPlans = [
     {
@@ -139,7 +140,7 @@ export default function LandingPage() {
                 <span className="text-blue-600 dark:text-blue-400">from start to finish</span>
               </h1>
               <p className="text-lg sm:text-xl opacity-80 mb-8 leading-relaxed">
-                From job posting to AI voice interviews — automatically score resumes, run MCQ assessments,
+                From job posting to AI voice interviews, automatically score resumes, run MCQ assessments,
                 conduct structured voice interviews, and send offers all in one platform.
               </p>
               <div className="flex flex-wrap gap-4 mb-12">
@@ -183,9 +184,21 @@ export default function LandingPage() {
                   <p className="opacity-70 pl-7">Apply → assess → interview → offer in one platform</p>
                 </div>
               </div>
+              <div className="mt-8 flex flex-wrap gap-2">
+                {trustChips.map((chip) => (
+                  <span
+                    key={chip}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                      isDark ? 'border-slate-700 bg-slate-800/70 text-slate-300' : 'border-gray-200 bg-white text-gray-600'
+                    }`}
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* Hero — live pipeline mockup */}
+            {/* Hero live pipeline mockup */}
             <div className="relative order-first lg:order-last">
               <div className={`rounded-2xl border-2 shadow-2xl overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
                 {/* Card header */}
@@ -294,7 +307,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">How it works</h2>
-            <p className="text-lg opacity-80">From first click to hired — the full workflow, automated.</p>
+            <p className="text-lg opacity-80">From first click to hired, the full workflow is automated.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-16 items-start">
             {/* Recruiter flow */}
@@ -322,10 +335,10 @@ export default function LandingPage() {
               <p className="text-xs font-bold uppercase tracking-widest text-purple-500 mb-6">Candidate</p>
               <ol className="space-y-6">
                 {[
-                  { n: '1', title: 'Apply with your profile', body: 'Upload your CV, fill in your profile — the system parses and scores your resume against the job.' },
+                  { n: '1', title: 'Apply with your profile', body: 'Upload your CV and fill in your profile. The system parses and scores your resume against the job.' },
                   { n: '2', title: 'Complete the assessment', body: 'Receive a timed MCQ assessment via email. Results are stored and factored into your ranking.' },
                   { n: '3', title: 'Join the AI interview', body: 'Click a link to join a LiveKit room. A voice AI agent interviews you on the job description and your assessment performance.' },
-                  { n: '4', title: 'Track your application', body: 'See your interview summary, in-person schedule, and offer letter — all in one dashboard.' },
+                  { n: '4', title: 'Track your application', body: 'See your interview summary, in-person schedule, and offer letter in one dashboard.' },
                 ].map(({ n, title, body }) => (
                   <li key={n} className="flex gap-4">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">{n}</div>
@@ -487,7 +500,7 @@ export default function LandingPage() {
               Get in touch
             </h2>
             <p className="text-base opacity-75 mb-6">
-              Have questions about Hirebase, demos, or enterprise plans? Contact details are coming soon — in the meantime, create a free account and explore the platform.
+              Have questions about Hirebase, demos, or enterprise plans? Contact details are coming soon. In the meantime, create a free account and explore the platform.
             </p>
             <Link
               to="/register"

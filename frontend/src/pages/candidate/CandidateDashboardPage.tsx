@@ -52,7 +52,7 @@ function useGreeting() {
 
 function formatTimeUntil(iso: string): { text: string; urgent: boolean } {
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return { text: 'Started — join now', urgent: true };
+  if (ms <= 0) return { text: 'Started, join now', urgent: true };
   const sec = Math.floor(ms / 1000);
   const min = Math.floor(sec / 60);
   const hr = Math.floor(min / 60);
@@ -233,7 +233,7 @@ export default function CandidateDashboardPage() {
                       isDark ? 'text-amber-300' : 'text-amber-800'
                     }`}
                   >
-                    Assessment required — complete to move forward
+                    Assessment required, complete to move forward
                   </p>
                 </div>
               </div>

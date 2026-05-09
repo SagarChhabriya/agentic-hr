@@ -36,7 +36,7 @@ const STEPS = [
   },
   {
     title: "🎉 You're all set!",
-    body: "Start by creating your first job. Use the AI features to save time — descriptions, questions, and interview analysis are all powered by AI.",
+    body: "Start by creating your first job. Use the AI features to save time; descriptions, questions, and interview analysis are all powered by AI.",
     emoji: '🏆',
   },
 ];

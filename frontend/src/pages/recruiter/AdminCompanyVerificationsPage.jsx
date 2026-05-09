@@ -98,7 +98,7 @@ export default function AdminCompanyVerificationsPage() {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
                 <p className="font-semibold">{c.name}</p>
-                <p className="text-xs text-slate-500 mt-1">{c.headquarters || '—'} · {c.industry || '—'}</p>
+                <p className="text-xs text-slate-500 mt-1">{c.headquarters || 'N/A'} · {c.industry || 'N/A'}</p>
                 {c.description && (
                   <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 line-clamp-4">{c.description}</p>
                 )}

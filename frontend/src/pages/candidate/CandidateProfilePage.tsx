@@ -42,6 +42,11 @@ type ProfileData = {
   expected_salary_max?: number | null;
 };
 
+type SaveValidationState = {
+  show: boolean;
+  missing: string[];
+};
+
 const emptyEducation: EducationEntry = {
   institution: '',
   degree: '',
@@ -77,6 +82,37 @@ function completionScore(form: ProfileData): number {
   return Math.round((filled / checks.length) * 100);
 }
 
+function getRequiredFieldGaps(form: ProfileData): string[] {
+  const missing: string[] = [];
+
+  if (!form.phone?.trim()) missing.push('Phone number');
+  if (!form.city?.trim()) missing.push('City');
+  if (!form.country?.trim()) missing.push('Country');
+  if (!form.bio?.trim()) missing.push('Professional summary');
+  if (!form.skills.length) missing.push('At least one skill');
+  if (form.experience_years == null) missing.push('Years of experience');
+
+  const hasCompleteEducation = form.education.some(
+    (e) => e.institution.trim() && e.degree.trim() && e.field_of_study.trim()
+  );
+  if (!hasCompleteEducation) {
+    missing.push('One complete education entry (institution, degree, and field of study)');
+  }
+
+  const hasCompleteWork = form.work_experience.some(
+    (w) =>
+      w.company.trim() &&
+      w.title.trim() &&
+      w.description.trim() &&
+      w.start_date.trim()
+  );
+  if (!hasCompleteWork) {
+    missing.push('One complete work experience entry (company, title, description, and start date)');
+  }
+
+  return missing;
+}
+
 export default function CandidateProfilePage() {
   const { user } = useUser();
   const { theme } = useTheme();
@@ -87,6 +123,10 @@ export default function CandidateProfilePage() {
   const [skillInput, setSkillInput] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [saveValidation, setSaveValidation] = useState<SaveValidationState>({
+    show: false,
+    missing: [],
+  });
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ['profile', user?.id],
@@ -188,7 +228,27 @@ export default function CandidateProfilePage() {
       showMsg('Profile saved successfully!');
       setTimeout(() => navigate('/candidate/dashboard'), 1200);
     },
-    onError: () => showMsg('Failed to save. Please try again.', 'error'),
+    onError: (err: { response?: { data?: { detail?: string | { msg?: string }[] } } }) => {
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const fieldIssues = detail
+          .map((d) => d?.msg)
+          .filter(Boolean)
+          .join(', ');
+        showMsg(
+          fieldIssues
+            ? `Please fix these fields before saving: ${fieldIssues}`
+            : 'Profile could not be saved. Please check required fields.',
+          'error'
+        );
+        return;
+      }
+      if (typeof detail === 'string' && detail.trim()) {
+        showMsg(detail, 'error');
+        return;
+      }
+      showMsg('Profile could not be saved. Please check required fields and try again.', 'error');
+    },
   });
 
   const uploadMutation = useMutation({
@@ -211,6 +271,13 @@ export default function CandidateProfilePage() {
 
   const handleSave = () => {
     if (!form) return;
+    const missing = getRequiredFieldGaps(form);
+    if (missing.length) {
+      setSaveValidation({ show: true, missing });
+      showMsg('Please complete required profile fields before saving.', 'error');
+      return;
+    }
+
     updateMutation.mutate({
       phone: form.phone || null,
       address: form.address || null,
@@ -297,6 +364,33 @@ export default function CandidateProfilePage() {
         </div>
       )}
 
+      {saveValidation.show && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className={`w-full max-w-lg rounded-xl border p-5 ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`}>
+            <h3 className={`text-base font-semibold mb-2 ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>
+              Complete required fields before saving
+            </h3>
+            <p className={`text-sm mb-3 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+              We could not save your profile because these required fields are missing:
+            </p>
+            <ul className={`list-disc pl-5 space-y-1 text-sm ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>
+              {saveValidation.missing.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSaveValidation({ show: false, missing: [] })}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile header card */}
       <div className={`rounded-xl border mb-6 overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white shadow-sm'}`}>
         <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-600" />
@@ -345,7 +439,7 @@ export default function CandidateProfilePage() {
 
         {/* Resume */}
         <section className={sectionCls}>
-          <div className="px-5 py-4 border-b flex items-center gap-2 ${isDark ? 'border-slate-700' : 'border-gray-100'}">
+          <div className={`px-5 py-4 border-b flex items-center gap-2 ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
             <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
@@ -444,7 +538,7 @@ export default function CandidateProfilePage() {
           <div className="px-5 py-4">
             <textarea value={form.bio || ''} onChange={(e) => updateForm({ bio: e.target.value })}
               className={`${inputCls} resize-none`} rows={4}
-              placeholder="Write a short summary about yourself — your background, goals, and what you bring to the table…" />
+              placeholder="Write a short summary about yourself: your background, goals, and what you bring to the table." />
           </div>
         </section>
 

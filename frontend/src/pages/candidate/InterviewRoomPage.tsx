@@ -383,7 +383,7 @@ const BROWSER_STEPS: Record<string, { name: string; steps: string[] }> = {
     name: 'Safari',
     steps: [
       'Open Safari → Settings (or Preferences) → Websites.',
-      'Select "Camera" from the left sidebar — find this site and set to "Allow".',
+      'Select "Camera" from the left sidebar, find this site, and set to "Allow".',
       'Do the same for "Microphone".',
       'Reload this page.',
     ],
@@ -484,7 +484,7 @@ function PreJoinScreen({
           : isDark ? 'text-slate-300' : 'text-gray-700'
         }`}>{label}</p>
         <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
-          {ok === null ? 'Requesting access…' : ok ? 'Access granted' : 'Access blocked — see fix below'}
+          {ok === null ? 'Requesting access…' : ok ? 'Access granted' : 'Access blocked (see fix below)'}
         </p>
       </div>
       <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
@@ -614,7 +614,7 @@ function PreJoinScreen({
               <div className={`rounded-xl border p-3 space-y-1.5 ${isDark ? 'border-slate-700 bg-slate-700/30' : 'border-gray-100 bg-gray-50'}`}>
                 <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Before you start</p>
                 {[
-                  'Speak clearly — an AI agent conducts the interview.',
+                  'Speak clearly, an AI agent conducts the interview.',
                   'Session is recorded and reviewed by the recruiter.',
                   'Stay in a quiet, well-lit space.',
                   'Close other tabs to avoid audio interference.',

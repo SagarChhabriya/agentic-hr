@@ -191,21 +191,21 @@ export default function CandidatesPage() {
                       </span>
                     </td>
                     <td className={`px-4 py-3 whitespace-nowrap tabular-nums ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                      {candidate.assessment_score != null ? `${candidate.assessment_score}%` : <span className="text-gray-300 dark:text-slate-600">—</span>}
+                      {candidate.assessment_score != null ? `${candidate.assessment_score}%` : <span className="text-gray-300 dark:text-slate-600">N/A</span>}
                     </td>
                     <td className={`px-4 py-3 whitespace-nowrap tabular-nums ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                      {candidate.interview_score != null ? `${candidate.interview_score}%` : <span className="text-gray-300 dark:text-slate-600">—</span>}
+                      {candidate.interview_score != null ? `${candidate.interview_score}%` : <span className="text-gray-300 dark:text-slate-600">N/A</span>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                       {(() => {
                         const c = combined(candidate);
-                        if (c == null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
+                        if (c == null) return <span className="text-gray-300 dark:text-slate-600">N/A</span>;
                         const color = c >= 70 ? 'text-emerald-600 dark:text-emerald-400' : c >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500 dark:text-red-400';
                         return <span className={`font-semibold ${color}`}>{c}%</span>;
                       })()}
                     </td>
                     <td className={`px-4 py-3 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                      {candidate.applied_at ? formatDateKarachi(candidate.applied_at) : '—'}
+                      {candidate.applied_at ? formatDateKarachi(candidate.applied_at) : 'N/A'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Link

@@ -342,7 +342,7 @@ export default function AssessmentAttemptPage() {
         </div>
         {isWarning && (
           <div className={`px-4 py-1.5 text-center text-xs font-medium ${isDanger ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-900'}`}>
-            {isDanger ? '⚡ Less than 1 minute remaining — submit now!' : '⏰ Less than 5 minutes remaining'}
+            {isDanger ? '⚡ Less than 1 minute remaining, submit now!' : '⏰ Less than 5 minutes remaining'}
           </div>
         )}
       </div>
@@ -388,7 +388,7 @@ export default function AssessmentAttemptPage() {
         <div className={`sticky bottom-0 z-10 -mx-4 px-4 py-3 border-t mt-6 ${isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-gray-200'} backdrop-blur`}>
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
             <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-              No going back — previous answers are locked in.
+              No going back, previous answers are locked in.
             </p>
             <button
               type="button"

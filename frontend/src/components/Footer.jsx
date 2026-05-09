@@ -57,10 +57,10 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <span className="opacity-40 cursor-default text-sm">Privacy Policy — coming soon</span>
+                <span className="opacity-40 cursor-default text-sm">Privacy Policy (coming soon)</span>
               </li>
               <li>
-                <span className="opacity-40 cursor-default text-sm">Terms of Service — coming soon</span>
+                <span className="opacity-40 cursor-default text-sm">Terms of Service (coming soon)</span>
               </li>
             </ul>
           </div>
@@ -71,8 +71,8 @@ export default function Footer() {
             © {new Date().getFullYear()} Hirebase. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-sm opacity-50">
-            <span>Privacy Policy — coming soon</span>
-            <span>Terms of Service — coming soon</span>
+            <span>Privacy Policy (coming soon)</span>
+            <span>Terms of Service (coming soon)</span>
           </div>
         </div>
       </div>
