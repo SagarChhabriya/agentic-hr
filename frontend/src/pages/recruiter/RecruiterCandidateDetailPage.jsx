@@ -95,6 +95,7 @@ function InterviewResultPanel({ interviews, application, isDark }) {
   const transcript = session.chat_transcript || [];
   const summary = session.llm_summary || '';
   const score = application?.interview_score;
+  const interviewGap = score != null ? getScoreGap(score) : null;
 
   const cardCls = isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white';
   const innerCls = isDark ? 'border-slate-600 bg-slate-900/50' : 'border-gray-200 bg-gray-50';
@@ -156,8 +157,14 @@ function InterviewResultPanel({ interviews, application, isDark }) {
                 <p className={`text-3xl font-bold ${scoreColor}`}>{score}</p>
                 <p className="text-xs opacity-60">/ 100</p>
               </div>
-              <div className="flex-1 text-sm opacity-90 leading-relaxed whitespace-pre-wrap">
-                {summary}
+              <div className="flex-1">
+                <p className="text-sm opacity-90 leading-relaxed whitespace-pre-wrap">{summary}</p>
+                {interviewGap && (
+                  <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    Achieved: <span className="font-semibold">{interviewGap.safeScore}%</span> · Missing to full-fit benchmark:{' '}
+                    <span className="font-semibold">{interviewGap.missing}%</span>
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -227,6 +234,9 @@ function CandidateRatingPanel({ application, assessmentResult, isDark }) {
 
   const scores = [assessScore, interviewScore].filter((s) => s != null);
   const combined = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const assessGap = assessScore != null ? getScoreGap(assessScore) : null;
+  const interviewGap = interviewScore != null ? getScoreGap(interviewScore) : null;
+  const combinedGap = combined != null ? getScoreGap(combined) : null;
 
   const recommendation =
     combined == null ? null
@@ -260,6 +270,29 @@ function CandidateRatingPanel({ application, assessmentResult, isDark }) {
         {combined != null && (
           <ScoreCard label="Combined" score={combined} isDark={isDark} highlight />
         )}
+      </div>
+      <div className={`rounded-lg border p-3 mb-4 text-xs ${isDark ? 'border-slate-600 bg-slate-900/40 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+        <p className="font-semibold mb-1">Score transparency (XAI)</p>
+        <ul className="space-y-1">
+          {assessGap && (
+            <li>
+              Assessment: achieved <span className="font-semibold">{assessGap.safeScore}%</span>, missing{' '}
+              <span className="font-semibold">{assessGap.missing}%</span>
+            </li>
+          )}
+          {interviewGap && (
+            <li>
+              AI interview: achieved <span className="font-semibold">{interviewGap.safeScore}%</span>, missing{' '}
+              <span className="font-semibold">{interviewGap.missing}%</span>
+            </li>
+          )}
+          {combinedGap && (
+            <li>
+              Combined: achieved <span className="font-semibold">{combinedGap.safeScore}%</span>, missing{' '}
+              <span className="font-semibold">{combinedGap.missing}%</span>
+            </li>
+          )}
+        </ul>
       </div>
       {combined != null && (
         <div className="mb-4">
@@ -295,6 +328,29 @@ function ScoreCard({ label, score, isDark, highlight }) {
       <p className="text-xs opacity-50">/ 100</p>
     </div>
   );
+}
+
+function getResumeScoreInsight(score, justification) {
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+  const missing = Math.max(0, Number((100 - safeScore).toFixed(1)));
+  const defaultInsight =
+    missing === 0
+      ? 'Excellent fit against the current resume-scoring criteria.'
+      : `The remaining ${missing}% reflects missing evidence for some role-fit criteria (skills match, experience depth, project impact, or profile completeness).`;
+  const text = (justification || '').trim();
+  return {
+    safeScore,
+    missing,
+    insight: text || defaultInsight,
+  };
+}
+
+function getScoreGap(score) {
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+  return {
+    safeScore,
+    missing: Math.max(0, Number((100 - safeScore).toFixed(1))),
+  };
 }
 
 const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://hire-base.vercel.app';
@@ -1055,19 +1111,30 @@ export default function RecruiterCandidateDetailPage() {
       {profile?.resume_score != null && (
         <div className={`rounded-xl border p-5 mb-5 ${cardBg}`}>
           <h2 className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>AI Resume Score</h2>
-          <div className="flex items-center gap-4">
-            <div className={`text-3xl font-bold tabular-nums ${profile.resume_score >= 70 ? 'text-emerald-500' : profile.resume_score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-              {profile.resume_score}<span className="text-base font-medium opacity-60">%</span>
-            </div>
-            <div className="flex-1">
-              <div className={`w-full h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                <div className={`h-2 rounded-full ${profile.resume_score >= 70 ? 'bg-emerald-500' : profile.resume_score >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${profile.resume_score}%` }} />
+          {(() => {
+            const { safeScore, missing, insight } = getResumeScoreInsight(profile.resume_score, profile.resume_score_justification);
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className={`text-3xl font-bold tabular-nums ${safeScore >= 70 ? 'text-emerald-500' : safeScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                    {safeScore}<span className="text-base font-medium opacity-60">%</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className={`w-full h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                      <div className={`h-2 rounded-full ${safeScore >= 70 ? 'bg-emerald-500' : safeScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${safeScore}%` }} />
+                    </div>
+                    <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                      Achieved: <span className="font-semibold">{safeScore}%</span> · Missing to full-fit benchmark: <span className="font-semibold">{missing}%</span>
+                    </p>
+                  </div>
+                </div>
+                <div className={`rounded-lg border p-3 text-xs leading-5 ${isDark ? 'border-slate-600 bg-slate-900/40 text-slate-300' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                  <p className="font-semibold mb-1">Why this score / what is missing</p>
+                  <p>{insight}</p>
+                </div>
               </div>
-              {profile.resume_score_justification && (
-                <p className={`text-xs mt-2 leading-5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{profile.resume_score_justification}</p>
-              )}
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
 
