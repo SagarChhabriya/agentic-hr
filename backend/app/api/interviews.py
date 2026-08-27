@@ -151,7 +151,8 @@ Evaluate the candidate and respond ONLY with valid JSON in this exact format:
         from groq import AsyncGroq
         client = AsyncGroq(api_key=settings.groq_api_key)
         response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            # model="llama-3.1-8b-instant",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=500,

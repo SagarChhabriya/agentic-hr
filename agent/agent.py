@@ -79,7 +79,8 @@ from livekit.plugins import deepgram, groq, silero
 
 print("[agent] livekit imported", flush=True)
 
-GROQ_MODEL = "llama-3.1-8b-instant"
+# GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "openai/gpt-oss-20b"
 DEEPGRAM_STT_MODEL = "nova-3"
 DEEPGRAM_STT_LANGUAGE = "en"
 DEEPGRAM_TTS_MODEL = "aura-2-athena-en"
